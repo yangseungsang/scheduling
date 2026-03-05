@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}주간 스케줄{% endblock %}
+{% block main_attrs %}class="container-fluid p-0"{% endblock %}
 
 {% block content %}
 {% set has_draft = namespace(value=false) %}
@@ -17,7 +18,7 @@
 </div>
 {% endif %}
 
-<div class="d-flex gap-0" style="height: calc(100vh - 120px); overflow: hidden;">
+<div class="d-flex gap-0" style="height: calc(100vh - 56px{% if has_draft.value %} - 52px{% endif %}); overflow: hidden;">
 
     <!-- 미배치 업무 사이드바 -->
     <div class="border-end bg-white d-flex flex-column" style="width: 200px; flex-shrink: 0;">
