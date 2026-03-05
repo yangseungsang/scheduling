@@ -63,7 +63,11 @@ function initDragDrop() {
 
                 if (!taskId || !date || !startTime) return;
 
-                const endTime = addMinutes(startTime, estimatedMinutes);
+                var startMin_  = timeToMinutes(startTime);
+                var endMin_    = adjustForLunch(startMin_, estimatedMinutes);
+                var weMin_     = (typeof WORK_END_MIN !== 'undefined') ? WORK_END_MIN : 1080;
+                endMin_        = Math.min(endMin_, weMin_);
+                const endTime  = minutesToTimeStr(endMin_);
 
                 const existingBlockId = evt.item.dataset.blockId;
 
@@ -251,7 +255,11 @@ function initWeekDragDrop() {
             if (dragType === 'unscheduled') {
                 var taskId    = parseInt(e.dataTransfer.getData('taskId'));
                 var estimated = parseInt(e.dataTransfer.getData('estimated') || '60');
-                var endTime   = addMinutes(startTime, estimated);
+                var startMin_w = timeToMinutes(startTime);
+                var endMin_w   = adjustForLunch(startMin_w, estimated);
+                var weMin_w    = (typeof WORK_END_MIN !== 'undefined') ? WORK_END_MIN : 1080;
+                endMin_w       = Math.min(endMin_w, weMin_w);
+                var endTime    = minutesToTimeStr(endMin_w);
                 _createBlockOnCol(col, taskId, date, startTime, endTime, estimated);
 
             } else if (dragType === 'block') {
@@ -679,6 +687,26 @@ function discardDraft(e) {
         setButtonLoading(btn, false);
         showToast('초안 취소에 실패했습니다. 다시 시도해주세요.', 'danger');
     });
+}
+
+/**
+ * 시작 시간(분)과 소요시간(분)을 받아,
+ * 점심시간과 겹치면 end_time을 점심 이후로 밀어서 반환한다.
+ * 반환값: 보정된 종료 시간 (분)
+ */
+function adjustForLunch(startMin, durationMin) {
+    var lsMin = (typeof LUNCH_START_MIN !== 'undefined') ? LUNCH_START_MIN : null;
+    var leMin = (typeof LUNCH_END_MIN   !== 'undefined') ? LUNCH_END_MIN   : null;
+    if (lsMin === null || leMin === null) return startMin + durationMin;
+
+    var endMin = startMin + durationMin;
+    // 블록이 점심과 겹치는지 확인
+    if (startMin < leMin && endMin > lsMin) {
+        var beforeLunch = Math.max(0, lsMin - startMin);
+        var afterLunch  = durationMin - beforeLunch;
+        endMin = leMin + afterLunch;
+    }
+    return endMin;
 }
 
 function timeToMinutes(timeStr) {
