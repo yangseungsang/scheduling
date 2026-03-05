@@ -7,18 +7,19 @@
             <div class="card-header fw-semibold">{% if task %}업무 수정{% else %}업무 추가{% endif %}</div>
             <div class="card-body">
                 <form method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <div class="mb-3">
-                        <label class="form-label">업무명 *</label>
-                        <input type="text" name="title" class="form-control" required value="{{ task.title if task else '' }}">
+                        <label class="form-label" for="task-title">업무명 *</label>
+                        <input type="text" name="title" id="task-title" class="form-control" required value="{{ task.title if task else '' }}">
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">설명</label>
-                        <textarea name="description" class="form-control" rows="3">{{ task.description if task else '' }}</textarea>
+                        <label class="form-label" for="task-description">설명</label>
+                        <textarea name="description" id="task-description" class="form-control" rows="3">{{ task.description if task else '' }}</textarea>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label class="form-label">카테고리</label>
-                            <select name="category_id" class="form-select">
+                            <label class="form-label" for="task-category">카테고리</label>
+                            <select name="category_id" id="task-category" class="form-select">
                                 <option value="">선택 없음</option>
                                 {% for cat in categories %}
                                 <option value="{{ cat['id'] }}" {% if task and task.category_id == cat['id'] %}selected{% endif %}>{{ cat['name'] }}</option>
@@ -26,20 +27,20 @@
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">우선순위</label>
-                            <select name="priority" class="form-select">
+                            <label class="form-label" for="task-priority">우선순위</label>
+                            <select name="priority" id="task-priority" class="form-select">
                                 {% for p, label in [('low','낮음'),('medium','보통'),('high','높음'),('urgent','긴급')] %}
                                 <option value="{{ p }}" {% if (task and task.priority == p) or (not task and p == 'medium') %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">예상 소요시간 (분)</label>
-                            <input type="number" name="estimated_minutes" class="form-control" min="1" value="{{ task.estimated_minutes if task else 60 }}">
+                            <label class="form-label" for="task-estimated">예상 소요시간 (분)</label>
+                            <input type="number" name="estimated_minutes" id="task-estimated" class="form-control" min="1" value="{{ task.estimated_minutes if task else 60 }}">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label">마감일</label>
-                            <input type="date" name="due_date" class="form-control" value="{{ task.due_date if task else '' }}">
+                            <label class="form-label" for="task-due-date">마감일</label>
+                            <input type="date" name="due_date" id="task-due-date" class="form-control" value="{{ task.due_date if task else '' }}">
                         </div>
                     </div>
                     <div class="mb-3 mt-3">

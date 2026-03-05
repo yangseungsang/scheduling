@@ -125,7 +125,8 @@ function initDragDrop() {
 
                             var removeBtn = document.createElement('button');
                             removeBtn.className = 'btn btn-sm btn-link text-danger p-0 float-end';
-                            removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+                            removeBtn.setAttribute('aria-label', '블록 삭제');
+                            removeBtn.innerHTML = '<i class="bi bi-x" aria-hidden="true"></i>';
                             removeBtn.onclick = function(e) { removeBlock(data.block_id, e); };
                             evt.item.appendChild(removeBtn);
                         } else {
@@ -168,7 +169,9 @@ function showSaveIndicator() {
         indicator = document.createElement('div');
         indicator.id = 'save-indicator';
         indicator.className = 'save-indicator';
-        indicator.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> 저장 중...';
+        indicator.setAttribute('role', 'status');
+        indicator.setAttribute('aria-live', 'polite');
+        indicator.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span> 저장 중...';
         document.body.appendChild(indicator);
     }
     indicator.classList.add('visible');
@@ -310,6 +313,8 @@ function showToast(message, type) {
     toast.className = 'alert alert-' + type + ' position-fixed bottom-0 end-0 m-3 shadow';
     toast.style.zIndex = '9999';
     toast.style.minWidth = '250px';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
     toast.textContent = message;
     document.body.appendChild(toast);
     setTimeout(() => toast.remove(), 3000);

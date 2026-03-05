@@ -33,12 +33,14 @@ def day_view():
     unscheduled = task_repo.get_unscheduled_tasks(category_id=category_id)
     categories = category_repo.get_all_categories()
     work_hours = settings_repo.get_work_hours()
+    dashboard = task_repo.get_dashboard_stats(date_str)
 
     return render_template('schedule/day.html',
                            blocks=blocks, unscheduled=unscheduled,
                            categories=categories, work_hours=work_hours,
                            current_date=date_str, prev_date=prev_date,
-                           next_date=next_date, selected_category=category_id)
+                           next_date=next_date, selected_category=category_id,
+                           dashboard=dashboard)
 
 
 @schedule_bp.route('/week')

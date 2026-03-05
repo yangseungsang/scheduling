@@ -1,10 +1,15 @@
+from flask import g
 from app.db import get_db
 
 
 def get_all_settings():
+    if '_settings_cache' in g:
+        return g._settings_cache
     db = get_db()
     rows = db.execute('SELECT key, value FROM settings').fetchall()
-    return {row['key']: row['value'] for row in rows}
+    result = {row['key']: row['value'] for row in rows}
+    g._settings_cache = result
+    return result
 
 
 def get_setting(key):
@@ -21,6 +26,7 @@ def update_setting(key, value):
         (key, value)
     )
     db.commit()
+    g.pop('_settings_cache', None)
 
 
 def get_work_hours():

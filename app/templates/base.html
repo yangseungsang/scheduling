@@ -10,38 +10,38 @@
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-expand-md navbar-dark bg-dark">
+<nav class="navbar navbar-expand-md navbar-dark bg-dark" aria-label="메인 내비게이션">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="{{ url_for('schedule.day_view') }}">
-            <i class="bi bi-calendar3"></i> 업무 스케줄러
+            <i class="bi bi-calendar3" aria-hidden="true"></i> 업무 스케줄러
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="메뉴 열기">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="mainNav">
             <div class="navbar-nav ms-auto gap-md-2">
-                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('schedule.day') %}active{% endif %}" href="{{ url_for('schedule.day_view') }}"><i class="bi bi-calendar-day"></i> 일간</a>
-                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('schedule.week') %}active{% endif %}" href="{{ url_for('schedule.week_view') }}"><i class="bi bi-calendar-week"></i> 주간</a>
-                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('schedule.month') %}active{% endif %}" href="{{ url_for('schedule.month_view') }}"><i class="bi bi-calendar-month"></i> 월간</a>
-                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('tasks.') %}active{% endif %}" href="{{ url_for('tasks.task_list') }}"><i class="bi bi-list-task"></i> 업무</a>
-                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.') %}active{% endif %}" href="{{ url_for('admin.settings') }}"><i class="bi bi-gear"></i> 설정</a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('schedule.day') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('schedule.day') %}aria-current="page"{% endif %} href="{{ url_for('schedule.day_view') }}"><i class="bi bi-calendar-day" aria-hidden="true"></i> 일간</a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('schedule.week') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('schedule.week') %}aria-current="page"{% endif %} href="{{ url_for('schedule.week_view') }}"><i class="bi bi-calendar-week" aria-hidden="true"></i> 주간</a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('schedule.month') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('schedule.month') %}aria-current="page"{% endif %} href="{{ url_for('schedule.month_view') }}"><i class="bi bi-calendar-month" aria-hidden="true"></i> 월간</a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('tasks.') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('tasks.') %}aria-current="page"{% endif %} href="{{ url_for('tasks.task_list') }}"><i class="bi bi-list-task" aria-hidden="true"></i> 업무</a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.') %}active{% endif %}" {% if request.endpoint and request.endpoint.startswith('admin.') %}aria-current="page"{% endif %} href="{{ url_for('admin.settings') }}"><i class="bi bi-gear" aria-hidden="true"></i> 설정</a>
             </div>
         </div>
     </div>
 </nav>
 
-<div class="container-fluid py-3">
+<main class="container-fluid py-3">
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
         <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
             {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="닫기"></button>
         </div>
         {% endfor %}
     {% endwith %}
 
     {% block content %}{% endblock %}
-</div>
+</main>
 
 <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>

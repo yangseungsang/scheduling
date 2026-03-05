@@ -1,3 +1,4 @@
+from datetime import date
 from flask import render_template, request, redirect, url_for, jsonify, flash, abort
 from app.blueprints.tasks import tasks_bp
 from app.repositories import task_repo, category_repo, user_repo
@@ -8,16 +9,15 @@ def task_list():
     status = request.args.get('status')
     category_id = request.args.get('category_id', type=int)
     assignee_id = request.args.get('assignee_id', type=int)
-    page = request.args.get('page', 1, type=int)
-    tasks, total, total_pages = task_repo.get_all_tasks(
-        status=status, category_id=category_id,
-        assignee_id=assignee_id, page=page)
+    search = request.args.get('search', '').strip() or None
+    tasks = task_repo.get_all_tasks(status=status, category_id=category_id,
+                                    assignee_id=assignee_id, search=search)
     categories = category_repo.get_all_categories()
     users = user_repo.get_all_users()
     return render_template('tasks/list.html', tasks=tasks, categories=categories,
                            users=users, selected_status=status,
                            selected_category=category_id, selected_assignee=assignee_id,
-                           page=page, total=total, total_pages=total_pages)
+                           search=search or '', today_str=date.today().strftime('%Y-%m-%d'))
 
 
 @tasks_bp.route('/new', methods=['GET', 'POST'])

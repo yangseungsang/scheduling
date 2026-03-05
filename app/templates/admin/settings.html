@@ -4,25 +4,26 @@
 <div class="row justify-content-center">
     <div class="col-lg-6">
         <div class="card mb-3">
-            <div class="card-header fw-semibold"><i class="bi bi-clock"></i> 근무시간 설정</div>
+            <div class="card-header fw-semibold"><i class="bi bi-clock" aria-hidden="true"></i> 근무시간 설정</div>
             <div class="card-body">
                 <form method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <div class="row g-3">
                         <div class="col-6">
-                            <label class="form-label">업무 시작</label>
-                            <input type="time" name="work_start" class="form-control" value="{{ work_hours.work_start }}" step="60">
+                            <label class="form-label" for="work-start">업무 시작</label>
+                            <input type="time" name="work_start" id="work-start" class="form-control" value="{{ work_hours.work_start }}" step="60">
                         </div>
                         <div class="col-6">
-                            <label class="form-label">업무 종료</label>
-                            <input type="time" name="work_end" class="form-control" value="{{ work_hours.work_end }}" step="60">
+                            <label class="form-label" for="work-end">업무 종료</label>
+                            <input type="time" name="work_end" id="work-end" class="form-control" value="{{ work_hours.work_end }}" step="60">
                         </div>
                         <div class="col-6">
-                            <label class="form-label">점심 시작</label>
-                            <input type="time" name="lunch_start" class="form-control" value="{{ work_hours.lunch_start }}" step="60">
+                            <label class="form-label" for="lunch-start">점심 시작</label>
+                            <input type="time" name="lunch_start" id="lunch-start" class="form-control" value="{{ work_hours.lunch_start }}" step="60">
                         </div>
                         <div class="col-6">
-                            <label class="form-label">점심 종료</label>
-                            <input type="time" name="lunch_end" class="form-control" value="{{ work_hours.lunch_end }}" step="60">
+                            <label class="form-label" for="lunch-end">점심 종료</label>
+                            <input type="time" name="lunch_end" id="lunch-end" class="form-control" value="{{ work_hours.lunch_end }}" step="60">
                         </div>
                     </div>
                     <button type="submit" class="btn btn-primary mt-3 w-100">저장</button>
@@ -30,8 +31,8 @@
             </div>
         </div>
         <div class="d-flex gap-2">
-            <a href="{{ url_for('admin.user_list') }}" class="btn btn-outline-secondary flex-fill"><i class="bi bi-people"></i> 사용자 관리</a>
-            <a href="{{ url_for('admin.category_list') }}" class="btn btn-outline-secondary flex-fill"><i class="bi bi-tags"></i> 카테고리 관리</a>
+            <a href="{{ url_for('admin.user_list') }}" class="btn btn-outline-secondary flex-fill"><i class="bi bi-people" aria-hidden="true"></i> 사용자 관리</a>
+            <a href="{{ url_for('admin.category_list') }}" class="btn btn-outline-secondary flex-fill"><i class="bi bi-tags" aria-hidden="true"></i> 카테고리 관리</a>
         </div>
     </div>
 </div>

@@ -1,7 +1,8 @@
 from app.db import get_db
 
 
-def get_all_tasks(status=None, category_id=None, assignee_id=None):
+def get_all_tasks(status=None, category_id=None, assignee_id=None,
+                   search=None):
     db = get_db()
     query = '''
         SELECT t.id, t.title, t.description, t.category_id, t.priority,
@@ -25,6 +26,11 @@ def get_all_tasks(status=None, category_id=None, assignee_id=None):
     if assignee_id:
         query += ' AND ta.user_id = ?'
         params.append(assignee_id)
+    if search:
+        escaped = search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        query += " AND (t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')"
+        like_term = f'%{escaped}%'
+        params.extend([like_term, like_term])
     query += ' GROUP BY t.id ORDER BY t.created_at DESC'
     return db.execute(query, params).fetchall()
 
@@ -142,3 +148,36 @@ def add_task_note(task_id, user_id, content):
         (task_id, user_id, content)
     )
     db.commit()
+
+
+def get_dashboard_stats(today_str):
+    """대시보드 위젯용 통계: 오늘 예정, 지연, 팀원별 현황."""
+    db = get_db()
+    today_scheduled = db.execute('''
+        SELECT COUNT(DISTINCT sb.task_id) as cnt
+        FROM schedule_blocks sb
+        JOIN tasks t ON sb.task_id = t.id
+        WHERE sb.assigned_date = ? AND sb.is_draft = 0
+          AND t.status != 'completed'
+    ''', (today_str,)).fetchone()['cnt']
+
+    overdue = db.execute('''
+        SELECT COUNT(*) as cnt FROM tasks
+        WHERE due_date < ? AND status NOT IN ('completed', 'cancelled')
+    ''', (today_str,)).fetchone()['cnt']
+
+    user_workload = db.execute('''
+        SELECT u.name, COUNT(t.id) as task_count
+        FROM users u
+        LEFT JOIN task_assignees ta ON u.id = ta.user_id
+        LEFT JOIN tasks t ON ta.task_id = t.id
+          AND t.status NOT IN ('completed', 'cancelled')
+        GROUP BY u.id
+        ORDER BY task_count DESC
+    ''').fetchall()
+
+    return {
+        'today_scheduled': today_scheduled,
+        'overdue': overdue,
+        'user_workload': user_workload,
+    }

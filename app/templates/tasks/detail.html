@@ -5,12 +5,12 @@
     <div class="col-lg-8">
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span class="fw-semibold fs-5">{{ task.title }}</span>
+                <h1 class="fw-semibold fs-5 mb-0">{{ task.title }}</h1>
                 <div class="btn-group btn-group-sm">
-                    <a href="{{ url_for('tasks.edit_task', task_id=task.id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> 수정</a>
+                    <a href="{{ url_for('tasks.edit_task', task_id=task.id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil" aria-hidden="true"></i> 수정</a>
                     <form method="post" action="{{ url_for('tasks.delete_task', task_id=task.id) }}" onsubmit="return confirm('삭제하시겠습니까?')" class="d-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button class="btn btn-outline-danger"><i class="bi bi-trash"></i> 삭제</button>
+                        <button class="btn btn-outline-danger"><i class="bi bi-trash" aria-hidden="true"></i> 삭제</button>
                     </form>
                 </div>
             </div>
@@ -49,19 +49,21 @@
         </div>
 
         <div class="card">
-            <div class="card-header fw-semibold"><i class="bi bi-journal-text"></i> 메모</div>
+            <div class="card-header fw-semibold"><i class="bi bi-journal-text" aria-hidden="true"></i> 메모</div>
             <div class="card-body">
                 <form method="post" action="{{ url_for('tasks.add_note', task_id=task.id) }}" class="mb-3">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                     <div class="mb-2">
-                        <select name="user_id" class="form-select form-select-sm" style="width:auto">
+                        <label for="note-user" class="visually-hidden">작성자</label>
+                        <select name="user_id" id="note-user" class="form-select form-select-sm" style="width:auto">
                             {% for user in users %}
                             <option value="{{ user['id'] }}">{{ user['name'] }}</option>
                             {% endfor %}
                         </select>
                     </div>
                     <div class="input-group">
-                        <textarea name="content" class="form-control" rows="2" placeholder="메모를 입력하세요..."></textarea>
+                        <label for="note-content" class="visually-hidden">메모 내용</label>
+                        <textarea name="content" id="note-content" class="form-control" rows="2" placeholder="메모를 입력하세요..."></textarea>
                         <button class="btn btn-primary" type="submit">추가</button>
                     </div>
                 </form>
@@ -81,12 +83,13 @@
     </div>
 
     <div class="col-lg-4">
-        <div class="card">
+        <div class="card mb-3">
             <div class="card-header fw-semibold">상태 변경</div>
             <div class="card-body">
                 <form method="post" action="{{ url_for('tasks.update_status', task_id=task.id) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <select name="status" class="form-select mb-2">
+                    <label for="detail-status" class="visually-hidden">상태</label>
+                    <select name="status" id="detail-status" class="form-select mb-2">
                         {% for s, label in [('pending','대기'),('in_progress','진행중'),('completed','완료'),('cancelled','취소')] %}
                         <option value="{{ s }}" {% if task.status == s %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
@@ -95,6 +98,18 @@
                 </form>
             </div>
         </div>
+
+        {% if task.status not in ('completed', 'cancelled') %}
+        <div class="card">
+            <div class="card-header fw-semibold"><i class="bi bi-calendar-plus" aria-hidden="true"></i> 스케줄 배치</div>
+            <div class="card-body">
+                <p class="text-muted small mb-2">이 업무를 스케줄에 배치하려면 일간 뷰에서 드래그하세요.</p>
+                <a href="{{ url_for('schedule.day_view') }}" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-calendar-day" aria-hidden="true"></i> 스케줄에 배치하기
+                </a>
+            </div>
+        </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

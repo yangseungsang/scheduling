@@ -4,12 +4,13 @@
 {% block content %}
 <div class="card">
     <div class="card-header d-flex align-items-center gap-3 flex-wrap">
-        <a href="{{ url_for('schedule.week_view', date=prev_week) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i></a>
+        <a href="{{ url_for('schedule.week_view', date=prev_week) }}" class="btn btn-outline-secondary btn-sm" aria-label="이전 주"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
         <span class="fw-bold">{{ week_days[0].strftime('%Y.%m.%d') }} ~ {{ week_days[6].strftime('%m.%d') }}</span>
-        <a href="{{ url_for('schedule.week_view', date=next_week) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-right"></i></a>
+        <a href="{{ url_for('schedule.week_view', date=next_week) }}" class="btn btn-outline-secondary btn-sm" aria-label="다음 주"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
         <a href="{{ url_for('schedule.week_view') }}" class="btn btn-outline-primary btn-sm ms-auto">이번 주</a>
         <form method="get" class="d-flex">
-            <select name="category_id" class="form-select form-select-sm" onchange="this.form.submit()" style="width:auto">
+            <label for="week-filter-category" class="visually-hidden">카테고리 필터</label>
+            <select name="category_id" id="week-filter-category" class="form-select form-select-sm" onchange="this.form.submit()" style="width:auto">
                 <option value="">전체 카테고리</option>
                 {% for cat in categories %}
                 <option value="{{ cat['id'] }}" {% if selected_category == cat['id'] %}selected{% endif %}>{{ cat['name'] }}</option>
@@ -19,7 +20,7 @@
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-bordered mb-0">
+            <table class="table table-bordered mb-0" aria-label="주간 스케줄">
                 <thead class="table-light">
                     <tr>
                         {% set day_names = ['월', '화', '수', '목', '금', '토', '일'] %}

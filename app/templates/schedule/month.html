@@ -4,14 +4,15 @@
 {% block content %}
 <div class="card">
     <div class="card-header d-flex align-items-center gap-3 flex-wrap">
-        <a href="{{ url_for('schedule.month_view', year=prev_year, month=prev_month) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i></a>
+        <a href="{{ url_for('schedule.month_view', year=prev_year, month=prev_month) }}" class="btn btn-outline-secondary btn-sm" aria-label="이전 달"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
         <span class="fw-bold fs-5">{{ year }}년 {{ month }}월</span>
-        <a href="{{ url_for('schedule.month_view', year=next_year, month=next_month) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-right"></i></a>
+        <a href="{{ url_for('schedule.month_view', year=next_year, month=next_month) }}" class="btn btn-outline-secondary btn-sm" aria-label="다음 달"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
         <a href="{{ url_for('schedule.month_view') }}" class="btn btn-outline-primary btn-sm ms-auto">이번 달</a>
         <form method="get" class="d-flex">
             <input type="hidden" name="year" value="{{ year }}">
             <input type="hidden" name="month" value="{{ month }}">
-            <select name="category_id" class="form-select form-select-sm" onchange="this.form.submit()" style="width:auto">
+            <label for="month-filter-category" class="visually-hidden">카테고리 필터</label>
+            <select name="category_id" id="month-filter-category" class="form-select form-select-sm" onchange="this.form.submit()" style="width:auto">
                 <option value="">전체 카테고리</option>
                 {% for cat in categories %}
                 <option value="{{ cat['id'] }}" {% if selected_category == cat['id'] %}selected{% endif %}>{{ cat['name'] }}</option>
@@ -20,9 +21,9 @@
         </form>
     </div>
     <div class="card-body p-0">
-        <table class="table table-bordered mb-0">
+        <table class="table table-bordered mb-0" aria-label="월간 스케줄">
             <thead class="table-light">
-                <tr>{% for name in ['월','화','수','목','금','토','일'] %}<th class="text-center">{{ name }}</th>{% endfor %}</tr>
+                <tr>{% for name in ['월','화','수','목','금','토','일'] %}<th class="text-center" scope="col">{{ name }}</th>{% endfor %}</tr>
             </thead>
             <tbody>
                 {% for week in cal %}

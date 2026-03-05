@@ -31,7 +31,10 @@ def get_blocks_for_week(start_date_str, end_date_str):
 
 def get_blocks_for_month(year, month):
     db = get_db()
-    date_prefix = f'{year:04d}-{month:02d}'
+    import calendar as cal_mod
+    _, last_day = cal_mod.monthrange(year, month)
+    start_date = f'{year:04d}-{month:02d}-01'
+    end_date = f'{year:04d}-{month:02d}-{last_day:02d}'
     return db.execute('''
         SELECT sb.id, sb.task_id, sb.assigned_date, sb.start_time, sb.end_time,
                sb.is_draft, t.title, t.priority, t.status,
@@ -39,9 +42,9 @@ def get_blocks_for_month(year, month):
         FROM schedule_blocks sb
         JOIN tasks t ON sb.task_id = t.id
         LEFT JOIN categories c ON t.category_id = c.id
-        WHERE sb.assigned_date LIKE ?
+        WHERE sb.assigned_date BETWEEN ? AND ?
         ORDER BY sb.assigned_date, sb.start_time
-    ''', (f'{date_prefix}%',)).fetchall()
+    ''', (start_date, end_date)).fetchall()
 
 
 def create_block(task_id, assigned_date, start_time, end_time, is_draft=False):
