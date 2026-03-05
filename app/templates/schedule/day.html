@@ -7,8 +7,8 @@
 <div class="draft-banner alert alert-warning d-flex align-items-center justify-content-between mb-3" role="alert">
     <span><i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>초안이 생성되었습니다. 검토 후 승인 또는 취소하세요.</span>
     <div class="btn-group" role="group" aria-label="초안 관리">
-        <button class="btn btn-success btn-sm" onclick="approveDraft()"><i class="bi bi-check-circle" aria-hidden="true"></i> 승인</button>
-        <button class="btn btn-outline-danger btn-sm" onclick="discardDraft()"><i class="bi bi-x-circle" aria-hidden="true"></i> 취소</button>
+        <button class="btn btn-success btn-sm" onclick="approveDraft(event)"><i class="bi bi-check-circle" aria-hidden="true"></i> 승인</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="discardDraft(event)"><i class="bi bi-x-circle" aria-hidden="true"></i> 취소</button>
     </div>
 </div>
 {% endif %}
@@ -60,14 +60,15 @@
                         {% endfor %}
                     </select>
                 </form>
-                <div id="unscheduled-list" class="d-flex flex-column gap-2">
+                <div id="unscheduled-list" class="d-flex flex-column gap-2" role="list" aria-label="미배치 업무 목록">
                     {% for task in unscheduled %}
-                    <div class="task-item card p-2"
+                    <div class="task-item card p-2" role="listitem"
                          data-task-id="{{ task['id'] }}"
                          data-estimated="{{ task['estimated_minutes'] }}"
+                         aria-label="{{ task['title'] }} - {{ task['estimated_minutes'] }}분"
                          style="border-left: 4px solid {{ task['category_color'] or '#4A90E2' }};">
                         <div class="d-flex align-items-center gap-1">
-                            <i class="bi bi-grip-vertical text-muted drag-handle"></i>
+                            <i class="bi bi-grip-vertical text-muted drag-handle" aria-hidden="true"></i>
                             <span class="fw-semibold text-truncate small">{{ task['title'] }}</span>
                             {% if task['due_date'] and task['due_date'] <= current_date %}
                             <span class="badge bg-danger ms-auto" title="마감 임박/초과">!</span>
@@ -92,9 +93,9 @@
     <div class="col-lg-9">
         <div class="card">
             <div class="card-header d-flex align-items-center gap-3">
-                <a href="{{ url_for('schedule.day_view', date=prev_date) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i></a>
+                <a href="{{ url_for('schedule.day_view', date=prev_date) }}" class="btn btn-outline-secondary btn-sm" aria-label="이전 날짜"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
                 <span class="fw-bold fs-5">{{ current_date }}</span>
-                <a href="{{ url_for('schedule.day_view', date=next_date) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-right"></i></a>
+                <a href="{{ url_for('schedule.day_view', date=next_date) }}" class="btn btn-outline-secondary btn-sm" aria-label="다음 날짜"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
                 <a href="{{ url_for('schedule.day_view') }}" class="btn btn-outline-primary btn-sm ms-auto">오늘</a>
             </div>
             <div class="card-body p-0 timeline-container">
@@ -127,7 +128,7 @@
                             <span class="text-muted ms-1 small">{{ block['start_time'] }}-{{ block['end_time'] }}</span>
                             {% if block['is_draft'] %}<span class="badge bg-warning text-dark ms-1">초안</span>{% endif %}
                             <button class="btn btn-sm btn-link text-danger p-0 float-end"
-                                    onclick="removeBlock({{ block['id'] }}, event)"><i class="bi bi-x"></i></button>
+                                    onclick="removeBlock({{ block['id'] }}, event)" aria-label="{{ block['title'] }} 블록 삭제"><i class="bi bi-x" aria-hidden="true"></i></button>
                         </div>
                         {% endif %}
                         {% endfor %}
@@ -142,28 +143,28 @@
 </div>
 
 <!-- 초안 생성 모달 -->
-<div class="modal fade" id="draftModal" tabindex="-1">
+<div class="modal fade" id="draftModal" tabindex="-1" aria-labelledby="draftModalLabel" aria-modal="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-magic"></i> 스케줄 초안 생성</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="draftModalLabel"><i class="bi bi-magic" aria-hidden="true"></i> 스케줄 초안 생성</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
             </div>
             <div class="modal-body">
                 <p class="text-muted small">선택한 카테고리의 미배치 업무를 근무시간 내에 자동 배치합니다. 기존 확정 스케줄은 유지됩니다.</p>
-                <label class="form-label">카테고리 선택</label>
+                <label class="form-label" for="draft-category">카테고리 선택</label>
                 <select id="draft-category" class="form-select">
                     <option value="">전체 카테고리</option>
                     {% for cat in categories %}
                     <option value="{{ cat['id'] }}">{{ cat['name'] }}</option>
                     {% endfor %}
                 </select>
-                <label class="form-label mt-3">시작 날짜</label>
+                <label class="form-label mt-3" for="draft-start-date">시작 날짜</label>
                 <input type="date" id="draft-start-date" class="form-control" value="{{ current_date }}">
             </div>
             <div class="modal-footer">
                 <button class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                <button class="btn btn-primary" onclick="generateDraft()"><i class="bi bi-magic"></i> 초안 생성</button>
+                <button class="btn btn-primary" onclick="generateDraft(event)"><i class="bi bi-magic" aria-hidden="true"></i> 초안 생성</button>
             </div>
         </div>
     </div>

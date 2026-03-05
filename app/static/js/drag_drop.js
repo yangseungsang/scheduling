@@ -211,10 +211,10 @@ function setButtonLoading(btn, loading) {
     }
 }
 
-function generateDraft() {
+function generateDraft(e) {
     const categoryId = document.getElementById('draft-category')?.value;
     const startDate = document.getElementById('draft-start-date')?.value;
-    const btn = event && event.target ? event.target.closest('button') : null;
+    const btn = e && e.target ? e.target.closest('button') : null;
     setButtonLoading(btn, true);
 
     fetch('/schedule/api/draft/generate', {
@@ -244,8 +244,8 @@ function generateDraft() {
     });
 }
 
-function approveDraft() {
-    var btn = event && event.target ? event.target.closest('button') : null;
+function approveDraft(e) {
+    var btn = e && e.target ? e.target.closest('button') : null;
     setButtonLoading(btn, true);
     fetch('/schedule/api/draft/approve', {
         method: 'POST',
@@ -269,8 +269,8 @@ function approveDraft() {
     });
 }
 
-function discardDraft() {
-    var btn = event && event.target ? event.target.closest('button') : null;
+function discardDraft(e) {
+    var btn = e && e.target ? e.target.closest('button') : null;
     if (!confirm('초안을 취소하시겠습니까?')) return;
     setButtonLoading(btn, true);
     fetch('/schedule/api/draft/discard', {
