@@ -24,9 +24,10 @@
                     <tr>
                         {% set day_names = ['월', '화', '수', '목', '금', '토', '일'] %}
                         {% for i in range(7) %}
-                        <th class="text-center" style="width:14.28%">
+                        {% set is_today = week_days[i].strftime('%Y-%m-%d') == today.strftime('%Y-%m-%d') if today is defined else false %}
+                        <th class="text-center {% if is_today %}week-today{% endif %}" style="width:14.28%">
                             {{ day_names[i] }}<br>
-                            <a href="{{ url_for('schedule.day_view', date=week_days[i].strftime('%Y-%m-%d')) }}" class="fw-bold text-decoration-none">
+                            <a href="{{ url_for('schedule.day_view', date=week_days[i].strftime('%Y-%m-%d')) }}" class="fw-bold text-decoration-none {% if is_today %}text-primary{% endif %}">
                                 {{ week_days[i].strftime('%m/%d') }}
                             </a>
                         </th>
@@ -36,7 +37,8 @@
                 <tbody>
                     <tr style="vertical-align: top;">
                         {% for day in week_days %}
-                        <td style="min-height: 200px; max-width: 0;">
+                        {% set is_today = day.strftime('%Y-%m-%d') == today.strftime('%Y-%m-%d') if today is defined else false %}
+                        <td class="{% if is_today %}week-today{% endif %}" style="min-height: 200px; max-width: 0;">
                             {% set date_str = day.strftime('%Y-%m-%d') %}
                             {% for block in blocks_by_date.get(date_str, []) %}
                             <div class="schedule-block mb-1 {% if block['is_draft'] %}is-draft{% endif %}"

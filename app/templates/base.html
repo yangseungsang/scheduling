@@ -10,17 +10,22 @@
 </head>
 <body class="bg-light">
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<nav class="navbar navbar-expand-md navbar-dark bg-dark">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="{{ url_for('schedule.day_view') }}">
             <i class="bi bi-calendar3"></i> 업무 스케줄러
         </a>
-        <div class="navbar-nav flex-row gap-3 ms-auto">
-            <a class="nav-link text-white" href="{{ url_for('schedule.day_view') }}"><i class="bi bi-calendar-day"></i> 일간</a>
-            <a class="nav-link text-white" href="{{ url_for('schedule.week_view') }}"><i class="bi bi-calendar-week"></i> 주간</a>
-            <a class="nav-link text-white" href="{{ url_for('schedule.month_view') }}"><i class="bi bi-calendar-month"></i> 월간</a>
-            <a class="nav-link text-white" href="{{ url_for('tasks.task_list') }}"><i class="bi bi-list-task"></i> 업무</a>
-            <a class="nav-link text-white" href="{{ url_for('admin.settings') }}"><i class="bi bi-gear"></i> 설정</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="메뉴 열기">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="mainNav">
+            <div class="navbar-nav ms-auto gap-md-2">
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('schedule.day') %}active{% endif %}" href="{{ url_for('schedule.day_view') }}"><i class="bi bi-calendar-day"></i> 일간</a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('schedule.week') %}active{% endif %}" href="{{ url_for('schedule.week_view') }}"><i class="bi bi-calendar-week"></i> 주간</a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('schedule.month') %}active{% endif %}" href="{{ url_for('schedule.month_view') }}"><i class="bi bi-calendar-month"></i> 월간</a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('tasks.') %}active{% endif %}" href="{{ url_for('tasks.task_list') }}"><i class="bi bi-list-task"></i> 업무</a>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('admin.') %}active{% endif %}" href="{{ url_for('admin.settings') }}"><i class="bi bi-gear"></i> 설정</a>
+            </div>
         </div>
     </div>
 </nav>
@@ -38,9 +43,9 @@
     {% block content %}{% endblock %}
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
-<script src="{{ url_for('static', filename='js/drag_drop.js') }}"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script defer src="{{ url_for('static', filename='js/drag_drop.js') }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

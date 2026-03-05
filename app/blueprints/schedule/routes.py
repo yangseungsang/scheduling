@@ -1,16 +1,31 @@
 import calendar
+import re
 from datetime import date, timedelta, datetime
 from flask import render_template, request, redirect, url_for, jsonify, flash
 from app.blueprints.schedule import schedule_bp
 from app.repositories import schedule_repo, task_repo, category_repo, settings_repo
 from app.services.scheduler import generate_draft
 
+_DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
+_TIME_RE = re.compile(r'^\d{2}:\d{2}$')
+
+
+def _parse_date(date_str, default=None):
+    """날짜 문자열을 파싱. 실패 시 default 반환."""
+    if not date_str or not _DATE_RE.match(date_str):
+        return default
+    try:
+        return datetime.strptime(date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return default
+
 
 @schedule_bp.route('/')
 def day_view():
-    date_str = request.args.get('date', date.today().strftime('%Y-%m-%d'))
+    date_str = request.args.get('date')
+    current_date = _parse_date(date_str, default=date.today())
+    date_str = current_date.strftime('%Y-%m-%d')
     category_id = request.args.get('category_id', type=int)
-    current_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     prev_date = (current_date - timedelta(days=1)).strftime('%Y-%m-%d')
     next_date = (current_date + timedelta(days=1)).strftime('%Y-%m-%d')
 
@@ -28,9 +43,9 @@ def day_view():
 
 @schedule_bp.route('/week')
 def week_view():
-    date_str = request.args.get('date', date.today().strftime('%Y-%m-%d'))
+    date_str = request.args.get('date')
+    current_date = _parse_date(date_str, default=date.today())
     category_id = request.args.get('category_id', type=int)
-    current_date = datetime.strptime(date_str, '%Y-%m-%d').date()
     week_start = current_date - timedelta(days=current_date.weekday())
     week_end = week_start + timedelta(days=6)
     prev_week = (week_start - timedelta(days=7)).strftime('%Y-%m-%d')
@@ -53,7 +68,8 @@ def week_view():
                            blocks_by_date=blocks_by_date, week_days=week_days,
                            categories=categories, work_hours=work_hours,
                            prev_week=prev_week, next_week=next_week,
-                           selected_category=category_id)
+                           selected_category=category_id,
+                           today=date.today())
 
 
 @schedule_bp.route('/month')
@@ -61,6 +77,10 @@ def month_view():
     today = date.today()
     year = request.args.get('year', today.year, type=int)
     month = request.args.get('month', today.month, type=int)
+    if not (1 <= month <= 12):
+        month = today.month
+    if not (1900 <= year <= 9999):
+        year = today.year
     category_id = request.args.get('category_id', type=int)
 
     blocks = schedule_repo.get_blocks_for_month(year, month)
@@ -92,28 +112,55 @@ def month_view():
 @schedule_bp.route('/api/blocks', methods=['POST'])
 def api_create_block():
     data = request.json or {}
-    if not data.get('task_id') or not data.get('assigned_date'):
+    task_id = data.get('task_id')
+    assigned_date = data.get('assigned_date')
+    start_time = data.get('start_time')
+    end_time = data.get('end_time')
+
+    if not task_id or not assigned_date:
         return jsonify({'success': False, 'error': 'task_id and assigned_date required'}), 400
+    if not start_time or not end_time:
+        return jsonify({'success': False, 'error': 'start_time and end_time required'}), 400
+    if not _DATE_RE.match(assigned_date):
+        return jsonify({'success': False, 'error': 'invalid date format (YYYY-MM-DD)'}), 400
+    if not _TIME_RE.match(start_time) or not _TIME_RE.match(end_time):
+        return jsonify({'success': False, 'error': 'invalid time format (HH:MM)'}), 400
+    if start_time >= end_time:
+        return jsonify({'success': False, 'error': 'start_time must be before end_time'}), 400
+
     block_id = schedule_repo.create_block(
-        task_id=data['task_id'],
-        assigned_date=data['assigned_date'],
-        start_time=data['start_time'],
-        end_time=data['end_time'],
+        task_id=task_id,
+        assigned_date=assigned_date,
+        start_time=start_time,
+        end_time=end_time,
         is_draft=data.get('is_draft', False),
     )
-    return jsonify({'success': True, 'block_id': block_id})
+    return jsonify({'success': True, 'block_id': block_id}), 201
 
 
 @schedule_bp.route('/api/blocks/<int:block_id>', methods=['PUT'])
 def api_update_block(block_id):
     data = request.json or {}
-    if not data.get('assigned_date'):
+    assigned_date = data.get('assigned_date')
+    start_time = data.get('start_time')
+    end_time = data.get('end_time')
+
+    if not assigned_date:
         return jsonify({'success': False, 'error': 'assigned_date required'}), 400
+    if not start_time or not end_time:
+        return jsonify({'success': False, 'error': 'start_time and end_time required'}), 400
+    if not _DATE_RE.match(assigned_date):
+        return jsonify({'success': False, 'error': 'invalid date format (YYYY-MM-DD)'}), 400
+    if not _TIME_RE.match(start_time) or not _TIME_RE.match(end_time):
+        return jsonify({'success': False, 'error': 'invalid time format (HH:MM)'}), 400
+    if start_time >= end_time:
+        return jsonify({'success': False, 'error': 'start_time must be before end_time'}), 400
+
     schedule_repo.update_block(
         block_id=block_id,
-        assigned_date=data['assigned_date'],
-        start_time=data['start_time'],
-        end_time=data['end_time'],
+        assigned_date=assigned_date,
+        start_time=start_time,
+        end_time=end_time,
     )
     return jsonify({'success': True})
 
@@ -129,14 +176,14 @@ def api_generate_draft():
     data = request.json or {}
     category_id = data.get('category_id')
     start_date_str = data.get('start_date', date.today().strftime('%Y-%m-%d'))
-    start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    start_date = _parse_date(start_date_str, default=date.today())
 
     work_hours = settings_repo.get_work_hours()
     tasks = task_repo.get_unscheduled_tasks(category_id=category_id)
     tasks_list = [dict(t) for t in tasks]
 
     end_date_str = (start_date + timedelta(days=14)).strftime('%Y-%m-%d')
-    existing = schedule_repo.get_blocks_for_week(start_date_str, end_date_str)
+    existing = schedule_repo.get_blocks_for_week(start_date.strftime('%Y-%m-%d'), end_date_str)
     occupied_by_date = {}
     for block in existing:
         if not block['is_draft']:

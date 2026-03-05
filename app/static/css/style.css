@@ -9,12 +9,12 @@
     display: grid;
     grid-template-columns: 60px 1fr;
     min-height: 30px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--bs-border-color);
 }
 
 .time-label {
     font-size: 0.75rem;
-    color: #999;
+    color: var(--bs-secondary-color);
     padding: 4px;
     text-align: right;
     padding-right: 8px;
@@ -23,18 +23,44 @@
 
 .time-slot-content {
     position: relative;
-    border-left: 1px solid #dee2e6;
+    border-left: 1px solid var(--bs-border-color);
     min-height: 30px;
 }
 
 .lunch-slot {
-    background-color: #f8f9fa;
+    background-color: var(--bs-tertiary-bg);
 }
 
 .lunch-slot .time-slot-content {
     background: repeating-linear-gradient(
-        45deg, #f8f9fa, #f8f9fa 5px, #e9ecef 5px, #e9ecef 10px
+        45deg,
+        var(--bs-tertiary-bg),
+        var(--bs-tertiary-bg) 5px,
+        var(--bs-secondary-bg) 5px,
+        var(--bs-secondary-bg) 10px
     );
+}
+
+/* Current time indicator */
+.current-time-line {
+    position: absolute;
+    left: 60px;
+    right: 0;
+    height: 2px;
+    background-color: #dc3545;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.current-time-line::before {
+    content: '';
+    position: absolute;
+    left: -5px;
+    top: -4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #dc3545;
 }
 
 /* Task Blocks */
@@ -110,14 +136,87 @@
 }
 
 .month-day.today {
-    background-color: #e8f4fd;
+    background-color: rgba(13, 110, 253, 0.08);
 }
 
 .month-day.other-month {
     opacity: 0.4;
 }
 
+/* Week view today highlight */
+.week-today {
+    background-color: rgba(13, 110, 253, 0.06);
+}
+
 .sortable-ghost {
     opacity: 0.4;
     background: #c8ebfb;
+}
+
+/* Save indicator */
+.save-indicator {
+    position: fixed;
+    top: 60px;
+    right: 16px;
+    z-index: 9999;
+    background: #fff;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.2s, transform 0.2s;
+    pointer-events: none;
+}
+
+.save-indicator.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Active nav indicator */
+.navbar .nav-link.active {
+    font-weight: 600;
+    border-bottom: 2px solid white;
+}
+
+/* Responsive: stack schedule sidebar on small screens */
+@media (max-width: 767.98px) {
+    .timeline-container {
+        max-height: calc(100vh - 300px);
+    }
+
+    .month-day {
+        min-height: 60px;
+        font-size: 0.75rem;
+    }
+
+    .month-day .schedule-block {
+        font-size: 0.7rem;
+        padding: 1px 3px;
+    }
+}
+
+/* Loading spinner for async actions */
+.btn-loading {
+    position: relative;
+    pointer-events: none;
+    color: transparent !important;
+}
+
+.btn-loading::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1rem;
+    height: 1rem;
+    margin: -0.5rem 0 0 -0.5rem;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: spinner-border 0.75s linear infinite;
+    color: var(--bs-btn-color, white) !important;
 }
