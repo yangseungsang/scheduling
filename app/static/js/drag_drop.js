@@ -2,6 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', function () {
     initDragDrop();
+    initBlockClickNavigation();
 });
 
 function initDragDrop() {
@@ -33,6 +34,19 @@ function initDragDrop() {
             },
             animation: 150,
             ghostClass: 'sortable-ghost',
+            onMove: function (evt) {
+                // 드래그 중 현재 drop target 하이라이트
+                document.querySelectorAll('.drop-target').forEach(function (el) {
+                    el.classList.remove('drop-zone-active');
+                });
+                if (evt.to) evt.to.classList.add('drop-zone-active');
+            },
+            onEnd: function () {
+                // 드래그 종료 시 모든 하이라이트 제거
+                document.querySelectorAll('.drop-target').forEach(function (el) {
+                    el.classList.remove('drop-zone-active');
+                });
+            },
             onAdd: function (evt) {
                 const taskId = evt.item.dataset.taskId;
                 const estimatedMinutes = parseInt(evt.item.dataset.estimated || 60);
@@ -47,6 +61,9 @@ function initDragDrop() {
 
                 if (existingBlockId) {
                     // 이미 배치된 블록을 다른 슬롯으로 이동 → PUT
+                    var prevParent = evt.from;
+                    var prevIndex = evt.oldIndex;
+                    showSaveIndicator();
                     fetch('/schedule/api/blocks/' + existingBlockId, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
@@ -56,10 +73,30 @@ function initDragDrop() {
                             end_time: endTime,
                         }),
                     })
-                    .then(r => r.json())
-                    .catch(console.error);
+                    .then(function (r) {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.json();
+                    })
+                    .then(function () {
+                        hideSaveIndicator();
+                    })
+                    .catch(function (err) {
+                        console.error(err);
+                        hideSaveIndicator();
+                        showToast('서버 오류가 발생했습니다. 다시 시도해주세요.', 'danger');
+                        // 롤백: 원래 위치로 복원
+                        if (prevParent) {
+                            evt.item.remove();
+                            if (prevParent.children[prevIndex]) {
+                                prevParent.insertBefore(evt.item, prevParent.children[prevIndex]);
+                            } else {
+                                prevParent.appendChild(evt.item);
+                            }
+                        }
+                    });
                 } else {
                     // 미배치 업무를 슬롯에 드롭 → POST
+                    showSaveIndicator();
                     fetch('/schedule/api/blocks', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -71,25 +108,38 @@ function initDragDrop() {
                             is_draft: false,
                         }),
                     })
-                    .then(r => r.json())
-                    .then(data => {
+                    .then(function (r) {
+                        if (!r.ok) throw new Error('HTTP ' + r.status);
+                        return r.json();
+                    })
+                    .then(function (data) {
+                        hideSaveIndicator();
                         if (data.success) {
                             evt.item.dataset.blockId = data.block_id;
                             evt.item.classList.add('schedule-block');
 
-                            const timeSpan = document.createElement('span');
+                            var timeSpan = document.createElement('span');
                             timeSpan.className = 'text-muted ms-1 small';
                             timeSpan.textContent = startTime + '-' + endTime;
                             evt.item.appendChild(timeSpan);
 
-                            const removeBtn = document.createElement('button');
+                            var removeBtn = document.createElement('button');
                             removeBtn.className = 'btn btn-sm btn-link text-danger p-0 float-end';
                             removeBtn.innerHTML = '<i class="bi bi-x"></i>';
                             removeBtn.onclick = function(e) { removeBlock(data.block_id, e); };
                             evt.item.appendChild(removeBtn);
+                        } else {
+                            showToast('블록 생성에 실패했습니다.', 'danger');
+                            evt.item.remove();
                         }
                     })
-                    .catch(console.error);
+                    .catch(function (err) {
+                        console.error(err);
+                        hideSaveIndicator();
+                        showToast('서버 오류가 발생했습니다. 다시 시도해주세요.', 'danger');
+                        // 롤백: 드롭된 아이템 제거 (clone이므로 원본은 남아있음)
+                        evt.item.remove();
+                    });
                 }
             },
             onUpdate: function (evt) {
@@ -99,19 +149,55 @@ function initDragDrop() {
     });
 }
 
+/* 업무 블록 클릭 시 상세 보기로 이동 */
+function initBlockClickNavigation() {
+    document.addEventListener('click', function (e) {
+        var block = e.target.closest('.schedule-block');
+        if (!block) return;
+        // 삭제 버튼 클릭은 무시
+        if (e.target.closest('button') || e.target.closest('a')) return;
+        var taskId = block.dataset.taskId;
+        if (taskId) window.location.href = '/tasks/' + taskId;
+    });
+}
+
+/* 자동 저장 인디케이터 */
+function showSaveIndicator() {
+    var indicator = document.getElementById('save-indicator');
+    if (!indicator) {
+        indicator = document.createElement('div');
+        indicator.id = 'save-indicator';
+        indicator.className = 'save-indicator';
+        indicator.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> 저장 중...';
+        document.body.appendChild(indicator);
+    }
+    indicator.classList.add('visible');
+}
+
+function hideSaveIndicator() {
+    var indicator = document.getElementById('save-indicator');
+    if (indicator) indicator.classList.remove('visible');
+}
+
 function removeBlock(blockId, event) {
     event.stopPropagation();
     if (!confirm('이 스케줄 블록을 삭제하시겠습니까?')) return;
 
     fetch('/schedule/api/blocks/' + blockId, { method: 'DELETE' })
-    .then(r => r.json())
-    .then(data => {
+    .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(function (data) {
         if (data.success) {
-            const el = document.querySelector('[data-block-id="' + blockId + '"]');
+            var el = document.querySelector('[data-block-id="' + blockId + '"]');
             if (el) el.remove();
         }
     })
-    .catch(console.error);
+    .catch(function (err) {
+        console.error(err);
+        showToast('삭제에 실패했습니다. 다시 시도해주세요.', 'danger');
+    });
 }
 
 function generateDraft() {
@@ -126,16 +212,22 @@ function generateDraft() {
             start_date: startDate,
         }),
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(function (data) {
         if (data.success) {
-            const modal = bootstrap.Modal.getInstance(document.getElementById('draftModal'));
+            var modal = bootstrap.Modal.getInstance(document.getElementById('draftModal'));
             if (modal) modal.hide();
             showToast('초안 ' + data.count + '개 블록이 생성되었습니다.', 'success');
-            setTimeout(() => location.reload(), 1200);
+            setTimeout(function () { location.reload(); }, 1200);
         }
     })
-    .catch(console.error);
+    .catch(function (err) {
+        console.error(err);
+        showToast('초안 생성에 실패했습니다. 다시 시도해주세요.', 'danger');
+    });
 }
 
 function approveDraft() {
@@ -144,14 +236,20 @@ function approveDraft() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(function (data) {
         if (data.success) {
             showToast('초안이 승인되었습니다.', 'success');
-            setTimeout(() => location.reload(), 800);
+            setTimeout(function () { location.reload(); }, 800);
         }
     })
-    .catch(console.error);
+    .catch(function (err) {
+        console.error(err);
+        showToast('승인에 실패했습니다. 다시 시도해주세요.', 'danger');
+    });
 }
 
 function discardDraft() {
@@ -161,14 +259,20 @@ function discardDraft() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+    })
+    .then(function (data) {
         if (data.success) {
             showToast('초안이 취소되었습니다.', 'info');
-            setTimeout(() => location.reload(), 800);
+            setTimeout(function () { location.reload(); }, 800);
         }
     })
-    .catch(console.error);
+    .catch(function (err) {
+        console.error(err);
+        showToast('초안 취소에 실패했습니다. 다시 시도해주세요.', 'danger');
+    });
 }
 
 function addMinutes(timeStr, minutes) {
