@@ -1,9 +1,10 @@
 {% extends 'base.html' %}
 {% block title %}월간 스케줄{% endblock %}
+{% block main_attrs %}class="container-fluid p-0 d-flex flex-column" style="height: calc(100vh - 56px);"{% endblock %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+<div class="card d-flex flex-column m-0 border-0 rounded-0" style="flex: 1; min-height: 0;">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap" style="flex-shrink: 0;">
         <a href="{{ url_for('schedule.month_view', year=prev_year, month=prev_month) }}" class="btn btn-outline-secondary btn-sm" aria-label="이전 달"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
         <span class="fw-bold fs-5">{{ year }}년 {{ month }}월</span>
         <a href="{{ url_for('schedule.month_view', year=next_year, month=next_month) }}" class="btn btn-outline-secondary btn-sm" aria-label="다음 달"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
@@ -20,19 +21,19 @@
             </select>
         </form>
     </div>
-    <div class="card-body p-0">
-        <table class="table table-bordered mb-0" aria-label="월간 스케줄">
-            <thead class="table-light">
-                <tr>{% for name in ['월','화','수','목','금','토','일'] %}<th class="text-center" scope="col">{{ name }}</th>{% endfor %}</tr>
+    <div class="card-body p-0 d-flex flex-column" style="flex: 1; overflow: hidden; min-height: 0;">
+        <table class="table table-bordered mb-0" style="table-layout: fixed; height: 100%;" aria-label="월간 스케줄">
+            <thead class="table-light" style="flex-shrink: 0;">
+                <tr>{% for name in ['월','화','수','목','금','토','일'] %}<th class="text-center" scope="col" style="width: calc(100% / 7);">{{ name }}</th>{% endfor %}</tr>
             </thead>
             <tbody>
                 {% for week in cal %}
-                <tr>
+                <tr style="height: calc(100% / {{ cal|length }});">
                     {% for day_num in week %}
                     {% if day_num %}
                     {% set date_str = '%04d-%02d-%02d' | format(year, month, day_num) %}
                     {% set is_today = today.day == day_num and today.month == month and today.year == year %}
-                    <td class="month-day {% if is_today %}today{% endif %}">
+                    <td class="month-day {% if is_today %}today{% endif %}" style="overflow: hidden; vertical-align: top;">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <a href="{{ url_for('schedule.day_view', date=date_str) }}" class="text-decoration-none fw-bold {% if is_today %}text-primary{% endif %}">{{ day_num }}</a>
                             {% if blocks_by_date.get(date_str) %}<span class="badge bg-secondary rounded-pill small">{{ blocks_by_date[date_str] | length }}</span>{% endif %}

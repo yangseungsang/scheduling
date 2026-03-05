@@ -282,7 +282,6 @@
 
 /* Month view */
 .month-day {
-    min-height: 100px;
     vertical-align: top;
     font-size: 0.85rem;
 }
