@@ -88,7 +88,7 @@
 
         <!-- 타임라인 스크롤 영역 -->
         <div id="week-timeline-scroll" class="overflow-auto flex-1 position-relative">
-            <div class="d-flex" style="height: {{ timeline_height_px }}px; position: relative;">
+            <div class="d-flex" style="height: {{ timeline_height_px }}px; position: relative; min-width: 100%;">
 
                 <!-- 시간 축 -->
                 <div style="width: 48px; flex-shrink: 0; position: relative;" class="border-end">
@@ -184,8 +184,10 @@
 
 {% block scripts %}
 <script>
-const WORK_START_MIN = {{ work_start_min }};
-const WORK_END_MIN   = {{ work_end_min }};
-const PX_PER_MIN     = 2;
+const WORK_START_MIN  = {{ work_start_min }};
+const WORK_END_MIN    = {{ work_end_min }};
+const PX_PER_MIN      = 2;
+const LUNCH_START_MIN = {{ lunch_start_min }};
+const LUNCH_END_MIN   = {{ lunch_end_min }};
 </script>
 {% endblock %}

@@ -178,6 +178,11 @@
 {% block scripts %}
 <script>
 const currentDate = '{{ current_date }}';
+const WORK_START_MIN  = {{ work_hours.work_start.split(':')[0] | int * 60 + work_hours.work_start.split(':')[1] | int }};
+const WORK_END_MIN    = {{ work_hours.work_end.split(':')[0] | int * 60 + work_hours.work_end.split(':')[1] | int }};
+const PX_PER_MIN      = 2;
+const LUNCH_START_MIN = {{ lunch_start_min }};
+const LUNCH_END_MIN   = {{ lunch_end_min }};
 
 /* 현재 시간 표시기 */
 (function initCurrentTimeLine() {

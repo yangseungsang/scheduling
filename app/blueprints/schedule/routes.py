@@ -33,6 +33,10 @@ def day_view():
     unscheduled = task_repo.get_unscheduled_tasks(category_id=category_id)
     categories = category_repo.get_all_categories()
     work_hours = settings_repo.get_work_hours()
+    lsh, lsm = map(int, work_hours['lunch_start'].split(':'))
+    leh, lem = map(int, work_hours['lunch_end'].split(':'))
+    lunch_start_min = lsh * 60 + lsm
+    lunch_end_min   = leh * 60 + lem
     dashboard = task_repo.get_dashboard_stats(date_str)
 
     return render_template('schedule/day.html',
@@ -40,7 +44,9 @@ def day_view():
                            categories=categories, work_hours=work_hours,
                            current_date=date_str, prev_date=prev_date,
                            next_date=next_date, selected_category=category_id,
-                           dashboard=dashboard)
+                           dashboard=dashboard,
+                           lunch_start_min=lunch_start_min,
+                           lunch_end_min=lunch_end_min)
 
 
 @schedule_bp.route('/week')
@@ -74,10 +80,13 @@ def week_view():
 
     blocks_by_date = {}
     for block in blocks:
+        # PARSE_DECLTYPES로 인해 DATE 컬럼이 datetime.date로 반환될 수 있으므로 문자열로 통일
         d = block['assigned_date']
+        d = d.strftime('%Y-%m-%d') if hasattr(d, 'strftime') else str(d)
         if d not in blocks_by_date:
             blocks_by_date[d] = []
         b = dict(block)
+        b['assigned_date'] = d  # 문자열로 통일
         sh, sm = map(int, b['start_time'].split(':'))
         eh, em = map(int, b['end_time'].split(':'))
         b['top_px'] = (sh * 60 + sm - work_start_min) * PX
@@ -97,7 +106,9 @@ def week_view():
                            work_end_h=weh,
                            timeline_height_px=timeline_height_px,
                            lunch_top_px=lunch_top_px,
-                           lunch_height_px=lunch_height_px)
+                           lunch_height_px=lunch_height_px,
+                           lunch_start_min=lsh * 60 + lsm,
+                           lunch_end_min=leh * 60 + lem)
 
 
 @schedule_bp.route('/month')
