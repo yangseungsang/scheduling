@@ -200,9 +200,22 @@ function removeBlock(blockId, event) {
     });
 }
 
+function setButtonLoading(btn, loading) {
+    if (!btn) return;
+    if (loading) {
+        btn.classList.add('btn-loading');
+        btn.disabled = true;
+    } else {
+        btn.classList.remove('btn-loading');
+        btn.disabled = false;
+    }
+}
+
 function generateDraft() {
     const categoryId = document.getElementById('draft-category')?.value;
     const startDate = document.getElementById('draft-start-date')?.value;
+    const btn = event && event.target ? event.target.closest('button') : null;
+    setButtonLoading(btn, true);
 
     fetch('/schedule/api/draft/generate', {
         method: 'POST',
@@ -226,11 +239,14 @@ function generateDraft() {
     })
     .catch(function (err) {
         console.error(err);
+        setButtonLoading(btn, false);
         showToast('초안 생성에 실패했습니다. 다시 시도해주세요.', 'danger');
     });
 }
 
 function approveDraft() {
+    var btn = event && event.target ? event.target.closest('button') : null;
+    setButtonLoading(btn, true);
     fetch('/schedule/api/draft/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -248,12 +264,15 @@ function approveDraft() {
     })
     .catch(function (err) {
         console.error(err);
+        setButtonLoading(btn, false);
         showToast('승인에 실패했습니다. 다시 시도해주세요.', 'danger');
     });
 }
 
 function discardDraft() {
+    var btn = event && event.target ? event.target.closest('button') : null;
     if (!confirm('초안을 취소하시겠습니까?')) return;
+    setButtonLoading(btn, true);
     fetch('/schedule/api/draft/discard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -271,6 +290,7 @@ function discardDraft() {
     })
     .catch(function (err) {
         console.error(err);
+        setButtonLoading(btn, false);
         showToast('초안 취소에 실패했습니다. 다시 시도해주세요.', 'danger');
     });
 }

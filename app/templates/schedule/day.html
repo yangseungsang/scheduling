@@ -4,28 +4,56 @@
 {% block content %}
 {% set has_draft = blocks | selectattr('is_draft', 'equalto', 1) | list | length > 0 %}
 {% if has_draft %}
-<div class="draft-banner alert alert-warning d-flex align-items-center justify-content-between mb-3">
-    <span><i class="bi bi-exclamation-triangle-fill me-2"></i>초안이 생성되었습니다. 검토 후 승인 또는 취소하세요.</span>
-    <div class="btn-group">
-        <button class="btn btn-success btn-sm" onclick="approveDraft()"><i class="bi bi-check-circle"></i> 승인</button>
-        <button class="btn btn-outline-danger btn-sm" onclick="discardDraft()"><i class="bi bi-x-circle"></i> 취소</button>
+<div class="draft-banner alert alert-warning d-flex align-items-center justify-content-between mb-3" role="alert">
+    <span><i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>초안이 생성되었습니다. 검토 후 승인 또는 취소하세요.</span>
+    <div class="btn-group" role="group" aria-label="초안 관리">
+        <button class="btn btn-success btn-sm" onclick="approveDraft()"><i class="bi bi-check-circle" aria-hidden="true"></i> 승인</button>
+        <button class="btn btn-outline-danger btn-sm" onclick="discardDraft()"><i class="bi bi-x-circle" aria-hidden="true"></i> 취소</button>
     </div>
 </div>
 {% endif %}
 
 <div class="row g-3">
     <div class="col-lg-3">
-        <div class="card h-100">
+        <!-- 대시보드 위젯 -->
+        <div class="card mb-3">
+            <div class="card-header fw-semibold"><i class="bi bi-speedometer2" aria-hidden="true"></i> 현황</div>
+            <div class="card-body p-2">
+                <div class="d-flex justify-content-around text-center mb-2">
+                    <div>
+                        <div class="fs-4 fw-bold text-primary">{{ dashboard.today_scheduled }}</div>
+                        <small class="text-muted">오늘 예정</small>
+                    </div>
+                    <div>
+                        <div class="fs-4 fw-bold {% if dashboard.overdue > 0 %}text-danger{% else %}text-success{% endif %}">{{ dashboard.overdue }}</div>
+                        <small class="text-muted">지연 업무</small>
+                    </div>
+                </div>
+                {% if dashboard.user_workload %}
+                <hr class="my-1">
+                <small class="text-muted d-block mb-1">팀원별 진행 업무</small>
+                {% for row in dashboard.user_workload %}
+                <div class="d-flex justify-content-between small">
+                    <span>{{ row['name'] }}</span>
+                    <span class="badge bg-secondary">{{ row['task_count'] }}건</span>
+                </div>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <span class="fw-semibold"><i class="bi bi-inbox"></i> 미배치 업무</span>
+                <span class="fw-semibold"><i class="bi bi-inbox" aria-hidden="true"></i> 미배치 업무</span>
                 <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#draftModal">
-                    <i class="bi bi-magic"></i> 초안 생성
+                    <i class="bi bi-magic" aria-hidden="true"></i> 초안 생성
                 </button>
             </div>
             <div class="card-body p-2">
                 <form method="get" class="mb-2">
                     <input type="hidden" name="date" value="{{ current_date }}">
-                    <select name="category_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <label for="filter-category" class="visually-hidden">카테고리 필터</label>
+                    <select name="category_id" id="filter-category" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">전체 카테고리</option>
                         {% for cat in categories %}
                         <option value="{{ cat['id'] }}" {% if selected_category == cat['id'] %}selected{% endif %}>{{ cat['name'] }}</option>
@@ -38,11 +66,19 @@
                          data-task-id="{{ task['id'] }}"
                          data-estimated="{{ task['estimated_minutes'] }}"
                          style="border-left: 4px solid {{ task['category_color'] or '#4A90E2' }};">
-                        <div class="fw-semibold text-truncate small">{{ task['title'] }}</div>
+                        <div class="d-flex align-items-center gap-1">
+                            <i class="bi bi-grip-vertical text-muted drag-handle"></i>
+                            <span class="fw-semibold text-truncate small">{{ task['title'] }}</span>
+                            {% if task['due_date'] and task['due_date'] <= current_date %}
+                            <span class="badge bg-danger ms-auto" title="마감 임박/초과">!</span>
+                            {% endif %}
+                        </div>
                         <div class="d-flex gap-1 flex-wrap mt-1">
                             <span class="badge" style="background:{{ task['category_color'] or '#4A90E2' }}">{{ task['category_name'] or '미분류' }}</span>
                             <span class="badge bg-secondary">{{ task['estimated_minutes'] }}분</span>
-                            {% if task['due_date'] %}<span class="badge bg-warning text-dark">{{ task['due_date'] }}</span>{% endif %}
+                            {% if task['due_date'] %}
+                            <span class="badge {% if task['due_date'] <= current_date %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ task['due_date'] }}</span>
+                            {% endif %}
                         </div>
                     </div>
                     {% else %}
@@ -75,9 +111,10 @@
                 {% if h < work_end_h or m == 0 %}
                 {% set time_str = '%02d:%02d' | format(h, m) %}
                 {% set is_lunch = (h > lunch_start_h or (h == lunch_start_h and m >= lunch_start_m)) and (h < lunch_end_h or (h == lunch_end_h and m < lunch_end_m)) %}
+                {% set is_lunch_start = (h == lunch_start_h and m == lunch_start_m) %}
                 <div class="time-slot {% if is_lunch %}lunch-slot{% endif %}"
                      data-time="{{ time_str }}" data-date="{{ current_date }}">
-                    <div class="time-label">{% if m == 0 %}{{ time_str }}{% endif %}</div>
+                    <div class="time-label">{% if m == 0 %}{{ time_str }}{% elif is_lunch_start %}<span class="text-warning">점심</span>{% endif %}</div>
                     <div class="time-slot-content drop-target" data-time="{{ time_str }}" data-date="{{ current_date }}">
                         {% for block in blocks %}
                         {% if block['start_time'] == time_str %}
@@ -134,5 +171,46 @@
 {% endblock %}
 
 {% block scripts %}
-<script>const currentDate = '{{ current_date }}';</script>
+<script>
+const currentDate = '{{ current_date }}';
+
+/* 현재 시간 표시기 */
+(function initCurrentTimeLine() {
+    var today = new Date().toISOString().slice(0, 10);
+    if (currentDate !== today) return;
+
+    function updateLine() {
+        var existing = document.getElementById('current-time-line');
+        if (existing) existing.remove();
+
+        var now = new Date();
+        var timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+        var slots = document.querySelectorAll('.time-slot');
+        var targetSlot = null;
+
+        slots.forEach(function(slot) {
+            var slotTime = slot.dataset.time;
+            if (slotTime && slotTime <= timeStr) targetSlot = slot;
+        });
+
+        if (!targetSlot) return;
+        var slotTime = targetSlot.dataset.time;
+        var slotParts = slotTime.split(':');
+        var slotMinutes = parseInt(slotParts[0]) * 60 + parseInt(slotParts[1]);
+        var nowMinutes = now.getHours() * 60 + now.getMinutes();
+        var offsetInSlot = nowMinutes - slotMinutes;
+        var pxPerMin = targetSlot.offsetHeight / 30;
+        var topOffset = targetSlot.offsetTop + (offsetInSlot * pxPerMin);
+
+        var line = document.createElement('div');
+        line.id = 'current-time-line';
+        line.className = 'current-time-line';
+        line.style.top = topOffset + 'px';
+        document.querySelector('.timeline-container').appendChild(line);
+    }
+
+    updateLine();
+    setInterval(updateLine, 60000);
+})();
+</script>
 {% endblock %}
