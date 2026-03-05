@@ -67,16 +67,74 @@
 .schedule-block {
     position: relative;
     border-radius: 6px;
-    padding: 4px 8px;
+    padding: 6px 8px 6px 8px;
     font-size: 0.8rem;
     cursor: grab;
     border-left: 4px solid rgba(0,0,0,0.2);
     margin: 2px;
-    overflow: hidden;
+    overflow: visible;
     white-space: nowrap;
     text-overflow: ellipsis;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     transition: box-shadow 0.15s;
+}
+
+/* Resize handles */
+.block-resize-top,
+.block-resize-bottom {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 7px;
+    cursor: ns-resize;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.block-resize-top {
+    top: 0;
+    border-radius: 6px 6px 0 0;
+}
+
+.block-resize-bottom {
+    bottom: 0;
+    border-radius: 0 0 6px 6px;
+}
+
+.block-resize-top::after,
+.block-resize-bottom::after {
+    content: '';
+    display: block;
+    width: 24px;
+    height: 3px;
+    border-radius: 2px;
+    background: rgba(0,0,0,0.15);
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.schedule-block:hover .block-resize-top::after,
+.schedule-block:hover .block-resize-bottom::after {
+    opacity: 1;
+}
+
+.block-resize-top:hover::after,
+.block-resize-bottom:hover::after {
+    background: rgba(0,0,0,0.4);
+    opacity: 1;
+}
+
+/* Resize drag active */
+.schedule-block.resizing {
+    opacity: 0.8;
+    outline: 2px dashed #0d6efd;
+}
+
+.time-slot.resize-target .time-slot-content {
+    background-color: rgba(13, 110, 253, 0.12) !important;
+    outline: 2px dashed #0d6efd;
 }
 
 .schedule-block:hover {

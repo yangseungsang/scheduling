@@ -123,12 +123,16 @@
                              style="background-color: {{ block['category_color'] or '#4A90E2' }}22;"
                              data-block-id="{{ block['id'] }}"
                              data-task-id="{{ block['task_id'] }}"
+                             data-start-time="{{ block['start_time'] }}"
+                             data-end-time="{{ block['end_time'] }}"
                              title="{{ block['title'] }}">
+                            <div class="block-resize-top" title="위로 드래그: 시작 시간 변경"></div>
                             <span class="fw-semibold">{{ block['title'] }}</span>
-                            <span class="text-muted ms-1 small">{{ block['start_time'] }}-{{ block['end_time'] }}</span>
+                            <span class="text-muted ms-1 small block-time">{{ block['start_time'] }}-{{ block['end_time'] }}</span>
                             {% if block['is_draft'] %}<span class="badge bg-warning text-dark ms-1">초안</span>{% endif %}
                             <button class="btn btn-sm btn-link text-danger p-0 float-end"
                                     onclick="removeBlock({{ block['id'] }}, event)" aria-label="{{ block['title'] }} 블록 삭제"><i class="bi bi-x" aria-hidden="true"></i></button>
+                            <div class="block-resize-bottom" title="아래로 드래그: 종료 시간 변경"></div>
                         </div>
                         {% endif %}
                         {% endfor %}

@@ -3,6 +3,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     initDragDrop();
     initBlockClickNavigation();
+    initBlockResize();
 });
 
 function initDragDrop() {
@@ -116,10 +117,17 @@ function initDragDrop() {
                         hideSaveIndicator();
                         if (data.success) {
                             evt.item.dataset.blockId = data.block_id;
+                            evt.item.dataset.startTime = startTime;
+                            evt.item.dataset.endTime = endTime;
                             evt.item.classList.add('schedule-block');
 
+                            var resizeTop = document.createElement('div');
+                            resizeTop.className = 'block-resize-top';
+                            resizeTop.title = '위로 드래그: 시작 시간 변경';
+                            evt.item.insertBefore(resizeTop, evt.item.firstChild);
+
                             var timeSpan = document.createElement('span');
-                            timeSpan.className = 'text-muted ms-1 small';
+                            timeSpan.className = 'text-muted ms-1 small block-time';
                             timeSpan.textContent = startTime + '-' + endTime;
                             evt.item.appendChild(timeSpan);
 
@@ -129,6 +137,11 @@ function initDragDrop() {
                             removeBtn.innerHTML = '<i class="bi bi-x" aria-hidden="true"></i>';
                             removeBtn.onclick = function(e) { removeBlock(data.block_id, e); };
                             evt.item.appendChild(removeBtn);
+
+                            var resizeBottom = document.createElement('div');
+                            resizeBottom.className = 'block-resize-bottom';
+                            resizeBottom.title = '아래로 드래그: 종료 시간 변경';
+                            evt.item.appendChild(resizeBottom);
                         } else {
                             showToast('블록 생성에 실패했습니다.', 'danger');
                             evt.item.remove();
@@ -150,13 +163,125 @@ function initDragDrop() {
     });
 }
 
+/* 블록 상단/하단 드래그로 소요시간 변경 */
+function initBlockResize() {
+    document.addEventListener('mousedown', function (e) {
+        var handle = e.target.closest('.block-resize-top, .block-resize-bottom');
+        if (!handle) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        var block = handle.closest('.schedule-block');
+        if (!block) return;
+
+        var isBottom = handle.classList.contains('block-resize-bottom');
+        var blockId = block.dataset.blockId;
+        if (!blockId) return;
+
+        var originalStart = block.dataset.startTime;
+        var originalEnd = block.dataset.endTime;
+        var date = block.closest('.drop-target')
+            ? block.closest('.drop-target').dataset.date
+            : null;
+        if (!date) return;
+
+        var currentTargetSlot = null;
+        block.classList.add('resizing');
+
+        function onMove(me) {
+            // 현재 커서 위치의 time-slot 찾기 (핸들 자신은 pointerEvents 잠시 비활성화)
+            handle.style.pointerEvents = 'none';
+            var el = document.elementFromPoint(me.clientX, me.clientY);
+            handle.style.pointerEvents = '';
+
+            var slot = el ? el.closest('.time-slot') : null;
+
+            document.querySelectorAll('.time-slot.resize-target').forEach(function (s) {
+                s.classList.remove('resize-target');
+            });
+
+            if (!slot || !slot.dataset.time) return;
+            slot.classList.add('resize-target');
+            currentTargetSlot = slot;
+        }
+
+        function onUp() {
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+
+            block.classList.remove('resizing');
+            document.querySelectorAll('.time-slot.resize-target').forEach(function (s) {
+                s.classList.remove('resize-target');
+            });
+
+            if (!currentTargetSlot || !currentTargetSlot.dataset.time) return;
+
+            var slotTime = currentTargetSlot.dataset.time;
+            var newStart = isBottom ? originalStart : slotTime;
+            // 하단 핸들: 드롭 슬롯의 다음 슬롯이 end_time (최소 30분 보장)
+            var newEnd = isBottom ? addMinutes(slotTime, 30) : originalEnd;
+
+            if (newStart >= newEnd) {
+                showToast('시작 시간은 종료 시간보다 빨라야 합니다.', 'warning');
+                return;
+            }
+
+            // 변경 없으면 무시
+            if (newStart === originalStart && newEnd === originalEnd) return;
+
+            showSaveIndicator();
+            fetch('/schedule/api/blocks/' + blockId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    assigned_date: date,
+                    start_time: newStart,
+                    end_time: newEnd,
+                }),
+            })
+            .then(function (r) {
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                return r.json();
+            })
+            .then(function () {
+                hideSaveIndicator();
+                // 데이터 속성 업데이트
+                block.dataset.startTime = newStart;
+                block.dataset.endTime = newEnd;
+
+                // 시간 텍스트 업데이트
+                var timeSpan = block.querySelector('.block-time');
+                if (timeSpan) timeSpan.textContent = newStart + '-' + newEnd;
+
+                // 상단 핸들로 start_time 변경 시 → 해당 슬롯으로 블록 이동
+                if (!isBottom && newStart !== originalStart) {
+                    var newSlot = document.querySelector(
+                        '.drop-target[data-time="' + newStart + '"][data-date="' + date + '"]'
+                    );
+                    if (newSlot) newSlot.appendChild(block);
+                }
+            })
+            .catch(function (err) {
+                console.error(err);
+                hideSaveIndicator();
+                showToast('소요시간 변경에 실패했습니다.', 'danger');
+            });
+        }
+
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+}
+
 /* 업무 블록 클릭 시 상세 보기로 이동 */
 function initBlockClickNavigation() {
     document.addEventListener('click', function (e) {
         var block = e.target.closest('.schedule-block');
         if (!block) return;
-        // 삭제 버튼 클릭은 무시
+        // 삭제 버튼, 링크, 리사이즈 핸들 클릭은 무시
         if (e.target.closest('button') || e.target.closest('a')) return;
+        if (e.target.closest('.block-resize-top, .block-resize-bottom')) return;
         var taskId = block.dataset.taskId;
         if (taskId) window.location.href = '/tasks/' + taskId;
     });
