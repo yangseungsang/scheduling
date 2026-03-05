@@ -81,6 +81,12 @@ def edit_task(task_id):
 def update_status(task_id):
     data = request.get_json(silent=True)
     status = (data or {}).get('status') or request.form.get('status')
+    allowed = {'pending', 'in_progress', 'completed', 'cancelled'}
+    if status not in allowed:
+        if request.is_json:
+            return jsonify({'success': False, 'error': 'invalid status'}), 400
+        flash('유효하지 않은 상태값입니다.', 'danger')
+        return redirect(url_for('tasks.task_detail', task_id=task_id))
     task_repo.update_task_status(task_id, status)
     if request.is_json:
         return jsonify({'success': True})

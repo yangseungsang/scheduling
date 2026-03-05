@@ -43,57 +43,57 @@ function initDragDrop() {
 
                 const endTime = addMinutes(startTime, estimatedMinutes);
 
-                fetch('/schedule/api/blocks', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        task_id: parseInt(taskId),
-                        assigned_date: date,
-                        start_time: startTime,
-                        end_time: endTime,
-                        is_draft: false,
-                    }),
-                })
-                .then(r => r.json())
-                .then(data => {
-                    if (data.success) {
-                        evt.item.dataset.blockId = data.block_id;
-                        evt.item.classList.add('schedule-block');
+                const existingBlockId = evt.item.dataset.blockId;
 
-                        const timeSpan = document.createElement('span');
-                        timeSpan.className = 'text-muted ms-1 small';
-                        timeSpan.textContent = startTime + '-' + endTime;
-                        evt.item.appendChild(timeSpan);
+                if (existingBlockId) {
+                    // 이미 배치된 블록을 다른 슬롯으로 이동 → PUT
+                    fetch('/schedule/api/blocks/' + existingBlockId, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            assigned_date: date,
+                            start_time: startTime,
+                            end_time: endTime,
+                        }),
+                    })
+                    .then(r => r.json())
+                    .catch(console.error);
+                } else {
+                    // 미배치 업무를 슬롯에 드롭 → POST
+                    fetch('/schedule/api/blocks', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            task_id: parseInt(taskId),
+                            assigned_date: date,
+                            start_time: startTime,
+                            end_time: endTime,
+                            is_draft: false,
+                        }),
+                    })
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data.success) {
+                            evt.item.dataset.blockId = data.block_id;
+                            evt.item.classList.add('schedule-block');
 
-                        const removeBtn = document.createElement('button');
-                        removeBtn.className = 'btn btn-sm btn-link text-danger p-0 float-end';
-                        removeBtn.innerHTML = '<i class="bi bi-x"></i>';
-                        removeBtn.onclick = function(e) { removeBlock(data.block_id, e); };
-                        evt.item.appendChild(removeBtn);
-                    }
-                })
-                .catch(console.error);
+                            const timeSpan = document.createElement('span');
+                            timeSpan.className = 'text-muted ms-1 small';
+                            timeSpan.textContent = startTime + '-' + endTime;
+                            evt.item.appendChild(timeSpan);
+
+                            const removeBtn = document.createElement('button');
+                            removeBtn.className = 'btn btn-sm btn-link text-danger p-0 float-end';
+                            removeBtn.innerHTML = '<i class="bi bi-x"></i>';
+                            removeBtn.onclick = function(e) { removeBlock(data.block_id, e); };
+                            evt.item.appendChild(removeBtn);
+                        }
+                    })
+                    .catch(console.error);
+                }
             },
             onUpdate: function (evt) {
-                const blockId = evt.item.dataset.blockId;
-                const date = target.dataset.date;
-                const startTime = target.dataset.time;
-                const estimatedMinutes = parseInt(evt.item.dataset.estimated || 60);
-                const endTime = addMinutes(startTime, estimatedMinutes);
-
-                if (!blockId) return;
-
-                fetch('/schedule/api/blocks/' + blockId, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        assigned_date: date,
-                        start_time: startTime,
-                        end_time: endTime,
-                    }),
-                })
-                .then(r => r.json())
-                .catch(console.error);
+                // 같은 슬롯 내 순서 변경 시 무시 (슬롯 간 이동은 onAdd에서 처리)
             },
         });
     });

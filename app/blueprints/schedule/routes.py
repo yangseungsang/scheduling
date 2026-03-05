@@ -91,7 +91,9 @@ def month_view():
 
 @schedule_bp.route('/api/blocks', methods=['POST'])
 def api_create_block():
-    data = request.json
+    data = request.json or {}
+    if not data.get('task_id') or not data.get('assigned_date'):
+        return jsonify({'success': False, 'error': 'task_id and assigned_date required'}), 400
     block_id = schedule_repo.create_block(
         task_id=data['task_id'],
         assigned_date=data['assigned_date'],
@@ -104,7 +106,9 @@ def api_create_block():
 
 @schedule_bp.route('/api/blocks/<int:block_id>', methods=['PUT'])
 def api_update_block(block_id):
-    data = request.json
+    data = request.json or {}
+    if not data.get('assigned_date'):
+        return jsonify({'success': False, 'error': 'assigned_date required'}), 400
     schedule_repo.update_block(
         block_id=block_id,
         assigned_date=data['assigned_date'],
@@ -154,7 +158,14 @@ def api_generate_draft():
             is_draft=True,
         )
 
-    return jsonify({'success': True, 'count': len(draft_blocks), 'blocks': draft_blocks})
+    scheduled_ids = {b['task_id'] for b in draft_blocks}
+    unscheduled_ids = [t['id'] for t in tasks_list if t['id'] not in scheduled_ids]
+    return jsonify({
+        'success': True,
+        'count': len(draft_blocks),
+        'blocks': draft_blocks,
+        'unscheduled_task_ids': unscheduled_ids,
+    })
 
 
 @schedule_bp.route('/api/draft/approve', methods=['POST'])
