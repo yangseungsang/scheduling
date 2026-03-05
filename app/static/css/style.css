@@ -1,0 +1,123 @@
+/* Timeline */
+.timeline-container {
+    overflow-y: auto;
+    max-height: calc(100vh - 200px);
+    position: relative;
+}
+
+.time-slot {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    min-height: 30px;
+    border-bottom: 1px solid #eee;
+}
+
+.time-label {
+    font-size: 0.75rem;
+    color: #999;
+    padding: 4px;
+    text-align: right;
+    padding-right: 8px;
+    white-space: nowrap;
+}
+
+.time-slot-content {
+    position: relative;
+    border-left: 1px solid #dee2e6;
+    min-height: 30px;
+}
+
+.lunch-slot {
+    background-color: #f8f9fa;
+}
+
+.lunch-slot .time-slot-content {
+    background: repeating-linear-gradient(
+        45deg, #f8f9fa, #f8f9fa 5px, #e9ecef 5px, #e9ecef 10px
+    );
+}
+
+/* Task Blocks */
+.schedule-block {
+    position: relative;
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    cursor: grab;
+    border-left: 4px solid rgba(0,0,0,0.2);
+    margin: 2px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: box-shadow 0.15s;
+}
+
+.schedule-block:hover {
+    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+}
+
+.schedule-block.is-draft {
+    opacity: 0.65;
+    border-style: dashed;
+}
+
+.priority-urgent { border-left-color: #dc3545 !important; }
+.priority-high    { border-left-color: #fd7e14 !important; }
+.priority-medium  { border-left-color: #0d6efd !important; }
+.priority-low     { border-left-color: #6c757d !important; }
+
+/* Unscheduled task list */
+.task-item {
+    cursor: grab;
+    transition: transform 0.15s, box-shadow 0.15s;
+    user-select: none;
+}
+
+.task-item:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.task-item.sortable-chosen {
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+    transform: scale(1.02);
+}
+
+.drop-zone-active {
+    background-color: rgba(13, 110, 253, 0.08);
+    outline: 2px dashed #0d6efd;
+}
+
+/* Status */
+.status-pending     { background-color: #6c757d; color: white; }
+.status-in_progress { background-color: #0d6efd; color: white; }
+.status-completed   { background-color: #198754; color: white; }
+.status-cancelled   { background-color: #dc3545; color: white; }
+
+/* Draft banner */
+.draft-banner {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+}
+
+/* Month view */
+.month-day {
+    min-height: 100px;
+    vertical-align: top;
+    font-size: 0.85rem;
+}
+
+.month-day.today {
+    background-color: #e8f4fd;
+}
+
+.month-day.other-month {
+    opacity: 0.4;
+}
+
+.sortable-ghost {
+    opacity: 0.4;
+    background: #c8ebfb;
+}

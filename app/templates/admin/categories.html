@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}카테고리 관리{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between mb-3">
+    <h4>카테고리 관리</h4>
+    <a href="{{ url_for('admin.create_category') }}" class="btn btn-primary"><i class="bi bi-plus"></i> 추가</a>
+</div>
+<div class="card">
+    <table class="table mb-0">
+        <thead class="table-light"><tr><th>색상</th><th>이름</th><th></th></tr></thead>
+        <tbody>
+        {% for cat in categories %}
+        <tr>
+            <td><span style="display:inline-block;width:40px;height:20px;background:{{ cat['color'] }};border-radius:4px;"></span></td>
+            <td>{{ cat['name'] }}</td>
+            <td>
+                <a href="{{ url_for('admin.edit_category', category_id=cat['id']) }}" class="btn btn-sm btn-outline-secondary">수정</a>
+                <form method="post" action="{{ url_for('admin.delete_category', category_id=cat['id']) }}" class="d-inline" onsubmit="return confirm('삭제?')">
+                    <button class="btn btn-sm btn-outline-danger">삭제</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

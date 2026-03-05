@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}주간 스케줄{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex align-items-center gap-3 flex-wrap">
+        <a href="{{ url_for('schedule.week_view', date=prev_week) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-left"></i></a>
+        <span class="fw-bold">{{ week_days[0].strftime('%Y.%m.%d') }} ~ {{ week_days[6].strftime('%m.%d') }}</span>
+        <a href="{{ url_for('schedule.week_view', date=next_week) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-chevron-right"></i></a>
+        <a href="{{ url_for('schedule.week_view') }}" class="btn btn-outline-primary btn-sm ms-auto">이번 주</a>
+        <form method="get" class="d-flex">
+            <select name="category_id" class="form-select form-select-sm" onchange="this.form.submit()" style="width:auto">
+                <option value="">전체 카테고리</option>
+                {% for cat in categories %}
+                <option value="{{ cat['id'] }}" {% if selected_category == cat['id'] %}selected{% endif %}>{{ cat['name'] }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-bordered mb-0">
+                <thead class="table-light">
+                    <tr>
+                        {% set day_names = ['월', '화', '수', '목', '금', '토', '일'] %}
+                        {% for i in range(7) %}
+                        <th class="text-center" style="width:14.28%">
+                            {{ day_names[i] }}<br>
+                            <a href="{{ url_for('schedule.day_view', date=week_days[i].strftime('%Y-%m-%d')) }}" class="fw-bold text-decoration-none">
+                                {{ week_days[i].strftime('%m/%d') }}
+                            </a>
+                        </th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="vertical-align: top;">
+                        {% for day in week_days %}
+                        <td style="min-height: 200px; max-width: 0;">
+                            {% set date_str = day.strftime('%Y-%m-%d') %}
+                            {% for block in blocks_by_date.get(date_str, []) %}
+                            <div class="schedule-block mb-1 {% if block['is_draft'] %}is-draft{% endif %}"
+                                 style="background-color: {{ block['category_color'] or '#4A90E2' }}33; white-space: normal;">
+                                <div class="fw-semibold small text-truncate">{{ block['title'] }}</div>
+                                <div class="small text-muted">{{ block['start_time'] }}-{{ block['end_time'] }}</div>
+                                {% if block['is_draft'] %}<span class="badge bg-warning text-dark small">초안</span>{% endif %}
+                            </div>
+                            {% endfor %}
+                        </td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

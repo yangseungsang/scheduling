@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}사용자{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">{% if user %}사용자 수정{% else %}사용자 추가{% endif %}</div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="mb-3"><label class="form-label">이름</label><input type="text" name="name" class="form-control" required value="{{ user['name'] if user else '' }}"></div>
+                    <div class="mb-3"><label class="form-label">이메일</label><input type="email" name="email" class="form-control" required value="{{ user['email'] if user else '' }}"></div>
+                    <div class="mb-3">
+                        <label class="form-label">역할</label>
+                        <select name="role" class="form-select">
+                            <option value="member" {% if not user or user['role'] == 'member' %}selected{% endif %}>Member</option>
+                            <option value="admin" {% if user and user['role'] == 'admin' %}selected{% endif %}>Admin</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                    <a href="{{ url_for('admin.user_list') }}" class="btn btn-outline-secondary">취소</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

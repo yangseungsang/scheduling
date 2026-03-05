@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}카테고리{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+        <div class="card">
+            <div class="card-header">{% if category %}카테고리 수정{% else %}카테고리 추가{% endif %}</div>
+            <div class="card-body">
+                <form method="post">
+                    <div class="mb-3"><label class="form-label">이름</label><input type="text" name="name" class="form-control" required value="{{ category['name'] if category else '' }}"></div>
+                    <div class="mb-3">
+                        <label class="form-label">색상</label>
+                        <input type="color" name="color" class="form-control form-control-color" value="{{ category['color'] if category else '#4A90E2' }}">
+                    </div>
+                    <button type="submit" class="btn btn-primary">저장</button>
+                    <a href="{{ url_for('admin.category_list') }}" class="btn btn-outline-secondary">취소</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

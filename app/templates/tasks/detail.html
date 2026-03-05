@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}{{ task.title }}{% endblock %}
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span class="fw-semibold fs-5">{{ task.title }}</span>
+                <div class="btn-group btn-group-sm">
+                    <a href="{{ url_for('tasks.edit_task', task_id=task.id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> 수정</a>
+                    <form method="post" action="{{ url_for('tasks.delete_task', task_id=task.id) }}" onsubmit="return confirm('삭제하시겠습니까?')" class="d-inline">
+                        <button class="btn btn-outline-danger"><i class="bi bi-trash"></i> 삭제</button>
+                    </form>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">카테고리</small>
+                        <span class="badge" style="background:{{ task.category_color or '#ccc' }}">{{ task.category_name or '미분류' }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">우선순위</small>
+                        {% set p_map = {'urgent':'danger','high':'warning','medium':'primary','low':'secondary'} %}
+                        <span class="badge bg-{{ p_map[task.priority] }}">{{ task.priority }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">예상 소요시간</small>
+                        {{ task.estimated_minutes }}분
+                    </div>
+                    <div class="col-md-6">
+                        <small class="text-muted d-block">마감일</small>
+                        {{ task.due_date or '-' }}
+                    </div>
+                    <div class="col-12">
+                        <small class="text-muted d-block">담당자</small>
+                        {{ assignees | map(attribute='name') | join(', ') or '-' }}
+                    </div>
+                    {% if task.description %}
+                    <div class="col-12">
+                        <small class="text-muted d-block">설명</small>
+                        {{ task.description }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header fw-semibold"><i class="bi bi-journal-text"></i> 메모</div>
+            <div class="card-body">
+                <form method="post" action="{{ url_for('tasks.add_note', task_id=task.id) }}" class="mb-3">
+                    <div class="mb-2">
+                        <select name="user_id" class="form-select form-select-sm" style="width:auto">
+                            {% for user in users %}
+                            <option value="{{ user['id'] }}">{{ user['name'] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <textarea name="content" class="form-control" rows="2" placeholder="메모를 입력하세요..."></textarea>
+                        <button class="btn btn-primary" type="submit">추가</button>
+                    </div>
+                </form>
+                {% for note in notes %}
+                <div class="border rounded p-2 mb-2 bg-light">
+                    <div class="d-flex justify-content-between">
+                        <strong class="small">{{ note['author'] or '익명' }}</strong>
+                        <small class="text-muted">{{ note['created_at'] }}</small>
+                    </div>
+                    <div class="mt-1">{{ note['content'] }}</div>
+                </div>
+                {% else %}
+                <div class="text-muted text-center py-2">메모가 없습니다.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header fw-semibold">상태 변경</div>
+            <div class="card-body">
+                <form method="post" action="{{ url_for('tasks.update_status', task_id=task.id) }}">
+                    <select name="status" class="form-select mb-2">
+                        {% for s, label in [('pending','대기'),('in_progress','진행중'),('completed','완료'),('cancelled','취소')] %}
+                        <option value="{{ s }}" {% if task.status == s %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary w-100">상태 업데이트</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
