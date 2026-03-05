@@ -29,7 +29,7 @@
     </div>
 </nav>
 
-<main class="container-fluid py-3">
+<main {% block main_attrs %}class="container-fluid py-3"{% endblock %}>
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
         <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
