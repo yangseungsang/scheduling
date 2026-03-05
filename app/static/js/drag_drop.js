@@ -1,5 +1,7 @@
 /* drag_drop.js — SortableJS 기반 스케줄 드래그앤드랍 */
 
+var _wasResizing = false;
+
 document.addEventListener('DOMContentLoaded', function () {
     if (document.getElementById('week-timeline-scroll')) {
         initWeekDragDrop();
@@ -403,6 +405,7 @@ function initBlockResize() {
 
         e.preventDefault();
         e.stopPropagation();
+        _wasResizing = true;
 
         var block = handle.closest('.schedule-block');
         if (!block) return;
@@ -459,6 +462,7 @@ function initBlockResize() {
         function onUp() {
             document.removeEventListener('mousemove', isWeekView ? onMoveWeek : onMoveLegacy);
             document.removeEventListener('mouseup', onUp);
+            setTimeout(function () { _wasResizing = false; }, 0);
             block.classList.remove('resizing');
             document.querySelectorAll('.time-slot.resize-target').forEach(function (s) { s.classList.remove('resize-target'); });
 
@@ -530,6 +534,7 @@ function initBlockResize() {
 /* 업무 블록 클릭 시 상세 보기로 이동 */
 function initBlockClickNavigation() {
     document.addEventListener('click', function (e) {
+        if (_wasResizing) return;
         var block = e.target.closest('.schedule-block');
         if (!block) return;
         // 삭제 버튼, 링크, 리사이즈 핸들 클릭은 무시
