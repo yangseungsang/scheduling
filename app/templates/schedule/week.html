@@ -75,11 +75,12 @@
             {% set day_names = ['월', '화', '수', '목', '금', '토', '일'] %}
             {% for day in week_days %}
             {% set is_today = day == today %}
-            <div class="flex-1 text-center border-start py-1 {% if is_today %}bg-primary bg-opacity-10{% endif %}"
-                 style="min-width: 0; font-size: 0.8rem;">
+            <a href="{{ url_for('schedule.day_view', date=day.strftime('%Y-%m-%d')) }}"
+               class="flex-1 text-center border-start py-1 text-decoration-none {% if is_today %}bg-primary bg-opacity-10{% endif %}"
+               style="min-width: 0; font-size: 0.8rem; display: block;">
                 <div class="text-muted">{{ day_names[loop.index0] }}</div>
                 <div class="fw-bold {% if is_today %}text-primary{% endif %}">{{ day.strftime('%m/%d') }}</div>
-            </div>
+            </a>
             {% endfor %}
             <div style="width: 32px; flex-shrink: 0;" class="d-flex align-items-center justify-content-center border-start">
                 <a href="{{ url_for('schedule.week_view', date=next_week) }}" class="btn btn-outline-secondary btn-sm py-0 px-1" aria-label="다음 주"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
