@@ -1,7 +1,12 @@
 /* drag_drop.js — SortableJS 기반 스케줄 드래그앤드랍 */
 
 document.addEventListener('DOMContentLoaded', function () {
-    initDragDrop();
+    if (document.getElementById('week-timeline-scroll')) {
+        initWeekDragDrop();
+        initWeekBlockMove();
+    } else {
+        initDragDrop();
+    }
     initBlockClickNavigation();
     initBlockResize();
 });
@@ -163,7 +168,234 @@ function initDragDrop() {
     });
 }
 
-/* 블록 상단/하단 드래그로 소요시간 변경 */
+/* ─────────────────────────────────────────────
+   주간 뷰 전용: HTML5 drag API 기반 드래그앤드랍
+   ───────────────────────────────────────────── */
+
+function _getColY(col, clientY) {
+    /* 컬럼 내 Y 픽셀 좌표 → 30분 단위로 스냅 */
+    var rect = col.getBoundingClientRect();
+    var y = clientY - rect.top;
+    return Math.max(0, Math.min(y, col.offsetHeight - 1));
+}
+
+function _yToTime(y) {
+    /* Y 픽셀 → 30분 스냅 시간 문자열 (PX_PER_MIN, WORK_START_MIN 전역 변수 사용) */
+    var pxPerMin = (typeof PX_PER_MIN !== 'undefined') ? PX_PER_MIN : 2;
+    var wsMin    = (typeof WORK_START_MIN !== 'undefined') ? WORK_START_MIN : 540;
+    var weMin    = (typeof WORK_END_MIN !== 'undefined') ? WORK_END_MIN : 1080;
+    var snap = 30;
+    var minutes = Math.floor(y / pxPerMin / snap) * snap;
+    var total = Math.max(0, Math.min(wsMin + minutes, weMin - snap));
+    return minutesToTimeStr(total);
+}
+
+function _showDropIndicator(col, clientY) {
+    var ind = col.querySelector('.week-drop-indicator');
+    if (!ind) {
+        ind = document.createElement('div');
+        ind.className = 'week-drop-indicator';
+        col.appendChild(ind);
+    }
+    var y = _getColY(col, clientY);
+    var pxPerMin = (typeof PX_PER_MIN !== 'undefined') ? PX_PER_MIN : 2;
+    var snap = 30;
+    var snappedY = Math.floor(y / (pxPerMin * snap)) * (pxPerMin * snap);
+    ind.style.top = snappedY + 'px';
+    ind.dataset.time = _yToTime(y);
+}
+
+function _hideDropIndicator(col) {
+    var ind = col.querySelector('.week-drop-indicator');
+    if (ind) ind.remove();
+}
+
+function initWeekDragDrop() {
+    /* 미배치 업무 → 주간 타임라인 드롭 */
+    document.querySelectorAll('#unscheduled-list .task-item').forEach(function (item) {
+        item.addEventListener('dragstart', function (e) {
+            e.dataTransfer.effectAllowed = 'copy';
+            e.dataTransfer.setData('dragType', 'unscheduled');
+            e.dataTransfer.setData('taskId', item.dataset.taskId);
+            e.dataTransfer.setData('estimated', item.dataset.estimated || '60');
+        });
+    });
+
+    document.querySelectorAll('.week-day-col').forEach(function (col) {
+        col.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            col.classList.add('drag-over');
+            _showDropIndicator(col, e.clientY);
+        });
+
+        col.addEventListener('dragleave', function (e) {
+            if (!col.contains(e.relatedTarget)) {
+                col.classList.remove('drag-over');
+                _hideDropIndicator(col);
+            }
+        });
+
+        col.addEventListener('drop', function (e) {
+            e.preventDefault();
+            col.classList.remove('drag-over');
+            _hideDropIndicator(col);
+
+            var dragType  = e.dataTransfer.getData('dragType');
+            var date      = col.dataset.date;
+            var y         = _getColY(col, e.clientY);
+            var startTime = _yToTime(y);
+
+            if (dragType === 'unscheduled') {
+                var taskId    = parseInt(e.dataTransfer.getData('taskId'));
+                var estimated = parseInt(e.dataTransfer.getData('estimated') || '60');
+                var endTime   = addMinutes(startTime, estimated);
+                _createBlockOnCol(col, taskId, date, startTime, endTime, estimated);
+
+            } else if (dragType === 'block') {
+                var blockId   = e.dataTransfer.getData('blockId');
+                var origStart = e.dataTransfer.getData('origStart');
+                var origEnd   = e.dataTransfer.getData('origEnd');
+                var duration  = timeToMinutes(origEnd) - timeToMinutes(origStart);
+                var endTime   = addMinutes(startTime, Math.max(30, duration));
+                _moveBlockOnCol(blockId, col, date, startTime, endTime);
+            }
+        });
+    });
+}
+
+function _createBlockOnCol(col, taskId, date, startTime, endTime, estimatedMinutes) {
+    showSaveIndicator();
+    fetch('/schedule/api/blocks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task_id: taskId, assigned_date: date, start_time: startTime, end_time: endTime, is_draft: false }),
+    })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function (data) {
+        hideSaveIndicator();
+        if (data.success) {
+            _renderBlockOnCol(col, {
+                blockId: data.block_id, taskId: taskId, date: date,
+                startTime: startTime, endTime: endTime,
+            });
+            // 미배치 목록에서 제거
+            var src = document.querySelector('#unscheduled-list [data-task-id="' + taskId + '"]');
+            if (src) src.remove();
+            // 미배치 없으면 안내 문구
+            if (!document.querySelector('#unscheduled-list .task-item')) {
+                var empty = document.createElement('div');
+                empty.className = 'text-muted text-center py-3 small';
+                empty.textContent = '미배치 업무 없음';
+                document.getElementById('unscheduled-list').appendChild(empty);
+            }
+        } else {
+            showToast('블록 생성에 실패했습니다.', 'danger');
+        }
+    })
+    .catch(function (err) {
+        console.error(err);
+        hideSaveIndicator();
+        showToast('서버 오류가 발생했습니다.', 'danger');
+    });
+}
+
+function _moveBlockOnCol(blockId, col, date, startTime, endTime) {
+    var block = document.querySelector('[data-block-id="' + blockId + '"]');
+    var origParent = block ? block.parentElement : null;
+    var origStyle  = block ? { top: block.style.top, height: block.style.height } : null;
+
+    showSaveIndicator();
+    fetch('/schedule/api/blocks/' + blockId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assigned_date: date, start_time: startTime, end_time: endTime }),
+    })
+    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(function () {
+        hideSaveIndicator();
+        if (!block) return;
+        var pxPerMin = (typeof PX_PER_MIN !== 'undefined') ? PX_PER_MIN : 2;
+        var wsMin    = (typeof WORK_START_MIN !== 'undefined') ? WORK_START_MIN : 540;
+        var topPx    = (timeToMinutes(startTime) - wsMin) * pxPerMin;
+        var heightPx = Math.max(20, (timeToMinutes(endTime) - timeToMinutes(startTime)) * pxPerMin);
+        block.style.top    = topPx + 'px';
+        block.style.height = heightPx + 'px';
+        block.dataset.startTime = startTime;
+        block.dataset.endTime   = endTime;
+        var ts = block.querySelector('.block-time');
+        if (ts) ts.textContent = startTime + '-' + endTime;
+        // 다른 날 컬럼으로 이동
+        if (block.parentElement !== col) col.appendChild(block);
+    })
+    .catch(function (err) {
+        console.error(err);
+        hideSaveIndicator();
+        showToast('이동에 실패했습니다.', 'danger');
+        if (block && origParent && origStyle) {
+            block.style.top    = origStyle.top;
+            block.style.height = origStyle.height;
+            if (block.parentElement !== origParent) origParent.appendChild(block);
+        }
+    });
+}
+
+function _renderBlockOnCol(col, opts) {
+    var pxPerMin = (typeof PX_PER_MIN !== 'undefined') ? PX_PER_MIN : 2;
+    var wsMin    = (typeof WORK_START_MIN !== 'undefined') ? WORK_START_MIN : 540;
+    var topPx    = (timeToMinutes(opts.startTime) - wsMin) * pxPerMin;
+    var heightPx = Math.max(20, (timeToMinutes(opts.endTime) - timeToMinutes(opts.startTime)) * pxPerMin);
+
+    var el = document.createElement('div');
+    el.className = 'schedule-block';
+    el.setAttribute('draggable', 'true');
+    el.dataset.blockId   = opts.blockId;
+    el.dataset.taskId    = opts.taskId;
+    el.dataset.startTime = opts.startTime;
+    el.dataset.endTime   = opts.endTime;
+    el.style.cssText = 'position:absolute; top:' + topPx + 'px; height:' + heightPx + 'px; left:2px; right:2px; overflow:hidden; white-space:nowrap;';
+
+    el.innerHTML =
+        '<div class="block-resize-top" draggable="false" title="시작 시간 조정"></div>' +
+        '<span class="fw-semibold d-block text-truncate" style="padding:0 20px 0 0;font-size:0.75rem;">업무</span>' +
+        '<span class="text-muted block-time" style="font-size:0.7rem;">' + opts.startTime + '-' + opts.endTime + '</span>' +
+        '<button class="btn btn-link text-danger p-0" style="position:absolute;top:2px;right:2px;font-size:0.75rem;line-height:1" aria-label="블록 삭제" draggable="false">' +
+            '<i class="bi bi-x" aria-hidden="true"></i></button>' +
+        '<div class="block-resize-bottom" draggable="false" title="종료 시간 조정"></div>';
+
+    el.querySelector('button').onclick = function (e) { removeBlock(opts.blockId, e); };
+    _makeDraggableBlock(el);
+    col.appendChild(el);
+}
+
+function initWeekBlockMove() {
+    /* 기존 블록을 드래그해서 다른 날짜/시간으로 이동 */
+    document.querySelectorAll('.week-day-col .schedule-block').forEach(_makeDraggableBlock);
+}
+
+function _makeDraggableBlock(block) {
+    block.addEventListener('dragstart', function (e) {
+        if (e.target.classList.contains('block-resize-top') ||
+            e.target.classList.contains('block-resize-bottom')) {
+            e.preventDefault();
+            return;
+        }
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('dragType',  'block');
+        e.dataTransfer.setData('blockId',   block.dataset.blockId);
+        e.dataTransfer.setData('origStart', block.dataset.startTime);
+        e.dataTransfer.setData('origEnd',   block.dataset.endTime);
+        block.style.opacity = '0.5';
+    });
+    block.addEventListener('dragend', function () {
+        block.style.opacity = '';
+    });
+}
+
+/* ─────────────────────────────────────────────
+   블록 상단/하단 드래그로 소요시간 변경 (픽셀 기반)
+   ───────────────────────────────────────────── */
+/* 블록 상단/하단 드래그로 소요시간 변경 (주간/일간 공통) */
 function initBlockResize() {
     document.addEventListener('mousedown', function (e) {
         var handle = e.target.closest('.block-resize-top, .block-resize-bottom');
@@ -175,101 +407,122 @@ function initBlockResize() {
         var block = handle.closest('.schedule-block');
         if (!block) return;
 
-        var isBottom = handle.classList.contains('block-resize-bottom');
-        var blockId = block.dataset.blockId;
+        var isBottom  = handle.classList.contains('block-resize-bottom');
+        var blockId   = block.dataset.blockId;
         if (!blockId) return;
 
         var originalStart = block.dataset.startTime;
-        var originalEnd = block.dataset.endTime;
-        var date = block.closest('.drop-target')
-            ? block.closest('.drop-target').dataset.date
-            : null;
+        var originalEnd   = block.dataset.endTime;
+        var col  = block.closest('.week-day-col');  // 주간 뷰
+        var slot = block.closest('.drop-target');   // 일간 뷰
+
+        var isWeekView = !!col;
+        var date = isWeekView ? col.dataset.date : (slot ? slot.dataset.date : null);
         if (!date) return;
 
-        var currentTargetSlot = null;
         block.classList.add('resizing');
 
-        function onMove(me) {
-            // 현재 커서 위치의 time-slot 찾기 (핸들 자신은 pointerEvents 잠시 비활성화)
+        /* ── 주간 뷰: 픽셀 Y 좌표로 계산 ── */
+        function onMoveWeek(me) {
+            var y    = _getColY(col, me.clientY);
+            var time = _yToTime(y);
+            var pxPerMin = (typeof PX_PER_MIN !== 'undefined') ? PX_PER_MIN : 2;
+            var wsMin    = (typeof WORK_START_MIN !== 'undefined') ? WORK_START_MIN : 540;
+            var weMin    = (typeof WORK_END_MIN !== 'undefined') ? WORK_END_MIN : 1080;
+
+            if (isBottom) {
+                var newEndMin = Math.max(timeToMinutes(originalStart) + 30,
+                                        Math.min(timeToMinutes(addMinutes(time, 30)), weMin));
+                var heightPx  = (newEndMin - timeToMinutes(originalStart)) * pxPerMin;
+                block.style.height = Math.max(20, heightPx) + 'px';
+            } else {
+                var newStartMin = Math.max(wsMin,
+                                  Math.min(timeToMinutes(time), timeToMinutes(originalEnd) - 30));
+                var topPx    = (newStartMin - wsMin) * pxPerMin;
+                var heightPx = (timeToMinutes(originalEnd) - newStartMin) * pxPerMin;
+                block.style.top    = topPx + 'px';
+                block.style.height = Math.max(20, heightPx) + 'px';
+            }
+        }
+
+        /* ── 일간 뷰: 슬롯 감지 방식 ── */
+        var currentTargetSlot = null;
+        function onMoveLegacy(me) {
             handle.style.pointerEvents = 'none';
             var el = document.elementFromPoint(me.clientX, me.clientY);
             handle.style.pointerEvents = '';
-
-            var slot = el ? el.closest('.time-slot') : null;
-
-            document.querySelectorAll('.time-slot.resize-target').forEach(function (s) {
-                s.classList.remove('resize-target');
-            });
-
-            if (!slot || !slot.dataset.time) return;
-            slot.classList.add('resize-target');
-            currentTargetSlot = slot;
+            var s = el ? el.closest('.time-slot') : null;
+            document.querySelectorAll('.time-slot.resize-target').forEach(function (x) { x.classList.remove('resize-target'); });
+            if (s && s.dataset.time) { s.classList.add('resize-target'); currentTargetSlot = s; }
         }
 
         function onUp() {
-            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mousemove', isWeekView ? onMoveWeek : onMoveLegacy);
             document.removeEventListener('mouseup', onUp);
-
             block.classList.remove('resizing');
-            document.querySelectorAll('.time-slot.resize-target').forEach(function (s) {
-                s.classList.remove('resize-target');
-            });
+            document.querySelectorAll('.time-slot.resize-target').forEach(function (s) { s.classList.remove('resize-target'); });
 
-            if (!currentTargetSlot || !currentTargetSlot.dataset.time) return;
+            var pxPerMin = (typeof PX_PER_MIN !== 'undefined') ? PX_PER_MIN : 2;
+            var wsMin    = (typeof WORK_START_MIN !== 'undefined') ? WORK_START_MIN : 540;
+            var newStart, newEnd;
 
-            var slotTime = currentTargetSlot.dataset.time;
-            var newStart = isBottom ? originalStart : slotTime;
-            // 하단 핸들: 드롭 슬롯의 다음 슬롯이 end_time (최소 30분 보장)
-            var newEnd = isBottom ? addMinutes(slotTime, 30) : originalEnd;
-
-            if (newStart >= newEnd) {
-                showToast('시작 시간은 종료 시간보다 빨라야 합니다.', 'warning');
-                return;
+            if (isWeekView) {
+                /* 현재 block style에서 역산 */
+                var curTop    = parseFloat(block.style.top);
+                var curHeight = parseFloat(block.style.height);
+                var startMin  = Math.round(curTop / pxPerMin / 30) * 30 + wsMin;
+                var endMin    = Math.round((curTop + curHeight) / pxPerMin / 30) * 30 + wsMin;
+                newStart = minutesToTimeStr(startMin);
+                newEnd   = minutesToTimeStr(endMin);
+            } else {
+                if (!currentTargetSlot) return;
+                var slotTime = currentTargetSlot.dataset.time;
+                newStart = isBottom ? originalStart : slotTime;
+                newEnd   = isBottom ? addMinutes(slotTime, 30) : originalEnd;
             }
 
-            // 변경 없으면 무시
+            if (newStart >= newEnd) { showToast('시작 시간은 종료 시간보다 빨라야 합니다.', 'warning'); _resetBlockStyle(); return; }
             if (newStart === originalStart && newEnd === originalEnd) return;
 
             showSaveIndicator();
             fetch('/schedule/api/blocks/' + blockId, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    assigned_date: date,
-                    start_time: newStart,
-                    end_time: newEnd,
-                }),
+                body: JSON.stringify({ assigned_date: date, start_time: newStart, end_time: newEnd }),
             })
-            .then(function (r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return r.json();
-            })
+            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
             .then(function () {
                 hideSaveIndicator();
-                // 데이터 속성 업데이트
                 block.dataset.startTime = newStart;
-                block.dataset.endTime = newEnd;
-
-                // 시간 텍스트 업데이트
-                var timeSpan = block.querySelector('.block-time');
-                if (timeSpan) timeSpan.textContent = newStart + '-' + newEnd;
-
-                // 상단 핸들로 start_time 변경 시 → 해당 슬롯으로 블록 이동
-                if (!isBottom && newStart !== originalStart) {
-                    var newSlot = document.querySelector(
-                        '.drop-target[data-time="' + newStart + '"][data-date="' + date + '"]'
-                    );
-                    if (newSlot) newSlot.appendChild(block);
+                block.dataset.endTime   = newEnd;
+                var ts = block.querySelector('.block-time');
+                if (ts) ts.textContent = newStart + '-' + newEnd;
+                /* 주간 뷰: 픽셀 위치 확정 (이미 style에 반영됨) */
+                if (isWeekView) {
+                    var topPx    = (timeToMinutes(newStart) - wsMin) * pxPerMin;
+                    var heightPx = Math.max(20, (timeToMinutes(newEnd) - timeToMinutes(newStart)) * pxPerMin);
+                    block.style.top    = topPx + 'px';
+                    block.style.height = heightPx + 'px';
                 }
             })
             .catch(function (err) {
                 console.error(err);
                 hideSaveIndicator();
                 showToast('소요시간 변경에 실패했습니다.', 'danger');
+                _resetBlockStyle();
             });
         }
 
-        document.addEventListener('mousemove', onMove);
+        function _resetBlockStyle() {
+            if (isWeekView) {
+                var wsMin    = (typeof WORK_START_MIN !== 'undefined') ? WORK_START_MIN : 540;
+                var pxPerMin = (typeof PX_PER_MIN !== 'undefined') ? PX_PER_MIN : 2;
+                block.style.top    = (timeToMinutes(originalStart) - wsMin) * pxPerMin + 'px';
+                block.style.height = Math.max(20, (timeToMinutes(originalEnd) - timeToMinutes(originalStart)) * pxPerMin) + 'px';
+            }
+        }
+
+        document.addEventListener('mousemove', isWeekView ? onMoveWeek : onMoveLegacy);
         document.addEventListener('mouseup', onUp);
     });
 }
@@ -421,6 +674,17 @@ function discardDraft(e) {
         setButtonLoading(btn, false);
         showToast('초안 취소에 실패했습니다. 다시 시도해주세요.', 'danger');
     });
+}
+
+function timeToMinutes(timeStr) {
+    var parts = timeStr.split(':');
+    return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+}
+
+function minutesToTimeStr(minutes) {
+    var h = Math.floor(minutes / 60);
+    var m = minutes % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
 }
 
 function addMinutes(timeStr, minutes) {

@@ -197,6 +197,90 @@
     z-index: 100;
 }
 
+/* Week timeline */
+.week-day-col {
+    background: var(--bs-body-bg);
+}
+
+.week-today {
+    background-color: rgba(13, 110, 253, 0.04) !important;
+}
+
+.week-hour-label {
+    position: absolute;
+    right: 4px;
+    font-size: 0.7rem;
+    color: var(--bs-secondary-color);
+    transform: translateY(-50%);
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+}
+
+.week-hour-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--bs-border-color);
+    pointer-events: none;
+}
+
+.week-half-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--bs-border-color);
+    opacity: 0.4;
+    pointer-events: none;
+    border-top: 1px dashed var(--bs-border-color);
+}
+
+.week-lunch-overlay {
+    position: absolute;
+    left: 0;
+    right: 0;
+    background: repeating-linear-gradient(
+        45deg,
+        var(--bs-tertiary-bg),
+        var(--bs-tertiary-bg) 4px,
+        var(--bs-secondary-bg) 4px,
+        var(--bs-secondary-bg) 8px
+    );
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Drop indicator line shown during drag */
+.week-drop-indicator {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #0d6efd;
+    z-index: 30;
+    pointer-events: none;
+}
+
+.week-drop-indicator::before {
+    content: attr(data-time);
+    position: absolute;
+    left: 2px;
+    top: 2px;
+    font-size: 0.65rem;
+    color: #0d6efd;
+    background: white;
+    padding: 0 3px;
+    border-radius: 2px;
+    white-space: nowrap;
+}
+
+.week-day-col.drag-over {
+    background-color: rgba(13, 110, 253, 0.06);
+}
+
 /* Month view */
 .month-day {
     min-height: 100px;

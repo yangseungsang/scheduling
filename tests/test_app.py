@@ -21,7 +21,7 @@ def test_day_view_loads(page: Page):
 
 def test_week_view_loads(page: Page):
     page.goto(BASE_URL + '/schedule/week')
-    expect(page.locator('table')).to_be_visible()
+    expect(page.locator('#week-timeline-scroll')).to_be_visible()
 
 
 def test_month_view_loads(page: Page):
@@ -323,7 +323,7 @@ def test_admin_user_edit(page: Page):
 def test_week_view_with_date_param(page: Page):
     """특정 날짜의 주간 뷰 로드."""
     page.goto(BASE_URL + '/schedule/week?date=2025-01-06')
-    expect(page.locator('table')).to_be_visible()
+    expect(page.locator('#week-timeline-scroll')).to_be_visible()
 
 
 def test_day_view_invalid_date(page: Page):

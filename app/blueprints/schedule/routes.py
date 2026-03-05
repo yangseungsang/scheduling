@@ -57,21 +57,47 @@ def week_view():
         week_start.strftime('%Y-%m-%d'), week_end.strftime('%Y-%m-%d'))
     categories = category_repo.get_all_categories()
     work_hours = settings_repo.get_work_hours()
+    unscheduled = task_repo.get_unscheduled_tasks(category_id=category_id)
     week_days = [week_start + timedelta(days=i) for i in range(7)]
+
+    # 타임라인 절대 위치 계산 (PX_PER_MIN = 2)
+    PX = 2
+    wsh, wsm = map(int, work_hours['work_start'].split(':'))
+    weh, wem = map(int, work_hours['work_end'].split(':'))
+    lsh, lsm = map(int, work_hours['lunch_start'].split(':'))
+    leh, lem = map(int, work_hours['lunch_end'].split(':'))
+    work_start_min = wsh * 60 + wsm
+    work_end_min = weh * 60 + wem
+    timeline_height_px = (work_end_min - work_start_min) * PX
+    lunch_top_px = (lsh * 60 + lsm - work_start_min) * PX
+    lunch_height_px = (leh * 60 + lem - lsh * 60 - lsm) * PX
 
     blocks_by_date = {}
     for block in blocks:
         d = block['assigned_date']
         if d not in blocks_by_date:
             blocks_by_date[d] = []
-        blocks_by_date[d].append(dict(block))
+        b = dict(block)
+        sh, sm = map(int, b['start_time'].split(':'))
+        eh, em = map(int, b['end_time'].split(':'))
+        b['top_px'] = (sh * 60 + sm - work_start_min) * PX
+        b['height_px'] = max(20, (eh * 60 + em - sh * 60 - sm) * PX)
+        blocks_by_date[d].append(b)
 
     return render_template('schedule/week.html',
                            blocks_by_date=blocks_by_date, week_days=week_days,
                            categories=categories, work_hours=work_hours,
+                           unscheduled=unscheduled,
                            prev_week=prev_week, next_week=next_week,
                            selected_category=category_id,
-                           today=date.today())
+                           today=date.today(),
+                           work_start_min=work_start_min,
+                           work_end_min=work_end_min,
+                           work_start_h=wsh,
+                           work_end_h=weh,
+                           timeline_height_px=timeline_height_px,
+                           lunch_top_px=lunch_top_px,
+                           lunch_height_px=lunch_height_px)
 
 
 @schedule_bp.route('/month')
