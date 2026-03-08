@@ -62,6 +62,35 @@ def _build_maps():
     )
 
 
+def _get_queue_tasks(users_map, categories_map):
+    """Get unscheduled tasks for the task queue sidebar."""
+    tasks = task_repo.get_all()
+    # Find task IDs that already have schedule blocks
+    all_blocks = schedule_repo.get_all()
+    scheduled_task_ids = {b['task_id'] for b in all_blocks}
+    queue = []
+    for t in tasks:
+        if t['status'] == 'completed' or t.get('remaining_hours', 0) <= 0:
+            continue
+        if t['id'] in scheduled_task_ids:
+            continue
+        task = dict(t)
+        assignee = users_map.get(t.get('assignee_id'))
+        category = categories_map.get(t.get('category_id'))
+        task['assignee_name'] = assignee['name'] if assignee else '(미배정)'
+        task['assignee_color'] = assignee['color'] if assignee else '#6c757d'
+        task['category_name'] = category['name'] if category else ''
+        task['category_color'] = category['color'] if category else '#6c757d'
+        queue.append(task)
+    # Sort: deadline ascending, then priority
+    priority_order = {'high': 0, 'medium': 1, 'low': 2}
+    queue.sort(key=lambda t: (
+        t.get('deadline') or '9999-12-31',
+        priority_order.get(t.get('priority', 'low'), 2),
+    ))
+    return queue
+
+
 def _generate_time_slots(settings):
     """Generate list of time slot strings from work_start to work_end."""
     interval = settings.get('grid_interval_minutes', 15)
@@ -105,6 +134,8 @@ def day_view():
     prev_date = current_date - timedelta(days=1)
     next_date = current_date + timedelta(days=1)
 
+    queue_tasks = _get_queue_tasks(users_map, categories_map)
+
     return render_template(
         'schedule/day.html',
         current_date=current_date,
@@ -114,6 +145,7 @@ def day_view():
         time_slots=time_slots,
         break_slots=break_slots,
         settings=settings,
+        queue_tasks=queue_tasks,
     )
 
 
@@ -149,6 +181,8 @@ def week_view():
 
     day_names = ['월', '화', '수', '목', '금', '토', '일']
 
+    queue_tasks = _get_queue_tasks(users_map, categories_map)
+
     return render_template(
         'schedule/week.html',
         current_date=current_date,
@@ -163,6 +197,7 @@ def week_view():
         break_slots=break_slots,
         settings=settings,
         today=date.today(),
+        queue_tasks=queue_tasks,
     )
 
 
@@ -224,6 +259,8 @@ def month_view():
 
     day_names = ['월', '화', '수', '목', '금', '토', '일']
 
+    queue_tasks = _get_queue_tasks(users_map, categories_map)
+
     return render_template(
         'schedule/month.html',
         current_date=current_date,
@@ -235,6 +272,7 @@ def month_view():
         next_date=next_month_date,
         today=date.today(),
         settings=settings,
+        queue_tasks=queue_tasks,
     )
 
 
@@ -248,14 +286,21 @@ def api_create_block():
     if not data:
         return jsonify({'error': '요청 데이터가 없습니다.'}), 400
 
-    required = ['task_id', 'assignee_id', 'date', 'start_time', 'end_time']
+    required = ['task_id', 'date', 'start_time', 'end_time']
     for field in required:
         if not data.get(field):
             return jsonify({'error': f'{field}은(는) 필수 항목입니다.'}), 400
 
+    # If no assignee_id, use the task's assignee
+    assignee_id = data.get('assignee_id', '')
+    if not assignee_id:
+        task = task_repo.get_by_id(data['task_id'])
+        if task:
+            assignee_id = task.get('assignee_id', '')
+
     block = schedule_repo.create(
         task_id=data['task_id'],
-        assignee_id=data['assignee_id'],
+        assignee_id=assignee_id,
         date=data['date'],
         start_time=data['start_time'],
         end_time=data['end_time'],

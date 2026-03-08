@@ -1,0 +1,34 @@
+<div class="task-queue" id="task-queue">
+  <div class="task-queue-header">
+    <h6 class="mb-0">업무 큐</h6>
+    <button class="btn btn-sm btn-link p-0" id="toggle-queue" title="접기/펼치기">
+      <i class="bi bi-chevron-left"></i>
+    </button>
+  </div>
+  <div class="task-queue-body" id="task-queue-body">
+    {% if queue_tasks %}
+    {% for task in queue_tasks %}
+    <div class="queue-task-item"
+         draggable="true"
+         data-task-id="{{ task.id }}"
+         data-assignee-id="{{ task.assignee_id }}"
+         data-remaining-hours="{{ task.remaining_hours }}"
+         data-priority="{{ task.priority }}">
+      <div class="queue-task-title">{{ task.title }}</div>
+      <div class="queue-task-meta">
+        <span class="badge badge-{{ task.priority }}">
+          {{ '높음' if task.priority == 'high' else ('중간' if task.priority == 'medium' else '낮음') }}
+        </span>
+        <span class="text-muted">{{ task.remaining_hours }}h</span>
+      </div>
+      <div class="queue-task-assignee">{{ task.assignee_name }}</div>
+      {% if task.deadline %}
+      <div class="queue-task-deadline text-muted">~{{ task.deadline }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="text-muted small p-2 text-center">배치 가능한 업무가 없습니다.</div>
+    {% endif %}
+  </div>
+</div>

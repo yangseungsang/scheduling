@@ -1,19 +1,19 @@
 /**
- * Drag-and-drop + scheduling controls for the calendar views.
+ * Drag-and-drop (block move + queue-to-schedule) + block resize.
  * Uses native HTML5 drag-and-drop with 15-minute grid snap.
  */
 (function () {
   'use strict';
 
-  const GRID_MINUTES = 15;
-  const SLOT_HEIGHT = 48; // px per grid interval — must match CSS
+  var GRID_MINUTES = 15;
+  var SLOT_HEIGHT = 24;
 
   // -----------------------------------------------------------------------
   // Toast helper
   // -----------------------------------------------------------------------
   function showToast(message, type) {
     type = type || 'info';
-    let container = document.getElementById('toast-container');
+    var container = document.getElementById('toast-container');
     if (!container) {
       container = document.createElement('div');
       container.id = 'toast-container';
@@ -21,7 +21,7 @@
       container.style.zIndex = '1100';
       document.body.appendChild(container);
     }
-    const toast = document.createElement('div');
+    var toast = document.createElement('div');
     toast.className = 'toast align-items-center text-bg-' + type + ' border-0 show';
     toast.setAttribute('role', 'alert');
     toast.innerHTML =
@@ -32,10 +32,10 @@
   }
 
   // -----------------------------------------------------------------------
-  // API helpers
+  // API helper
   // -----------------------------------------------------------------------
   function api(method, url, data) {
-    const opts = {
+    var opts = {
       method: method,
       headers: { 'Content-Type': 'application/json' },
     };
@@ -49,7 +49,7 @@
   }
 
   // -----------------------------------------------------------------------
-  // Snap helper — round minutes to nearest grid interval
+  // Time helpers
   // -----------------------------------------------------------------------
   function snapTime(timeStr) {
     var parts = timeStr.split(':');
@@ -57,77 +57,108 @@
     var m = parseInt(parts[1], 10);
     m = Math.round(m / GRID_MINUTES) * GRID_MINUTES;
     if (m >= 60) { h += 1; m = 0; }
-    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    return pad(h) + ':' + pad(m);
   }
 
-  // -----------------------------------------------------------------------
-  // Calculate end time from start time + duration in minutes
-  // -----------------------------------------------------------------------
   function addMinutes(timeStr, mins) {
     var parts = timeStr.split(':');
     var total = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10) + mins;
     var h = Math.floor(total / 60);
     var m = total % 60;
-    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+    return pad(h) + ':' + pad(m);
   }
 
-  function timeDiffMinutes(start, end) {
-    var s = start.split(':'), e = end.split(':');
-    return (parseInt(e[0], 10) * 60 + parseInt(e[1], 10)) -
-           (parseInt(s[0], 10) * 60 + parseInt(s[1], 10));
+  function timeToMinutes(timeStr) {
+    var parts = timeStr.split(':');
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+  }
+
+  function minutesToTime(mins) {
+    var h = Math.floor(mins / 60);
+    var m = mins % 60;
+    return pad(h) + ':' + pad(m);
+  }
+
+  function pad(n) {
+    return String(n).padStart(2, '0');
   }
 
   // -----------------------------------------------------------------------
-  // Drag and Drop
+  // Drag state
   // -----------------------------------------------------------------------
   var dragData = null;
 
-  function initDragDrop() {
-    // Make blocks draggable
+  // -----------------------------------------------------------------------
+  // 1. Existing block drag (move)
+  // -----------------------------------------------------------------------
+  function initBlockDrag() {
     document.querySelectorAll('.schedule-block[data-block-id]').forEach(function (el) {
-      el.addEventListener('dragstart', onDragStart);
-      el.addEventListener('dragend', onDragEnd);
+      el.addEventListener('dragstart', function (e) {
+        // Don't drag if resizing
+        if (el.classList.contains('resizing')) {
+          e.preventDefault();
+          return;
+        }
+        var heightPx = el.offsetHeight;
+        dragData = {
+          type: 'block-move',
+          blockId: el.dataset.blockId,
+          el: el,
+          durationMinutes: Math.round(heightPx / SLOT_HEIGHT) * GRID_MINUTES,
+        };
+        el.style.opacity = '0.5';
+        el.style.pointerEvents = 'none';
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'block:' + el.dataset.blockId);
+      });
+      el.addEventListener('dragend', function () {
+        el.style.opacity = '1';
+        el.style.pointerEvents = '';
+        clearDragOver();
+        dragData = null;
+      });
     });
+  }
 
-    // Make time slots droppable
+  // -----------------------------------------------------------------------
+  // 2. Queue task drag (new block creation)
+  // -----------------------------------------------------------------------
+  function initQueueDrag() {
+    document.querySelectorAll('.queue-task-item[data-task-id]').forEach(function (el) {
+      el.addEventListener('dragstart', function (e) {
+        dragData = {
+          type: 'queue-task',
+          taskId: el.dataset.taskId,
+          assigneeId: el.dataset.assigneeId || '',
+          remainingHours: parseFloat(el.dataset.remainingHours) || 1,
+          el: el,
+        };
+        el.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'copy';
+        e.dataTransfer.setData('text/plain', 'task:' + el.dataset.taskId);
+      });
+      el.addEventListener('dragend', function () {
+        el.classList.remove('dragging');
+        clearDragOver();
+        dragData = null;
+      });
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // 3. Droppable time slots (day/week views)
+  // -----------------------------------------------------------------------
+  function initTimeSlotDrop() {
     document.querySelectorAll('.time-slot').forEach(function (el) {
       el.addEventListener('dragover', onDragOver);
       el.addEventListener('dragleave', onDragLeave);
-      el.addEventListener('drop', onDrop);
+      el.addEventListener('drop', onTimeSlotDrop);
     });
-  }
-
-  function onDragStart(e) {
-    var el = e.target.closest('.schedule-block');
-    if (!el) return;
-    dragData = {
-      blockId: el.dataset.blockId,
-      el: el,
-      startTime: el.dataset.startTime || '',
-      endTime: el.dataset.endTime || '',
-    };
-    // Calculate duration from pixel height
-    var heightPx = el.offsetHeight;
-    dragData.durationMinutes = Math.round(heightPx / SLOT_HEIGHT) * GRID_MINUTES;
-
-    el.style.opacity = '0.5';
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', el.dataset.blockId);
-  }
-
-  function onDragEnd(e) {
-    if (dragData && dragData.el) {
-      dragData.el.style.opacity = '1';
-    }
-    document.querySelectorAll('.time-slot.drag-over').forEach(function (el) {
-      el.classList.remove('drag-over');
-    });
-    dragData = null;
   }
 
   function onDragOver(e) {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = dragData && dragData.type === 'queue-task' ? 'copy' : 'move';
     e.currentTarget.classList.add('drag-over');
   }
 
@@ -135,7 +166,7 @@
     e.currentTarget.classList.remove('drag-over');
   }
 
-  function onDrop(e) {
+  function onTimeSlotDrop(e) {
     e.preventDefault();
     e.currentTarget.classList.remove('drag-over');
     if (!dragData) return;
@@ -143,24 +174,188 @@
     var slot = e.currentTarget;
     var newDate = slot.dataset.date;
     var newTime = snapTime(slot.dataset.time);
-    var duration = dragData.durationMinutes || GRID_MINUTES;
-    var newEnd = addMinutes(newTime, duration);
 
-    api('PUT', '/schedule/api/blocks/' + dragData.blockId, {
-      date: newDate,
-      start_time: newTime,
-      end_time: newEnd,
-    }).then(function () {
-      location.reload();
-    }).catch(function (err) {
-      showToast(err.message, 'danger');
-      // Rollback — just reload
-      location.reload();
+    if (dragData.type === 'block-move') {
+      // Move existing block
+      var duration = dragData.durationMinutes || GRID_MINUTES;
+      var newEnd = addMinutes(newTime, duration);
+      api('PUT', '/schedule/api/blocks/' + dragData.blockId, {
+        date: newDate,
+        start_time: newTime,
+        end_time: newEnd,
+      }).then(function () {
+        location.reload();
+      }).catch(function (err) {
+        showToast(err.message, 'danger');
+      });
+
+    } else if (dragData.type === 'queue-task') {
+      // Create new block sized to remaining_hours (capped at 4h to avoid overflow)
+      var blockMinutes = Math.min(dragData.remainingHours * 60, 240);
+      blockMinutes = Math.max(blockMinutes, GRID_MINUTES); // at least 1 slot
+      // Snap to grid
+      blockMinutes = Math.round(blockMinutes / GRID_MINUTES) * GRID_MINUTES;
+      var newEnd = addMinutes(newTime, blockMinutes);
+
+      api('POST', '/schedule/api/blocks', {
+        task_id: dragData.taskId,
+        assignee_id: dragData.assigneeId,
+        date: newDate,
+        start_time: newTime,
+        end_time: newEnd,
+        origin: 'manual',
+      }).then(function () {
+        location.reload();
+      }).catch(function (err) {
+        showToast(err.message, 'danger');
+      });
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // 4. Droppable month day cells
+  // -----------------------------------------------------------------------
+  function initMonthDrop() {
+    document.querySelectorAll('.month-day-cell[data-date]').forEach(function (el) {
+      el.addEventListener('dragover', function (e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        el.classList.add('drag-over');
+      });
+      el.addEventListener('dragleave', function () {
+        el.classList.remove('drag-over');
+      });
+      el.addEventListener('drop', function (e) {
+        e.preventDefault();
+        el.classList.remove('drag-over');
+        if (!dragData || dragData.type !== 'queue-task') return;
+
+        // Create block at work_start (09:00) for 1 hour
+        var cellDate = el.dataset.date;
+        api('POST', '/schedule/api/blocks', {
+          task_id: dragData.taskId,
+          assignee_id: dragData.assigneeId,
+          date: cellDate,
+          start_time: '09:00',
+          end_time: '10:00',
+          origin: 'manual',
+        }).then(function () {
+          location.reload();
+        }).catch(function (err) {
+          showToast(err.message, 'danger');
+        });
+      });
+    });
+  }
+
+  function clearDragOver() {
+    document.querySelectorAll('.drag-over').forEach(function (el) {
+      el.classList.remove('drag-over');
     });
   }
 
   // -----------------------------------------------------------------------
-  // Block context actions (lock toggle, delete)
+  // 5. Block resize (top/bottom handles)
+  // -----------------------------------------------------------------------
+  function initResize() {
+    var resizeState = null;
+
+    document.querySelectorAll('.resize-handle').forEach(function (handle) {
+      handle.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        var block = handle.closest('.schedule-block');
+        if (!block) return;
+
+        var isTop = handle.classList.contains('resize-handle-top');
+        var startY = e.clientY;
+        var origTop = parseInt(block.style.top, 10);
+        var origHeight = parseInt(block.style.height, 10);
+
+        block.classList.add('resizing');
+        block.setAttribute('draggable', 'false');
+
+        resizeState = {
+          block: block,
+          blockId: block.dataset.blockId,
+          isTop: isTop,
+          startY: startY,
+          origTop: origTop,
+          origHeight: origHeight,
+        };
+
+        function onMouseMove(ev) {
+          if (!resizeState) return;
+          var delta = ev.clientY - resizeState.startY;
+          // Snap delta to slot increments
+          var snappedDelta = Math.round(delta / SLOT_HEIGHT) * SLOT_HEIGHT;
+
+          if (resizeState.isTop) {
+            var newTop = resizeState.origTop + snappedDelta;
+            var newHeight = resizeState.origHeight - snappedDelta;
+            if (newHeight >= SLOT_HEIGHT && newTop >= 0) {
+              resizeState.block.style.top = newTop + 'px';
+              resizeState.block.style.height = newHeight + 'px';
+            }
+          } else {
+            var newHeight = resizeState.origHeight + snappedDelta;
+            if (newHeight >= SLOT_HEIGHT) {
+              resizeState.block.style.height = newHeight + 'px';
+            }
+          }
+        }
+
+        function onMouseUp() {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          if (!resizeState) return;
+
+          var block = resizeState.block;
+          block.classList.remove('resizing');
+          block.setAttribute('draggable', 'true');
+
+          var finalTop = parseInt(block.style.top, 10);
+          var finalHeight = parseInt(block.style.height, 10);
+
+          // Calculate new times from pixel positions
+          // Find the work_start from the first time-gutter-label or time-slot
+          var firstSlot = document.querySelector('.time-slot[data-time]');
+          var workStartMinutes = firstSlot ? timeToMinutes(firstSlot.dataset.time) : 540;
+
+          var newStartMinutes = workStartMinutes + Math.round(finalTop / SLOT_HEIGHT) * GRID_MINUTES;
+          var durationMinutes = Math.round(finalHeight / SLOT_HEIGHT) * GRID_MINUTES;
+          var newEndMinutes = newStartMinutes + durationMinutes;
+
+          var newStart = minutesToTime(newStartMinutes);
+          var newEnd = minutesToTime(newEndMinutes);
+
+          // Only update if actually changed
+          if (newStart !== block.dataset.startTime || newEnd !== block.dataset.endTime) {
+            api('PUT', '/schedule/api/blocks/' + resizeState.blockId, {
+              start_time: newStart,
+              end_time: newEnd,
+            }).then(function () {
+              location.reload();
+            }).catch(function (err) {
+              showToast(err.message, 'danger');
+              // Rollback
+              block.style.top = resizeState.origTop + 'px';
+              block.style.height = resizeState.origHeight + 'px';
+            });
+          }
+
+          resizeState = null;
+        }
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      });
+    });
+  }
+
+  // -----------------------------------------------------------------------
+  // 6. Block context menu (right-click: lock toggle, delete)
   // -----------------------------------------------------------------------
   function initBlockActions() {
     document.addEventListener('contextmenu', function (e) {
@@ -172,7 +367,6 @@
   }
 
   function showBlockMenu(e, blockId) {
-    // Remove any existing menu
     var old = document.getElementById('block-context-menu');
     if (old) old.remove();
 
@@ -181,12 +375,14 @@
     menu.className = 'dropdown-menu show';
     menu.style.cssText = 'position:fixed;z-index:1200;left:' + e.clientX + 'px;top:' + e.clientY + 'px;';
     menu.innerHTML =
-      '<button class="dropdown-item" data-action="lock">잠금 토글</button>' +
-      '<button class="dropdown-item text-danger" data-action="delete">삭제</button>';
+      '<button class="dropdown-item" data-action="lock"><i class="bi bi-lock"></i> 잠금 토글</button>' +
+      '<button class="dropdown-item text-danger" data-action="delete"><i class="bi bi-trash"></i> 삭제</button>';
     document.body.appendChild(menu);
 
     menu.addEventListener('click', function (ev) {
-      var action = ev.target.dataset.action;
+      var btn = ev.target.closest('[data-action]');
+      if (!btn) return;
+      var action = btn.dataset.action;
       menu.remove();
       if (action === 'lock') {
         api('PUT', '/schedule/api/blocks/' + blockId + '/lock').then(function () {
@@ -201,7 +397,6 @@
       }
     });
 
-    // Close on click outside
     setTimeout(function () {
       document.addEventListener('click', function handler() {
         menu.remove();
@@ -211,10 +406,10 @@
   }
 
   // -----------------------------------------------------------------------
-  // Draft scheduling controls
+  // 7. Draft scheduling controls
   // -----------------------------------------------------------------------
   function initDraftControls() {
-    var toolbar = document.querySelector('.day-nav, .week-nav');
+    var toolbar = document.querySelector('.schedule-nav');
     if (!toolbar) return;
 
     var group = document.createElement('div');
@@ -225,7 +420,6 @@
       '<button class="btn btn-sm btn-outline-danger" id="btn-discard" style="display:none">초안 폐기</button>';
     toolbar.appendChild(group);
 
-    // Show approve/discard if drafts exist
     if (document.querySelector('.schedule-block.draft')) {
       document.getElementById('btn-approve').style.display = '';
       document.getElementById('btn-discard').style.display = '';
@@ -259,11 +453,29 @@
   }
 
   // -----------------------------------------------------------------------
+  // 8. Queue toggle
+  // -----------------------------------------------------------------------
+  function initQueueToggle() {
+    var btn = document.getElementById('toggle-queue');
+    var queue = document.getElementById('task-queue');
+    if (!btn || !queue) return;
+
+    btn.addEventListener('click', function () {
+      queue.classList.toggle('collapsed');
+    });
+  }
+
+  // -----------------------------------------------------------------------
   // Init
   // -----------------------------------------------------------------------
   document.addEventListener('DOMContentLoaded', function () {
-    initDragDrop();
+    initBlockDrag();
+    initQueueDrag();
+    initTimeSlotDrop();
+    initMonthDrop();
+    initResize();
     initBlockActions();
     initDraftControls();
+    initQueueToggle();
   });
 })();

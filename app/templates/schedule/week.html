@@ -4,211 +4,86 @@
 
 {% block main_class %}container-fluid p-0{% endblock %}
 
-{% block head %}
-<style>
-  .week-wrapper {
-    display: flex;
-    flex-direction: column;
-    height: calc(100vh - 56px);
-  }
-  .week-nav {
-    flex-shrink: 0;
-    padding: 0.5rem 1rem;
-    background: #f8f9fa;
-    border-bottom: 1px solid #dee2e6;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-  .week-body {
-    flex: 1;
-    overflow: auto;
-  }
-  .week-grid {
-    display: flex;
-    min-height: 100%;
-  }
-  .week-time-gutter {
-    width: 70px;
-    flex-shrink: 0;
-    border-right: 1px solid #dee2e6;
-    background: #f8f9fa;
-  }
-  .week-time-gutter .gutter-header {
-    height: 40px;
-    border-bottom: 2px solid #dee2e6;
-  }
-  .week-time-gutter .gutter-label {
-    height: 48px;
-    display: flex;
-    align-items: flex-start;
-    justify-content: flex-end;
-    padding: 2px 8px 0 0;
-    font-size: 0.75rem;
-    color: #6c757d;
-    border-bottom: 1px solid #eee;
-  }
-  .week-columns {
-    flex: 1;
-    display: flex;
-    min-width: 0;
-  }
-  .week-day-col {
-    flex: 1;
-    min-width: 0;
-    border-right: 1px solid #dee2e6;
-    position: relative;
-  }
-  .week-day-col:last-child {
-    border-right: none;
-  }
-  .week-day-header {
-    height: 40px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    border-bottom: 2px solid #dee2e6;
-    background: #f8f9fa;
-    font-size: 0.8rem;
-    position: sticky;
-    top: 0;
-    z-index: 5;
-  }
-  .week-day-header a {
-    text-decoration: none;
-    color: inherit;
-    font-weight: 600;
-  }
-  .week-day-header a:hover {
-    color: #0d6efd;
-  }
-  .week-day-header .day-date {
-    font-size: 0.7rem;
-    color: #6c757d;
-  }
-  .week-day-header.today {
-    background: #e3f0ff;
-  }
-  .week-day-slots {
-    position: relative;
-  }
-  .week-time-slot {
-    height: 48px;
-    border-bottom: 1px solid #eee;
-  }
-  .week-time-slot.break-slot {
-    background: #f0f0f0;
-  }
-  .week-block {
-    position: absolute;
-    left: 2px;
-    right: 2px;
-    border-radius: 3px;
-    padding: 2px 4px;
-    font-size: 0.7rem;
-    overflow: hidden;
-    cursor: grab;
-    z-index: 10;
-    color: #fff;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
-  }
-  .week-block.draft {
-    border: 2px dashed rgba(255,255,255,0.7);
-  }
-  .week-block .block-title {
-    font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .week-block .block-assignee {
-    font-size: 0.65rem;
-    opacity: 0.9;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .week-block .lock-icon {
-    position: absolute;
-    top: 2px;
-    right: 4px;
-    font-size: 0.6rem;
-  }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="week-wrapper">
-  {# Navigation #}
-  <div class="week-nav">
-    <a href="{{ url_for('schedule.week_view', date=prev_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-chevron-left"></i>
-    </a>
-    <a href="{{ url_for('schedule.week_view') }}" class="btn btn-sm btn-outline-primary">오늘</a>
-    <a href="{{ url_for('schedule.week_view', date=next_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
-      <i class="bi bi-chevron-right"></i>
-    </a>
-    <h5 class="mb-0 ms-2">
-      {{ week_start.strftime('%Y년 %m월 %d일') }} — {{ week_end.strftime('%m월 %d일') }}
-    </h5>
-  </div>
+<div class="schedule-layout">
+  {# Task queue sidebar #}
+  {% include "schedule/_task_queue.html" %}
 
-  {# Grid #}
-  <div class="week-body">
-    <div class="week-grid">
-      {# Time gutter #}
-      <div class="week-time-gutter">
-        <div class="gutter-header"></div>
-        {% for slot in time_slots %}
-        <div class="gutter-label">{{ slot }}</div>
-        {% endfor %}
-      </div>
+  <div class="schedule-main">
+    {# Navigation #}
+    <div class="week-nav schedule-nav">
+      <a href="{{ url_for('schedule.week_view', date=prev_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+      <a href="{{ url_for('schedule.week_view') }}" class="btn btn-sm btn-outline-primary">오늘</a>
+      <a href="{{ url_for('schedule.week_view', date=next_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+      <h5 class="mb-0 ms-2">
+        {{ week_start.strftime('%Y년 %m월 %d일') }} — {{ week_end.strftime('%m월 %d일') }}
+      </h5>
+    </div>
 
-      {# Day columns #}
-      <div class="week-columns">
-        {% for day in week_days %}
-        <div class="week-day-col">
-          <div class="week-day-header{% if day == today %} today{% endif %}">
-            <a href="{{ url_for('schedule.day_view', date=day.isoformat()) }}">
-              {{ day_names[loop.index0] }} {{ day.strftime('%d') }}
-            </a>
-          </div>
-          <div class="week-day-slots">
-            {% for slot in time_slots %}
-            <div class="week-time-slot time-slot{% if slot in break_slots %} break-slot{% endif %}"
-                 data-date="{{ day.isoformat() }}"
-                 data-time="{{ slot }}">
-            </div>
-            {% endfor %}
-
-            {# Blocks for this day #}
-            {% set day_blocks = blocks_by_date.get(day.isoformat(), []) %}
-            {% for block in day_blocks %}
-            {% set slot_height = 48 %}
-            {% set interval = settings.grid_interval_minutes %}
-            {% set work_start_parts = settings.work_start.split(':') %}
-            {% set work_start_min = work_start_parts[0]|int * 60 + work_start_parts[1]|int %}
-            {% set start_parts = block.start_time.split(':') %}
-            {% set start_min = start_parts[0]|int * 60 + start_parts[1]|int %}
-            {% set end_parts = block.end_time.split(':') %}
-            {% set end_min = end_parts[0]|int * 60 + end_parts[1]|int %}
-            {% set top_px = ((start_min - work_start_min) / interval * slot_height)|int %}
-            {% set height_px = ((end_min - start_min) / interval * slot_height)|int %}
-            <div class="week-block schedule-block{% if block.is_draft %} draft{% endif %}"
-                 data-block-id="{{ block.id }}"
-                 draggable="true"
-                 style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }};">
-              <div class="block-title">{{ block.task_title }}</div>
-              <div class="block-assignee">{{ block.assignee_name }}</div>
-              {% if block.is_locked %}
-              <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>
-              {% endif %}
-            </div>
-            {% endfor %}
-          </div>
+    {# Grid #}
+    <div class="schedule-body">
+      <div class="week-grid">
+        {# Time gutter #}
+        <div class="week-time-gutter">
+          <div class="gutter-header"></div>
+          {% for slot in time_slots %}
+          <div class="gutter-label">{{ slot if loop.index0 % 2 == 0 else '' }}</div>
+          {% endfor %}
         </div>
-        {% endfor %}
+
+        {# Day columns #}
+        <div class="week-columns">
+          {% for day in week_days %}
+          <div class="week-day-col">
+            <div class="week-day-header{% if day == today %} today{% endif %}">
+              <a href="{{ url_for('schedule.day_view', date=day.isoformat()) }}">
+                {{ day_names[loop.index0] }} {{ day.strftime('%d') }}
+              </a>
+            </div>
+            <div class="week-day-slots">
+              {% for slot in time_slots %}
+              <div class="week-time-slot time-slot{% if slot in break_slots %} break-slot{% endif %}"
+                   data-date="{{ day.isoformat() }}"
+                   data-time="{{ slot }}">
+              </div>
+              {% endfor %}
+
+              {# Blocks for this day #}
+              {% set day_blocks = blocks_by_date.get(day.isoformat(), []) %}
+              {% for block in day_blocks %}
+              {% set slot_height = 24 %}
+              {% set interval = settings.grid_interval_minutes %}
+              {% set work_start_parts = settings.work_start.split(':') %}
+              {% set work_start_min = work_start_parts[0]|int * 60 + work_start_parts[1]|int %}
+              {% set start_parts = block.start_time.split(':') %}
+              {% set start_min = start_parts[0]|int * 60 + start_parts[1]|int %}
+              {% set end_parts = block.end_time.split(':') %}
+              {% set end_min = end_parts[0]|int * 60 + end_parts[1]|int %}
+              {% set top_px = ((start_min - work_start_min) / interval * slot_height)|int %}
+              {% set height_px = ((end_min - start_min) / interval * slot_height)|int %}
+              <div class="week-block schedule-block{% if block.is_draft %} draft{% endif %}"
+                   data-block-id="{{ block.id }}"
+                   data-start-time="{{ block.start_time }}"
+                   data-end-time="{{ block.end_time }}"
+                   draggable="true"
+                   style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }};">
+                <div class="resize-handle resize-handle-top"></div>
+                <div class="block-title">{{ block.task_title }}</div>
+                <div class="block-assignee">{{ block.assignee_name }}</div>
+                {% if block.is_locked %}
+                <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>
+                {% endif %}
+                <div class="resize-handle resize-handle-bottom"></div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
       </div>
     </div>
   </div>

@@ -4,10 +4,7 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
-
-.navbar-brand {
-  font-weight: 700;
-}
+.navbar-brand { font-weight: 700; }
 
 /* ---- Priority badges ---- */
 .badge-high { background-color: #dc3545; }
@@ -19,46 +16,376 @@ body {
 .badge-in_progress { background-color: #0d6efd; }
 .badge-completed { background-color: #198754; }
 
-/* ---- Drag over visual feedback ---- */
+/* ==================================================================
+   Schedule Layout: Task Queue + Main Content
+   ================================================================== */
+.schedule-layout {
+  display: flex;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+.schedule-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.schedule-nav {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.schedule-body {
+  flex: 1;
+  overflow: auto;
+}
+
+/* ==================================================================
+   Task Queue Sidebar
+   ================================================================== */
+.task-queue {
+  width: 220px;
+  flex-shrink: 0;
+  background: #f8f9fa;
+  border-right: 2px solid #dee2e6;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+.task-queue.collapsed {
+  width: 40px;
+}
+.task-queue.collapsed .task-queue-body {
+  display: none;
+}
+.task-queue.collapsed .task-queue-header h6 {
+  display: none;
+}
+.task-queue.collapsed #toggle-queue i {
+  transform: rotate(180deg);
+}
+
+.task-queue-header {
+  padding: 0.5rem;
+  border-bottom: 1px solid #dee2e6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #e9ecef;
+}
+
+.task-queue-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.queue-task-item {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  cursor: grab;
+  font-size: 0.8rem;
+  transition: box-shadow 0.15s;
+}
+.queue-task-item:hover {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  border-color: #0d6efd;
+}
+.queue-task-item:active {
+  cursor: grabbing;
+}
+.queue-task-item.dragging {
+  opacity: 0.4;
+}
+
+.queue-task-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.queue-task-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 1px;
+}
+.queue-task-meta .badge { font-size: 0.65rem; }
+.queue-task-assignee {
+  font-size: 0.7rem;
+  color: #6c757d;
+}
+.queue-task-deadline {
+  font-size: 0.65rem;
+}
+
+/* ==================================================================
+   Timeline (Day/Week shared)
+   ================================================================== */
+.timeline {
+  display: flex;
+  min-height: 100%;
+}
+
+.time-gutter {
+  width: 70px;
+  flex-shrink: 0;
+  border-right: 1px solid #dee2e6;
+  background: #f8f9fa;
+}
+.time-gutter-label {
+  height: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 0 8px 0 0;
+  font-size: 0.7rem;
+  color: #6c757d;
+  border-bottom: 1px solid #eee;
+}
+
+.time-content {
+  flex: 1;
+  position: relative;
+}
+
+.time-slot {
+  height: 24px;
+  border-bottom: 1px solid #eee;
+  position: relative;
+}
+.time-slot.break-slot { background: #f0f0f0; }
+.time-slot:hover { background: #e8f4fd; }
 .time-slot.drag-over {
   background-color: #cfe2ff !important;
   outline: 2px dashed #0d6efd;
   outline-offset: -2px;
 }
 
-/* ---- Toast container ---- */
-#toast-container {
-  z-index: 1100;
+/* ==================================================================
+   Schedule Blocks
+   ================================================================== */
+.schedule-block {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  overflow: hidden;
+  cursor: grab;
+  z-index: 10;
+  color: #fff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
-
-/* ---- Context menu ---- */
-#block-context-menu {
-  min-width: 120px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+.schedule-block.draft {
+  border: 2px dashed rgba(255,255,255,0.7);
 }
-
-/* ---- Schedule block hover ---- */
 .schedule-block:hover {
   box-shadow: 0 2px 6px rgba(0,0,0,0.35);
   filter: brightness(1.05);
 }
-
-/* ---- Task list table ---- */
-.task-table th {
+.schedule-block .block-title {
+  font-weight: 600;
   white-space: nowrap;
-  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.task-table td {
-  vertical-align: middle;
-  font-size: 0.9rem;
+.schedule-block .block-assignee {
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+.schedule-block .lock-icon {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 0.7rem;
 }
 
-/* ---- Filter bar ---- */
-.filter-bar .form-select {
-  font-size: 0.85rem;
+/* ---- Resize Handles ---- */
+.resize-handle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 5px;
+  cursor: ns-resize;
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+.schedule-block:hover .resize-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+.resize-handle-top {
+  top: 0;
+  border-radius: 4px 4px 0 0;
+  background: linear-gradient(to bottom, rgba(255,255,255,0.5), transparent);
+}
+.resize-handle-bottom {
+  bottom: 0;
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(to top, rgba(255,255,255,0.5), transparent);
+}
+.schedule-block.resizing {
+  opacity: 0.85;
+  z-index: 30;
 }
 
-/* ---- Admin tables ---- */
-.admin-table .badge {
-  min-width: 30px;
+/* ==================================================================
+   Week-specific
+   ================================================================== */
+.week-grid {
+  display: flex;
+  min-height: 100%;
 }
+.week-time-gutter {
+  width: 70px;
+  flex-shrink: 0;
+  border-right: 1px solid #dee2e6;
+  background: #f8f9fa;
+}
+.week-time-gutter .gutter-header {
+  height: 40px;
+  border-bottom: 2px solid #dee2e6;
+}
+.week-time-gutter .gutter-label {
+  height: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 0 8px 0 0;
+  font-size: 0.7rem;
+  color: #6c757d;
+  border-bottom: 1px solid #eee;
+}
+.week-columns {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+}
+.week-day-col {
+  flex: 1;
+  min-width: 0;
+  border-right: 1px solid #dee2e6;
+  position: relative;
+}
+.week-day-col:last-child { border-right: none; }
+.week-day-header {
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-bottom: 2px solid #dee2e6;
+  background: #f8f9fa;
+  font-size: 0.8rem;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.week-day-header a { text-decoration: none; color: inherit; font-weight: 600; }
+.week-day-header a:hover { color: #0d6efd; }
+.week-day-header.today { background: #e3f0ff; }
+.week-day-slots { position: relative; }
+.week-time-slot {
+  height: 24px;
+  border-bottom: 1px solid #eee;
+}
+.week-time-slot.break-slot { background: #f0f0f0; }
+.week-block {
+  left: 2px;
+  right: 2px;
+  padding: 2px 4px;
+  font-size: 0.7rem;
+}
+.week-block .block-title { font-size: 0.7rem; }
+.week-block .block-assignee {
+  font-size: 0.65rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.week-block .lock-icon { font-size: 0.6rem; top: 2px; right: 4px; }
+
+/* ==================================================================
+   Month-specific
+   ================================================================== */
+.month-body { padding: 0; }
+.month-table {
+  width: 100%;
+  height: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+.month-table thead th {
+  text-align: center;
+  padding: 8px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  font-size: 0.85rem;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.month-table tbody td {
+  border: 1px solid #dee2e6;
+  vertical-align: top;
+  padding: 4px;
+  height: calc((100vh - 56px - 50px - 40px) / 6);
+  overflow: hidden;
+}
+.month-table tbody td.empty-cell { background: #fafafa; }
+.month-table tbody td.today-cell { background: #e8f4fd; }
+.month-day-cell.drag-over {
+  background-color: #cfe2ff !important;
+  outline: 2px dashed #0d6efd;
+  outline-offset: -2px;
+}
+.day-number { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+.day-number a { text-decoration: none; color: inherit; }
+.day-number a:hover { color: #0d6efd; }
+.month-block-item {
+  font-size: 0.7rem;
+  padding: 1px 4px;
+  margin-bottom: 2px;
+  border-radius: 2px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.month-block-item.draft { border: 1px dashed rgba(255,255,255,0.7); }
+.month-more-count { font-size: 0.7rem; color: #6c757d; padding-left: 4px; }
+
+/* ==================================================================
+   Context menu & Toast
+   ================================================================== */
+#block-context-menu {
+  min-width: 120px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+#toast-container { z-index: 1100; }
+
+/* ==================================================================
+   Task list / Admin tables
+   ================================================================== */
+.task-table th { white-space: nowrap; font-size: 0.85rem; }
+.task-table td { vertical-align: middle; font-size: 0.9rem; }
+.filter-bar .form-select { font-size: 0.85rem; }
+.admin-table .badge { min-width: 30px; }
