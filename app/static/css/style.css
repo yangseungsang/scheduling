@@ -1,409 +1,64 @@
-/* Timeline */
-.timeline-container {
-    overflow-y: auto;
-    position: relative;
+/* Team Scheduler Styles */
+
+/* ---- General ---- */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
-.time-slot {
-    display: grid;
-    grid-template-columns: 60px 1fr;
-    min-height: 30px;
-    border-bottom: 1px solid var(--bs-border-color);
+.navbar-brand {
+  font-weight: 700;
 }
 
-.time-label {
-    font-size: 0.75rem;
-    color: var(--bs-secondary-color);
-    padding: 4px;
-    text-align: right;
-    padding-right: 8px;
-    white-space: nowrap;
+/* ---- Priority badges ---- */
+.badge-high { background-color: #dc3545; }
+.badge-medium { background-color: #ffc107; color: #212529; }
+.badge-low { background-color: #17a2b8; }
+
+/* ---- Status badges ---- */
+.badge-waiting { background-color: #6c757d; }
+.badge-in_progress { background-color: #0d6efd; }
+.badge-completed { background-color: #198754; }
+
+/* ---- Drag over visual feedback ---- */
+.time-slot.drag-over {
+  background-color: #cfe2ff !important;
+  outline: 2px dashed #0d6efd;
+  outline-offset: -2px;
 }
 
-.time-slot-content {
-    position: relative;
-    border-left: 1px solid var(--bs-border-color);
-    min-height: 30px;
+/* ---- Toast container ---- */
+#toast-container {
+  z-index: 1100;
 }
 
-.lunch-slot {
-    background-color: var(--bs-tertiary-bg);
+/* ---- Context menu ---- */
+#block-context-menu {
+  min-width: 120px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
-.lunch-slot .time-slot-content {
-    background: repeating-linear-gradient(
-        45deg,
-        var(--bs-tertiary-bg),
-        var(--bs-tertiary-bg) 5px,
-        var(--bs-secondary-bg) 5px,
-        var(--bs-secondary-bg) 10px
-    );
-}
-
-/* Current time indicator */
-.current-time-line {
-    position: absolute;
-    left: 60px;
-    right: 0;
-    height: 2px;
-    background-color: #dc3545;
-    z-index: 10;
-    pointer-events: none;
-}
-
-.current-time-line::before {
-    content: '';
-    position: absolute;
-    left: -5px;
-    top: -4px;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background-color: #dc3545;
-}
-
-/* Task Blocks */
-.schedule-block {
-    position: relative;
-    border-radius: 6px;
-    padding: 6px 8px 6px 8px;
-    font-size: 0.8rem;
-    cursor: grab;
-    border-left: 4px solid rgba(0,0,0,0.2);
-    margin: 2px;
-    overflow: visible;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    transition: box-shadow 0.15s;
-}
-
-/* Resize handles */
-.block-resize-top,
-.block-resize-bottom {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 7px;
-    cursor: ns-resize;
-    z-index: 5;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.block-resize-top {
-    top: 0;
-    border-radius: 6px 6px 0 0;
-}
-
-.block-resize-bottom {
-    bottom: 0;
-    border-radius: 0 0 6px 6px;
-}
-
-.block-resize-top::after,
-.block-resize-bottom::after {
-    content: '';
-    display: block;
-    width: 24px;
-    height: 3px;
-    border-radius: 2px;
-    background: rgba(0,0,0,0.15);
-    opacity: 0;
-    transition: opacity 0.15s;
-}
-
-.schedule-block:hover .block-resize-top::after,
-.schedule-block:hover .block-resize-bottom::after {
-    opacity: 1;
-}
-
-.block-resize-top:hover::after,
-.block-resize-bottom:hover::after {
-    background: rgba(0,0,0,0.4);
-    opacity: 1;
-}
-
-/* Resize drag active */
-.schedule-block.resizing {
-    opacity: 0.8;
-    outline: 2px dashed #0d6efd;
-}
-
-.time-slot.resize-target .time-slot-content {
-    background-color: rgba(13, 110, 253, 0.12) !important;
-    outline: 2px dashed #0d6efd;
-}
-
+/* ---- Schedule block hover ---- */
 .schedule-block:hover {
-    box-shadow: 0 3px 8px rgba(0,0,0,0.2);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  filter: brightness(1.05);
 }
 
-.schedule-block.is-draft {
-    opacity: 0.65;
-    border-style: dashed;
+/* ---- Task list table ---- */
+.task-table th {
+  white-space: nowrap;
+  font-size: 0.85rem;
+}
+.task-table td {
+  vertical-align: middle;
+  font-size: 0.9rem;
 }
 
-.priority-urgent { border-left-color: #dc3545 !important; }
-.priority-high    { border-left-color: #fd7e14 !important; }
-.priority-medium  { border-left-color: #0d6efd !important; }
-.priority-low     { border-left-color: #6c757d !important; }
-
-/* Drag handle */
-.drag-handle {
-    cursor: grab;
-    opacity: 0.4;
-    transition: opacity 0.15s;
+/* ---- Filter bar ---- */
+.filter-bar .form-select {
+  font-size: 0.85rem;
 }
 
-.task-item:hover .drag-handle {
-    opacity: 0.8;
-}
-
-/* Unscheduled task list */
-.task-item {
-    cursor: grab;
-    transition: transform 0.15s, box-shadow 0.15s;
-    user-select: none;
-}
-
-.task-item:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-}
-
-.task-item.sortable-chosen {
-    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-    transform: scale(1.02);
-}
-
-.drop-zone-active {
-    background-color: rgba(13, 110, 253, 0.08);
-    outline: 2px dashed #0d6efd;
-}
-
-/* Status */
-.status-pending     { background-color: #6c757d; color: white; }
-.status-in_progress { background-color: #0d6efd; color: white; }
-.status-completed   { background-color: #198754; color: white; }
-.status-cancelled   { background-color: #dc3545; color: white; }
-
-/* Draft banner */
-.draft-banner {
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-
-/* Week timeline */
-.week-day-col {
-    background: var(--bs-body-bg);
-}
-
-.week-today {
-    background-color: rgba(13, 110, 253, 0.04) !important;
-}
-
-.week-hour-label {
-    position: absolute;
-    right: 4px;
-    font-size: 0.7rem;
-    color: var(--bs-secondary-color);
-    transform: translateY(-50%);
-    white-space: nowrap;
-    pointer-events: none;
-    user-select: none;
-}
-
-.week-hour-line {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: var(--bs-border-color);
-    pointer-events: none;
-}
-
-.week-half-line {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: var(--bs-border-color);
-    opacity: 0.4;
-    pointer-events: none;
-    border-top: 1px dashed var(--bs-border-color);
-}
-
-.week-lunch-overlay {
-    position: absolute;
-    left: 0;
-    right: 0;
-    background: repeating-linear-gradient(
-        45deg,
-        var(--bs-tertiary-bg),
-        var(--bs-tertiary-bg) 4px,
-        var(--bs-secondary-bg) 4px,
-        var(--bs-secondary-bg) 8px
-    );
-    opacity: 0.6;
-    pointer-events: none;
-    z-index: 1;
-}
-
-/* Drop indicator line shown during drag */
-.week-drop-indicator {
-    position: absolute;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: #0d6efd;
-    z-index: 30;
-    pointer-events: none;
-}
-
-.week-drop-indicator::before {
-    content: attr(data-time);
-    position: absolute;
-    left: 2px;
-    top: 2px;
-    font-size: 0.65rem;
-    color: #0d6efd;
-    background: white;
-    padding: 0 3px;
-    border-radius: 2px;
-    white-space: nowrap;
-}
-
-.week-day-col.drag-over {
-    background-color: rgba(13, 110, 253, 0.06);
-}
-
-/* Month view */
-.month-day {
-    vertical-align: top;
-    font-size: 0.85rem;
-}
-
-.month-day.today {
-    background-color: rgba(13, 110, 253, 0.08);
-}
-
-.month-day.other-month {
-    opacity: 0.4;
-}
-
-/* Week view today highlight */
-.week-today {
-    background-color: rgba(13, 110, 253, 0.06);
-}
-
-.sortable-ghost {
-    opacity: 0.4;
-    background: #c8ebfb;
-}
-
-/* Save indicator */
-.save-indicator {
-    position: fixed;
-    top: 60px;
-    right: 16px;
-    z-index: 9999;
-    background: #fff;
-    border: 1px solid var(--bs-border-color);
-    border-radius: 8px;
-    padding: 8px 16px;
-    font-size: 0.85rem;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
-    opacity: 0;
-    transform: translateY(-8px);
-    transition: opacity 0.2s, transform 0.2s;
-    pointer-events: none;
-}
-
-.save-indicator.visible {
-    opacity: 1;
-    transform: translateY(0);
-}
-
-/* Active nav indicator */
-.navbar .nav-link.active {
-    font-weight: 600;
-    border-bottom: 2px solid white;
-}
-
-/* Responsive: stack schedule sidebar on small screens */
-@media (max-width: 767.98px) {
-    .timeline-container {
-        max-height: calc(100vh - 300px);
-    }
-
-    .month-day {
-        min-height: 60px;
-        font-size: 0.75rem;
-    }
-
-    .month-day .schedule-block {
-        font-size: 0.7rem;
-        padding: 1px 3px;
-    }
-}
-
-/* Loading spinner for async actions */
-.btn-loading {
-    position: relative;
-    pointer-events: none;
-    color: transparent !important;
-}
-
-.btn-loading::after {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    width: 1rem;
-    height: 1rem;
-    margin: -0.5rem 0 0 -0.5rem;
-    border: 2px solid currentColor;
-    border-right-color: transparent;
-    border-radius: 50%;
-    animation: spinner-border 0.75s linear infinite;
-    color: var(--bs-btn-color, white) !important;
-}
-
-/* Full-screen schedule layout */
-.schedule-page {
-    display: flex;
-    height: calc(100vh - 56px);
-    overflow: hidden;
-}
-
-.schedule-sidebar {
-    width: 220px;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    border-right: 1px solid var(--bs-border-color);
-    background: var(--bs-body-bg);
-}
-
-.schedule-sidebar-body {
-    flex: 1;
-    overflow-y: auto;
-}
-
-.schedule-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-width: 0;
-}
-
-.schedule-timeline-scroll {
-    flex: 1;
-    overflow-y: auto;
-    position: relative;
+/* ---- Admin tables ---- */
+.admin-table .badge {
+  min-width: 30px;
 }

@@ -1,115 +1,76 @@
-{% extends 'base.html' %}
-{% block title %}{{ task.title }}{% endblock %}
+{% extends "base.html" %}
+{% block title %}{{ task.title }} - 스케줄링{% endblock %}
+
 {% block content %}
-<div class="row g-3">
-    <div class="col-lg-8">
-        <div class="card mb-3">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h1 class="fw-semibold fs-5 mb-0">{{ task.title }}</h1>
-                <div class="btn-group btn-group-sm">
-                    <a href="{{ url_for('tasks.edit_task', task_id=task.id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil" aria-hidden="true"></i> 수정</a>
-                    <form method="post" action="{{ url_for('tasks.delete_task', task_id=task.id) }}" onsubmit="return confirm('삭제하시겠습니까?')" class="d-inline">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                        <button class="btn btn-outline-danger"><i class="bi bi-trash" aria-hidden="true"></i> 삭제</button>
-                    </form>
-                </div>
-            </div>
-            <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-md-6">
-                        <small class="text-muted d-block">카테고리</small>
-                        <span class="badge" style="background:{{ task.category_color or '#ccc' }}">{{ task.category_name or '미분류' }}</span>
-                    </div>
-                    <div class="col-md-6">
-                        <small class="text-muted d-block">우선순위</small>
-                        {% set p_map = {'urgent':'danger','high':'warning','medium':'primary','low':'secondary'} %}
-                        {% set p_label = {'urgent':'긴급','high':'높음','medium':'보통','low':'낮음'} %}
-                        <span class="badge bg-{{ p_map[task.priority] }}">{{ p_label[task.priority] }}</span>
-                    </div>
-                    <div class="col-md-6">
-                        <small class="text-muted d-block">예상 소요시간</small>
-                        {{ task.estimated_minutes }}분
-                    </div>
-                    <div class="col-md-6">
-                        <small class="text-muted d-block">마감일</small>
-                        {{ task.due_date or '-' }}
-                    </div>
-                    <div class="col-12">
-                        <small class="text-muted d-block">담당자</small>
-                        {{ assignees | map(attribute='name') | join(', ') or '-' }}
-                    </div>
-                    {% if task.description %}
-                    <div class="col-12">
-                        <small class="text-muted d-block">설명</small>
-                        {{ task.description }}
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <div class="card-header fw-semibold"><i class="bi bi-journal-text" aria-hidden="true"></i> 메모</div>
-            <div class="card-body">
-                <form method="post" action="{{ url_for('tasks.add_note', task_id=task.id) }}" class="mb-3">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <div class="mb-2">
-                        <label for="note-user" class="visually-hidden">작성자</label>
-                        <select name="user_id" id="note-user" class="form-select form-select-sm" style="width:auto">
-                            {% for user in users %}
-                            <option value="{{ user['id'] }}">{{ user['name'] }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label for="note-content" class="visually-hidden">메모 내용</label>
-                        <textarea name="content" id="note-content" class="form-control" rows="2" placeholder="메모를 입력하세요..."></textarea>
-                        <button class="btn btn-primary" type="submit">추가</button>
-                    </div>
-                </form>
-                {% for note in notes %}
-                <div class="border rounded p-2 mb-2 bg-light">
-                    <div class="d-flex justify-content-between">
-                        <strong class="small">{{ note['author'] or '익명' }}</strong>
-                        <small class="text-muted">{{ note['created_at'] }}</small>
-                    </div>
-                    <div class="mt-1">{{ note['content'] }}</div>
-                </div>
-                {% else %}
-                <div class="text-muted text-center py-2">메모가 없습니다.</div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-
-    <div class="col-lg-4">
-        <div class="card mb-3">
-            <div class="card-header fw-semibold">상태 변경</div>
-            <div class="card-body">
-                <form method="post" action="{{ url_for('tasks.update_status', task_id=task.id) }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <label for="detail-status" class="visually-hidden">상태</label>
-                    <select name="status" id="detail-status" class="form-select mb-2">
-                        {% for s, label in [('pending','대기'),('in_progress','진행중'),('completed','완료'),('cancelled','취소')] %}
-                        <option value="{{ s }}" {% if task.status == s %}selected{% endif %}>{{ label }}</option>
-                        {% endfor %}
-                    </select>
-                    <button type="submit" class="btn btn-primary w-100">상태 업데이트</button>
-                </form>
-            </div>
-        </div>
-
-        {% if task.status not in ('completed', 'cancelled') %}
-        <div class="card">
-            <div class="card-header fw-semibold"><i class="bi bi-calendar-plus" aria-hidden="true"></i> 스케줄 배치</div>
-            <div class="card-body">
-                <p class="text-muted small mb-2">이 업무를 스케줄에 배치하려면 일간 뷰에서 드래그하세요.</p>
-                <a href="{{ url_for('schedule.day_view') }}" class="btn btn-outline-primary w-100">
-                    <i class="bi bi-calendar-day" aria-hidden="true"></i> 스케줄에 배치하기
-                </a>
-            </div>
-        </div>
-        {% endif %}
-    </div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>{{ task.title }}</h2>
+  <div>
+    <a href="{{ url_for('tasks.task_edit', task_id=task.id) }}" class="btn btn-outline-primary">수정</a>
+    <form method="POST" action="{{ url_for('tasks.task_delete', task_id=task.id) }}" class="d-inline"
+          onsubmit="return confirm('정말 삭제하시겠습니까?')">
+      <button type="submit" class="btn btn-outline-danger">삭제</button>
+    </form>
+  </div>
 </div>
+
+<div class="card" style="max-width: 600px;">
+  <div class="card-body">
+    <table class="table table-borderless mb-0">
+      <tr>
+        <th style="width: 130px;">설명</th>
+        <td>{{ task.description or '-' }}</td>
+      </tr>
+      <tr>
+        <th>담당자</th>
+        <td>{{ assignee.name if assignee else '-' }}</td>
+      </tr>
+      <tr>
+        <th>카테고리</th>
+        <td>{{ category.name if category else '-' }}</td>
+      </tr>
+      <tr>
+        <th>우선순위</th>
+        <td>
+          {% if task.priority == 'high' %}
+            <span class="badge bg-danger">높음</span>
+          {% elif task.priority == 'medium' %}
+            <span class="badge bg-warning text-dark">보통</span>
+          {% else %}
+            <span class="badge bg-info text-dark">낮음</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>상태</th>
+        <td>
+          {% if task.status == 'waiting' %}
+            <span class="badge bg-secondary">대기</span>
+          {% elif task.status == 'in_progress' %}
+            <span class="badge bg-primary">진행 중</span>
+          {% else %}
+            <span class="badge bg-success">완료</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th>예상 시간</th>
+        <td>{{ task.estimated_hours }}시간</td>
+      </tr>
+      <tr>
+        <th>잔여 시간</th>
+        <td>{{ task.remaining_hours }}시간</td>
+      </tr>
+      <tr>
+        <th>마감일</th>
+        <td>{{ task.deadline or '-' }}</td>
+      </tr>
+      <tr>
+        <th>생성일</th>
+        <td>{{ task.created_at or '-' }}</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<a href="{{ url_for('tasks.task_list') }}" class="btn btn-secondary mt-3">목록으로</a>
 {% endblock %}

@@ -1,28 +1,36 @@
-{% extends 'base.html' %}
-{% block title %}사용자 관리{% endblock %}
+{% extends "base.html" %}
+{% block title %}팀원 관리 - 스케줄링{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between mb-3">
-    <h1 class="h4">사용자 관리</h1>
-    <a href="{{ url_for('admin.create_user') }}" class="btn btn-primary"><i class="bi bi-person-plus" aria-hidden="true"></i> 추가</a>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>팀원 관리</h2>
+  <a href="{{ url_for('admin.user_new') }}" class="btn btn-primary">팀원 추가</a>
 </div>
-<div class="card">
-    <table class="table mb-0" aria-label="사용자 목록">
-        <thead class="table-light"><tr><th scope="col">이름</th><th scope="col">이메일</th><th scope="col">역할</th><th scope="col"><span class="visually-hidden">작업</span></th></tr></thead>
-        <tbody>
-        {% for user in users %}
-        <tr>
-            <td>{{ user['name'] }}</td><td>{{ user['email'] }}</td>
-            <td><span class="badge {% if user['role'] == 'admin' %}bg-danger{% else %}bg-secondary{% endif %}">{{ user['role'] }}</span></td>
-            <td>
-                <a href="{{ url_for('admin.edit_user', user_id=user['id']) }}" class="btn btn-sm btn-outline-secondary">수정</a>
-                <form method="post" action="{{ url_for('admin.delete_user', user_id=user['id']) }}" class="d-inline" onsubmit="return confirm('삭제?')">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button class="btn btn-sm btn-outline-danger">삭제</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
+
+<table class="table table-hover">
+  <thead>
+    <tr>
+      <th>색상</th>
+      <th>이름</th>
+      <th>역할</th>
+      <th>액션</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for user in users %}
+    <tr>
+      <td><span class="badge" style="background-color: {{ user.color }}">&nbsp;&nbsp;&nbsp;</span></td>
+      <td>{{ user.name }}</td>
+      <td>{{ user.role }}</td>
+      <td>
+        <a href="{{ url_for('admin.user_edit', user_id=user.id) }}" class="btn btn-sm btn-outline-primary">수정</a>
+        <form method="POST" action="{{ url_for('admin.user_delete', user_id=user.id) }}" class="d-inline"
+              onsubmit="return confirm('정말 삭제하시겠습니까?')">
+          <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endblock %}

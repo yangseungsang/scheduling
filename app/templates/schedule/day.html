@@ -1,230 +1,165 @@
-{% extends 'base.html' %}
-{% block title %}일간 스케줄{% endblock %}
-{% block main_attrs %}class="container-fluid p-0"{% endblock %}
+{% extends "base.html" %}
+
+{% block title %}일간 뷰 — {{ current_date.strftime('%Y-%m-%d') }}{% endblock %}
+
+{% block main_class %}container-fluid p-0{% endblock %}
+
+{% block head %}
+<style>
+  .day-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 56px);
+  }
+  .day-nav {
+    flex-shrink: 0;
+    padding: 0.5rem 1rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .day-body {
+    flex: 1;
+    overflow-y: auto;
+    position: relative;
+  }
+  .timeline {
+    display: flex;
+    min-height: 100%;
+  }
+  .time-gutter {
+    width: 70px;
+    flex-shrink: 0;
+    border-right: 1px solid #dee2e6;
+    background: #f8f9fa;
+  }
+  .time-gutter-label {
+    height: 48px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 2px 8px 0 0;
+    font-size: 0.75rem;
+    color: #6c757d;
+    border-bottom: 1px solid #eee;
+  }
+  .time-content {
+    flex: 1;
+    position: relative;
+  }
+  .time-slot {
+    height: 48px;
+    border-bottom: 1px solid #eee;
+    position: relative;
+  }
+  .time-slot.break-slot {
+    background: #f0f0f0;
+  }
+  .time-slot:hover {
+    background: #e8f4fd;
+  }
+  .schedule-block {
+    position: absolute;
+    left: 4px;
+    right: 4px;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    overflow: hidden;
+    cursor: grab;
+    z-index: 10;
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .schedule-block.draft {
+    border: 2px dashed rgba(255,255,255,0.7);
+  }
+  .schedule-block .block-title {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .schedule-block .block-assignee {
+    font-size: 0.7rem;
+    opacity: 0.9;
+  }
+  .schedule-block .lock-icon {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 0.7rem;
+  }
+</style>
+{% endblock %}
 
 {% block content %}
-{% set has_draft = blocks | selectattr('is_draft', 'equalto', 1) | list | length > 0 %}
-{% if has_draft %}
-<div class="draft-banner alert alert-warning d-flex align-items-center justify-content-between mb-0 px-3 py-2" role="alert">
-    <span><i class="bi bi-exclamation-triangle-fill me-2" aria-hidden="true"></i>초안이 생성되었습니다. 검토 후 승인 또는 취소하세요.</span>
-    <div class="btn-group" role="group" aria-label="초안 관리">
-        <button class="btn btn-success btn-sm" onclick="approveDraft(event)"><i class="bi bi-check-circle" aria-hidden="true"></i> 승인</button>
-        <button class="btn btn-outline-danger btn-sm" onclick="discardDraft(event)"><i class="bi bi-x-circle" aria-hidden="true"></i> 취소</button>
+<div class="day-wrapper">
+  {# Navigation bar #}
+  <div class="day-nav">
+    <a href="{{ url_for('schedule.day_view', date=prev_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-chevron-left"></i>
+    </a>
+    <a href="{{ url_for('schedule.day_view') }}" class="btn btn-sm btn-outline-primary">오늘</a>
+    <a href="{{ url_for('schedule.day_view', date=next_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
+      <i class="bi bi-chevron-right"></i>
+    </a>
+    <h5 class="mb-0 ms-2">{{ current_date.strftime('%Y년 %m월 %d일') }}
+      {% set weekdays = ['월','화','수','목','금','토','일'] %}
+      ({{ weekdays[current_date.weekday()] }}요일)
+    </h5>
+  </div>
+
+  {# Timeline body #}
+  <div class="day-body">
+    <div class="timeline">
+      {# Time gutter #}
+      <div class="time-gutter">
+        {% for slot in time_slots %}
+        <div class="time-gutter-label">{{ slot }}</div>
+        {% endfor %}
+      </div>
+
+      {# Content area with blocks #}
+      <div class="time-content">
+        {% for slot in time_slots %}
+        <div class="time-slot{% if slot in break_slots %} break-slot{% endif %}"
+             data-date="{{ current_date.isoformat() }}"
+             data-time="{{ slot }}">
+        </div>
+        {% endfor %}
+
+        {# Positioned blocks #}
+        {% for block in blocks %}
+        {% set slot_height = 48 %}
+        {% set interval = settings.grid_interval_minutes %}
+        {% set work_start_parts = settings.work_start.split(':') %}
+        {% set work_start_min = work_start_parts[0]|int * 60 + work_start_parts[1]|int %}
+        {% set start_parts = block.start_time.split(':') %}
+        {% set start_min = start_parts[0]|int * 60 + start_parts[1]|int %}
+        {% set end_parts = block.end_time.split(':') %}
+        {% set end_min = end_parts[0]|int * 60 + end_parts[1]|int %}
+        {% set top_px = ((start_min - work_start_min) / interval * slot_height)|int %}
+        {% set height_px = ((end_min - start_min) / interval * slot_height)|int %}
+        <div class="schedule-block{% if block.is_draft %} draft{% endif %}"
+             data-block-id="{{ block.id }}"
+             draggable="true"
+             style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }};">
+          <div class="block-title">{{ block.task_title }}</div>
+          <div class="block-assignee">{{ block.assignee_name }}</div>
+          {% if block.is_locked %}
+          <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
     </div>
-</div>
-{% endif %}
-
-<div class="schedule-page">
-
-    <!-- 사이드바 -->
-    <div class="schedule-sidebar">
-        <!-- 대시보드 위젯 -->
-        <div class="p-2 border-bottom">
-            <div class="d-flex justify-content-around text-center">
-                <div>
-                    <div class="fs-5 fw-bold text-primary">{{ dashboard.today_scheduled }}</div>
-                    <small class="text-muted">오늘 예정</small>
-                </div>
-                <div>
-                    <div class="fs-5 fw-bold {% if dashboard.overdue > 0 %}text-danger{% else %}text-success{% endif %}">{{ dashboard.overdue }}</div>
-                    <small class="text-muted">지연 업무</small>
-                </div>
-            </div>
-            {% if dashboard.user_workload %}
-            <hr class="my-1">
-            <small class="text-muted d-block mb-1">팀원별 진행 업무</small>
-            {% for row in dashboard.user_workload %}
-            <div class="d-flex justify-content-between small">
-                <span>{{ row['name'] }}</span>
-                <span class="badge bg-secondary">{{ row['task_count'] }}건</span>
-            </div>
-            {% endfor %}
-            {% endif %}
-        </div>
-
-        <!-- 미배치 업무 헤더 -->
-        <div class="p-2 border-bottom d-flex align-items-center justify-content-between">
-            <span class="fw-semibold small"><i class="bi bi-inbox" aria-hidden="true"></i> 미배치 업무</span>
-            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#draftModal" title="초안 생성">
-                <i class="bi bi-magic" aria-hidden="true"></i>
-            </button>
-        </div>
-
-        <!-- 카테고리 필터 -->
-        <div class="p-2 border-bottom">
-            <form method="get">
-                <input type="hidden" name="date" value="{{ current_date }}">
-                <label for="filter-category" class="visually-hidden">카테고리 필터</label>
-                <select name="category_id" id="filter-category" class="form-select form-select-sm" onchange="this.form.submit()">
-                    <option value="">전체 카테고리</option>
-                    {% for cat in categories %}
-                    <option value="{{ cat['id'] }}" {% if selected_category == cat['id'] %}selected{% endif %}>{{ cat['name'] }}</option>
-                    {% endfor %}
-                </select>
-            </form>
-        </div>
-
-        <!-- 미배치 업무 목록 -->
-        <div id="unscheduled-list" class="schedule-sidebar-body p-2 d-flex flex-column gap-1" role="list" aria-label="미배치 업무 목록">
-            {% for task in unscheduled %}
-            <div class="task-item card p-1" role="listitem"
-                 data-task-id="{{ task['id'] }}"
-                 data-estimated="{{ task['estimated_minutes'] }}"
-                 aria-label="{{ task['title'] }} - {{ task['estimated_minutes'] }}분"
-                 style="cursor: grab; border-left: 3px solid {{ task['category_color'] or '#4A90E2' }}; font-size: 0.8rem;">
-                <div class="d-flex align-items-center gap-1">
-                    <i class="bi bi-grip-vertical text-muted drag-handle" aria-hidden="true"></i>
-                    <span class="fw-semibold text-truncate small">{{ task['title'] }}</span>
-                    {% if task['due_date'] and task['due_date'] <= current_date %}
-                    <span class="badge bg-danger ms-auto" title="마감 임박/초과">!</span>
-                    {% endif %}
-                </div>
-                <div class="d-flex gap-1 flex-wrap mt-1">
-                    <span class="badge" style="background:{{ task['category_color'] or '#4A90E2' }}; font-size:0.65rem">{{ task['category_name'] or '미분류' }}</span>
-                    <span class="badge bg-secondary" style="font-size:0.65rem">{{ task['estimated_minutes'] }}분</span>
-                    {% if task['due_date'] %}
-                    <span class="badge {% if task['due_date'] <= current_date %}bg-danger{% else %}bg-warning text-dark{% endif %}" style="font-size:0.65rem">{{ task['due_date'] }}</span>
-                    {% endif %}
-                </div>
-            </div>
-            {% else %}
-            <div class="text-muted text-center py-3 small">미배치 업무 없음</div>
-            {% endfor %}
-        </div>
-    </div>
-
-    <!-- 타임라인 영역 -->
-    <div class="schedule-content">
-        <!-- 날짜 네비게이션 헤더 -->
-        <div class="d-flex align-items-center gap-3 px-3 py-2 border-bottom bg-white" style="flex-shrink: 0;">
-            <a href="{{ url_for('schedule.day_view', date=prev_date) }}" class="btn btn-outline-secondary btn-sm" aria-label="이전 날짜"><i class="bi bi-chevron-left" aria-hidden="true"></i></a>
-            <span class="fw-bold fs-5">{{ current_date }}</span>
-            <a href="{{ url_for('schedule.day_view', date=next_date) }}" class="btn btn-outline-secondary btn-sm" aria-label="다음 날짜"><i class="bi bi-chevron-right" aria-hidden="true"></i></a>
-            <a href="{{ url_for('schedule.day_view') }}" class="btn btn-outline-primary btn-sm ms-auto">오늘</a>
-        </div>
-
-        <!-- 타임라인 스크롤 영역 -->
-        <div class="schedule-timeline-scroll timeline-container">
-            {% set work_start_h = work_hours.work_start.split(':')[0] | int %}
-            {% set work_end_h = work_hours.work_end.split(':')[0] | int %}
-            {% set lunch_start_h = work_hours.lunch_start.split(':')[0] | int %}
-            {% set lunch_start_m = work_hours.lunch_start.split(':')[1] | int %}
-            {% set lunch_end_h = work_hours.lunch_end.split(':')[0] | int %}
-            {% set lunch_end_m = work_hours.lunch_end.split(':')[1] | int %}
-
-            {% for h in range(work_start_h, work_end_h + 1) %}
-            {% for m in [0, 30] %}
-            {% if h < work_end_h or m == 0 %}
-            {% set time_str = '%02d:%02d' | format(h, m) %}
-            {% set is_lunch = (h > lunch_start_h or (h == lunch_start_h and m >= lunch_start_m)) and (h < lunch_end_h or (h == lunch_end_h and m < lunch_end_m)) %}
-            {% set is_lunch_start = (h == lunch_start_h and m == lunch_start_m) %}
-            <div class="time-slot {% if is_lunch %}lunch-slot{% endif %}"
-                 data-time="{{ time_str }}" data-date="{{ current_date }}">
-                <div class="time-label">{% if m == 0 %}{{ time_str }}{% elif is_lunch_start %}<span class="text-warning">점심</span>{% endif %}</div>
-                <div class="time-slot-content drop-target" data-time="{{ time_str }}" data-date="{{ current_date }}">
-                    {% for block in blocks %}
-                    {% if block['start_time'] == time_str %}
-                    <div class="schedule-block priority-{{ block['priority'] }} {% if block['is_draft'] %}is-draft{% endif %}"
-                         style="background-color: {{ block['category_color'] or '#4A90E2' }}22;"
-                         data-block-id="{{ block['id'] }}"
-                         data-task-id="{{ block['task_id'] }}"
-                         data-start-time="{{ block['start_time'] }}"
-                         data-end-time="{{ block['end_time'] }}"
-                         title="{{ block['title'] }}">
-                        <div class="block-resize-top" title="위로 드래그: 시작 시간 변경"></div>
-                        <span class="fw-semibold">{{ block['title'] }}</span>
-                        <span class="text-muted ms-1 small block-time">{{ block['start_time'] }}-{{ block['end_time'] }}</span>
-                        {% if block['is_draft'] %}<span class="badge bg-warning text-dark ms-1">초안</span>{% endif %}
-                        <button class="btn btn-sm btn-link text-danger p-0 float-end"
-                                onclick="removeBlock({{ block['id'] }}, event)" aria-label="{{ block['title'] }} 블록 삭제"><i class="bi bi-x" aria-hidden="true"></i></button>
-                        <div class="block-resize-bottom" title="아래로 드래그: 종료 시간 변경"></div>
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-            </div>
-            {% endif %}
-            {% endfor %}
-            {% endfor %}
-        </div>
-    </div>
-</div>
-
-<!-- 초안 생성 모달 -->
-<div class="modal fade" id="draftModal" tabindex="-1" aria-labelledby="draftModalLabel" aria-modal="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="draftModalLabel"><i class="bi bi-magic" aria-hidden="true"></i> 스케줄 초안 생성</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
-            </div>
-            <div class="modal-body">
-                <p class="text-muted small">선택한 카테고리의 미배치 업무를 근무시간 내에 자동 배치합니다. 기존 확정 스케줄은 유지됩니다.</p>
-                <label class="form-label" for="draft-category">카테고리 선택</label>
-                <select id="draft-category" class="form-select">
-                    <option value="">전체 카테고리</option>
-                    {% for cat in categories %}
-                    <option value="{{ cat['id'] }}">{{ cat['name'] }}</option>
-                    {% endfor %}
-                </select>
-                <label class="form-label mt-3" for="draft-start-date">시작 날짜</label>
-                <input type="date" id="draft-start-date" class="form-control" value="{{ current_date }}">
-            </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" data-bs-dismiss="modal">취소</button>
-                <button class="btn btn-primary" onclick="generateDraft(event)"><i class="bi bi-magic" aria-hidden="true"></i> 초안 생성</button>
-            </div>
-        </div>
-    </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
-<script>
-const currentDate     = '{{ current_date }}';
-const WORK_START_MIN  = {{ work_hours.work_start.split(':')[0] | int * 60 + work_hours.work_start.split(':')[1] | int }};
-const WORK_END_MIN    = {{ work_hours.work_end.split(':')[0] | int * 60 + work_hours.work_end.split(':')[1] | int }};
-const PX_PER_MIN      = 2;
-const LUNCH_START_MIN = {{ lunch_start_min }};
-const LUNCH_END_MIN   = {{ lunch_end_min }};
-
-/* 현재 시간 표시기 */
-(function initCurrentTimeLine() {
-    var today = new Date().toISOString().slice(0, 10);
-    if (currentDate !== today) return;
-
-    function updateLine() {
-        var existing = document.getElementById('current-time-line');
-        if (existing) existing.remove();
-
-        var now = new Date();
-        var timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-        var slots = document.querySelectorAll('.time-slot');
-        var targetSlot = null;
-
-        slots.forEach(function(slot) {
-            var slotTime = slot.dataset.time;
-            if (slotTime && slotTime <= timeStr) targetSlot = slot;
-        });
-
-        if (!targetSlot) return;
-        var slotTime = targetSlot.dataset.time;
-        var slotParts = slotTime.split(':');
-        var slotMinutes = parseInt(slotParts[0]) * 60 + parseInt(slotParts[1]);
-        var nowMinutes = now.getHours() * 60 + now.getMinutes();
-        var offsetInSlot = nowMinutes - slotMinutes;
-        var pxPerMin = targetSlot.offsetHeight / 30;
-        var topOffset = targetSlot.offsetTop + (offsetInSlot * pxPerMin);
-
-        var line = document.createElement('div');
-        line.id = 'current-time-line';
-        line.className = 'current-time-line';
-        line.style.top = topOffset + 'px';
-        document.querySelector('.timeline-container').appendChild(line);
-    }
-
-    updateLine();
-    setInterval(updateLine, 60000);
-})();
-</script>
+<script src="{{ url_for('static', filename='js/drag_drop.js') }}"></script>
 {% endblock %}

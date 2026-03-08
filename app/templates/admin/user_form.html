@@ -1,27 +1,22 @@
-{% extends 'base.html' %}
-{% block title %}사용자{% endblock %}
+{% extends "base.html" %}
+{% block title %}{{ '팀원 수정' if user else '팀원 추가' }} - 스케줄링{% endblock %}
+
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-lg-6">
-        <div class="card">
-            <div class="card-header">{% if user %}사용자 수정{% else %}사용자 추가{% endif %}</div>
-            <div class="card-body">
-                <form method="post">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <div class="mb-3"><label class="form-label" for="user-name">이름</label><input type="text" name="name" id="user-name" class="form-control" required value="{{ user['name'] if user else '' }}"></div>
-                    <div class="mb-3"><label class="form-label" for="user-email">이메일</label><input type="email" name="email" id="user-email" class="form-control" required value="{{ user['email'] if user else '' }}"></div>
-                    <div class="mb-3">
-                        <label class="form-label" for="user-role">역할</label>
-                        <select name="role" id="user-role" class="form-select">
-                            <option value="member" {% if not user or user['role'] == 'member' %}selected{% endif %}>Member</option>
-                            <option value="admin" {% if user and user['role'] == 'admin' %}selected{% endif %}>Admin</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-primary">저장</button>
-                    <a href="{{ url_for('admin.user_list') }}" class="btn btn-outline-secondary">취소</a>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
+<h2>{{ '팀원 수정' if user else '팀원 추가' }}</h2>
+<form method="POST" class="mt-3" style="max-width: 500px;">
+  <div class="mb-3">
+    <label class="form-label">이름</label>
+    <input type="text" class="form-control" name="name" value="{{ user.name if user else '' }}" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">역할</label>
+    <input type="text" class="form-control" name="role" value="{{ user.role if user else '' }}" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">색상</label>
+    <input type="color" class="form-control form-control-color" name="color" value="{{ user.color if user else '#4A90D9' }}">
+  </div>
+  <button type="submit" class="btn btn-primary">저장</button>
+  <a href="{{ url_for('admin.users') }}" class="btn btn-secondary">취소</a>
+</form>
 {% endblock %}

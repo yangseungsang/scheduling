@@ -1,168 +1,265 @@
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta
+
+from app.repositories import task_repo, schedule_repo, settings_repo, user_repo
+
+PRIORITY_ORDER = {'high': 0, 'medium': 1, 'low': 2}
 
 
-def time_to_minutes(time_str):
-    """'HH:MM' 문자열을 자정 기준 분으로 변환."""
-    h, m = map(int, time_str.split(':'))
-    return h * 60 + m
+def generate_draft_schedule():
+    """Generate a draft schedule for all incomplete tasks.
 
-
-def minutes_to_time(minutes):
-    """분을 'HH:MM' 문자열로 변환."""
-    h = minutes // 60
-    m = minutes % 60
-    return f'{h:02d}:{m:02d}'
-
-
-def get_available_slots(date_str, work_hours, occupied_slots):
+    Returns dict with 'placed' (list of created blocks) and
+    'unplaced' (list of tasks that could not be fully scheduled).
     """
-    주어진 날짜의 가용 시간 슬롯 목록을 계산.
-    반환: [(start_min, end_min), ...] 형태의 가용 구간 목록
-    """
-    work_start = time_to_minutes(work_hours['work_start'])
-    work_end = time_to_minutes(work_hours['work_end'])
-    lunch_start = time_to_minutes(work_hours['lunch_start'])
-    lunch_end = time_to_minutes(work_hours['lunch_end'])
+    settings = settings_repo.get()
+    today = datetime.now().strftime('%Y-%m-%d')
+    max_days = settings.get('max_schedule_days', 14)
 
-    # 기본 가용 구간: 근무 시작~점심 시작, 점심 끝~근무 종료
-    base_slots = [
-        (work_start, lunch_start),
-        (lunch_end, work_end),
+    # 1. Get schedulable tasks
+    tasks = [
+        t for t in task_repo.get_all()
+        if t['status'] != 'completed' and t.get('remaining_hours', 0) > 0
     ]
 
-    # 기존 확정 블록으로 인해 점유된 구간 제거
-    busy = []
-    for block in (occupied_slots or []):
-        busy.append((
-            time_to_minutes(block['start_time']),
-            time_to_minutes(block['end_time'])
-        ))
+    # 2. Sort: deadline ascending, then priority (high > medium > low)
+    tasks.sort(key=lambda t: (
+        t.get('deadline') or '9999-12-31',
+        PRIORITY_ORDER.get(t.get('priority', 'low'), 2),
+    ))
 
-    # 점유 구간을 제외한 실제 가용 구간 계산
-    free_slots = []
-    for (slot_start, slot_end) in base_slots:
-        free = [(slot_start, slot_end)]
-        for (b_start, b_end) in busy:
-            new_free = []
-            for (f_start, f_end) in free:
-                if b_end <= f_start or b_start >= f_end:
-                    new_free.append((f_start, f_end))
-                else:
-                    if f_start < b_start:
-                        new_free.append((f_start, b_start))
-                    if b_end < f_end:
-                        new_free.append((b_end, f_end))
-            free = new_free
-        free_slots.extend(free)
+    # 3. Delete existing drafts
+    schedule_repo.delete_drafts()
 
-    return free_slots
+    # 4. Get confirmed blocks (non-draft) — these must not be overlapped
+    confirmed_blocks = [b for b in schedule_repo.get_all() if not b.get('is_draft')]
 
+    # Track all blocks per assignee (confirmed + newly placed drafts)
+    # Key: assignee_id, Value: list of block dicts
+    blocks_by_assignee = {}
+    for b in confirmed_blocks:
+        blocks_by_assignee.setdefault(b['assignee_id'], []).append(b)
 
-def schedule_task_in_slots(task_minutes, available_slots):
-    """
-    업무를 가용 슬롯에 배치. 점심을 걸치는 경우 분할하여 배치.
-    반환: [(start_min, end_min), ...] 배치된 블록 목록, 또는 [] (배치 불가)
-    """
-    remaining = task_minutes
-    blocks = []
+    placed = []
+    unplaced = []
 
-    for (slot_start, slot_end) in available_slots:
-        if remaining <= 0:
-            break
-        slot_duration = slot_end - slot_start
-        use = min(remaining, slot_duration)
-        blocks.append((slot_start, slot_start + use))
-        remaining -= use
+    # 5. Place blocks for each task
+    for task in tasks:
+        assignee_id = task['assignee_id']
 
-    return blocks if remaining <= 0 else []
+        # Hours already covered by confirmed blocks for this task
+        confirmed_for_task = [
+            b for b in confirmed_blocks if b['task_id'] == task['id']
+        ]
+        already_scheduled = _calculate_block_hours(confirmed_for_task)
+        hours_needed = task['remaining_hours'] - already_scheduled
 
+        if hours_needed <= 0:
+            continue
 
-def generate_draft(tasks, work_hours, occupied_by_date, start_date, days=14):
-    """
-    스케줄링 초안 생성 알고리즘.
+        task_placed_blocks = []
 
-    Args:
-        tasks: 배치할 업무 목록 (각 업무는 dict with id, estimated_minutes, priority)
-        work_hours: 근무시간 설정 dict
-        occupied_by_date: {date_str: [{'start_time': str, 'end_time': str}]} 기존 확정 블록
-        start_date: 시작 날짜 (date 객체)
-        days: 최대 배치 일수
-
-    Returns:
-        draft_blocks: [{'task_id': int, 'assigned_date': str,
-                        'start_time': str, 'end_time': str}, ...]
-    """
-    priority_order = {'urgent': 0, 'high': 1, 'medium': 2, 'low': 3}
-
-    work_start = time_to_minutes(work_hours['work_start'])
-    work_end = time_to_minutes(work_hours['work_end'])
-    lunch_start = time_to_minutes(work_hours['lunch_start'])
-    lunch_end = time_to_minutes(work_hours['lunch_end'])
-    total_work_minutes = (work_end - work_start) - (lunch_end - lunch_start)
-
-    def sort_key(task):
-        # 당일 완료 가능 업무 먼저, 같은 조건이면 우선순위 높은 것, 소요시간 짧은 것 우선
-        fits_today = 1 if task['estimated_minutes'] <= total_work_minutes else 0
-        return (-fits_today, priority_order.get(task['priority'], 2), task['estimated_minutes'])
-
-    sorted_tasks = sorted(tasks, key=sort_key)
-
-    draft_blocks = []
-    # 날짜별 초안 블록 추적 (점유 계산에 포함)
-    date_slots_used = {}
-
-    for task in sorted_tasks:
-        task_minutes = task['estimated_minutes']
-        remaining = task_minutes
-
-        for day_offset in range(days):
-            current_date = start_date + timedelta(days=day_offset)
-            date_str = current_date.strftime('%Y-%m-%d')
-
-            occupied = list(occupied_by_date.get(date_str, []))
-            # 이미 배치된 초안 블록도 점유로 추가
-            for (s, e) in date_slots_used.get(date_str, []):
-                occupied.append({'start_time': s, 'end_time': e})
-
-            free_slots = get_available_slots(date_str, work_hours, occupied)
-            total_free = sum(e - s for s, e in free_slots)
-
-            if total_free <= 0:
-                continue
-
-            # 남은 업무를 한 번에 배치 시도
-            blocks = schedule_task_in_slots(remaining, free_slots)
-            if blocks:
-                for (b_start, b_end) in blocks:
-                    start_str = minutes_to_time(b_start)
-                    end_str = minutes_to_time(b_end)
-                    draft_blocks.append({
-                        'task_id': task['id'],
-                        'assigned_date': date_str,
-                        'start_time': start_str,
-                        'end_time': end_str,
-                    })
-                    date_slots_used.setdefault(date_str, []).append((start_str, end_str))
-                remaining = 0
+        # Try each day starting from today, up to max_schedule_days
+        for day_offset in range(max_days):
+            if hours_needed <= 0:
                 break
-            else:
-                # 당일에 전부 못 들어가면 가능한 만큼 채우고 나머지는 다음날
-                for (slot_start, slot_end) in free_slots:
-                    if remaining <= 0:
-                        break
-                    use = min(remaining, slot_end - slot_start)
-                    start_str = minutes_to_time(slot_start)
-                    end_str = minutes_to_time(slot_start + use)
-                    draft_blocks.append({
-                        'task_id': task['id'],
-                        'assigned_date': date_str,
-                        'start_time': start_str,
-                        'end_time': end_str,
-                    })
-                    date_slots_used.setdefault(date_str, []).append((start_str, end_str))
-                    remaining -= use
 
-                if remaining <= 0:
+            date_str = (
+                datetime.now() + timedelta(days=day_offset)
+            ).strftime('%Y-%m-%d')
+
+            assignee_blocks = blocks_by_assignee.get(assignee_id, [])
+            slots = _get_available_slots(
+                date_str, assignee_id, assignee_blocks, settings
+            )
+
+            for slot_start, slot_end in slots:
+                if hours_needed <= 0:
                     break
 
-    return draft_blocks
+                slot_hours = _time_diff_hours(slot_start, slot_end)
+                block_hours = min(slot_hours, hours_needed)
+
+                # Calculate end time for this block
+                block_end = _add_hours(slot_start, block_hours)
+
+                block = schedule_repo.create(
+                    task_id=task['id'],
+                    assignee_id=assignee_id,
+                    date=date_str,
+                    start_time=slot_start,
+                    end_time=block_end,
+                    is_draft=True,
+                    is_locked=False,
+                    origin='auto',
+                )
+
+                placed.append(block)
+                blocks_by_assignee.setdefault(assignee_id, []).append(block)
+                hours_needed -= block_hours
+
+        if hours_needed > 0:
+            unplaced.append({
+                'task': task,
+                'remaining_unscheduled_hours': hours_needed,
+            })
+
+    return {'placed': placed, 'unplaced': unplaced}
+
+
+def approve_drafts():
+    """Approve all draft blocks and update task remaining hours."""
+    draft_blocks = [b for b in schedule_repo.get_all() if b.get('is_draft')]
+
+    # Approve in the repo (sets is_draft=False)
+    schedule_repo.approve_drafts()
+
+    # Update task remaining_hours for each approved block
+    # Group by task to batch updates
+    hours_by_task = {}
+    for block in draft_blocks:
+        block_hours = _time_diff_hours(block['start_time'], block['end_time'])
+        hours_by_task.setdefault(block['task_id'], 0)
+        hours_by_task[block['task_id']] += block_hours
+
+    for task_id, hours in hours_by_task.items():
+        task = task_repo.get_by_id(task_id)
+        if not task:
+            continue
+
+        new_remaining = max(0, task['remaining_hours'] - hours)
+        new_status = 'completed' if new_remaining <= 0 else task['status']
+
+        task_repo.update(
+            task_id=task_id,
+            title=task['title'],
+            description=task.get('description', ''),
+            assignee_id=task['assignee_id'],
+            category_id=task.get('category_id', ''),
+            priority=task['priority'],
+            estimated_hours=task['estimated_hours'],
+            remaining_hours=new_remaining,
+            deadline=task.get('deadline', ''),
+            status=new_status,
+        )
+
+
+def discard_drafts():
+    """Discard all draft blocks."""
+    schedule_repo.delete_drafts()
+
+
+def _get_available_slots(date_str, assignee_id, existing_blocks, settings):
+    """Return list of (start_time, end_time) available slot tuples for a date.
+
+    Generates grid-interval slots within work hours, removes lunch/breaks
+    and occupied slots, then merges consecutive slots into contiguous ranges.
+    """
+    work_start = settings['work_start']
+    work_end = settings['work_end']
+    lunch_start = settings['lunch_start']
+    lunch_end = settings['lunch_end']
+    breaks = settings.get('breaks', [])
+    interval = settings.get('grid_interval_minutes', 15)
+
+    # Generate all grid slots within work hours
+    grid_slots = []
+    current = _parse_time(work_start)
+    end = _parse_time(work_end)
+
+    while current < end:
+        slot_end = current + timedelta(minutes=interval)
+        if slot_end > end:
+            slot_end = end
+        grid_slots.append((_format_time(current), _format_time(slot_end)))
+        current = slot_end
+
+    # Remove lunch time slots
+    grid_slots = [
+        (s, e) for s, e in grid_slots
+        if not _overlaps(s, e, lunch_start, lunch_end)
+    ]
+
+    # Remove break time slots
+    for brk in breaks:
+        grid_slots = [
+            (s, e) for s, e in grid_slots
+            if not _overlaps(s, e, brk['start'], brk['end'])
+        ]
+
+    # Remove slots occupied by existing blocks for this assignee on this date
+    assignee_day_blocks = [
+        b for b in existing_blocks
+        if b['date'] == date_str and b['assignee_id'] == assignee_id
+    ]
+    for block in assignee_day_blocks:
+        grid_slots = [
+            (s, e) for s, e in grid_slots
+            if not _overlaps(s, e, block['start_time'], block['end_time'])
+        ]
+
+    # Merge consecutive slots into contiguous ranges
+    if not grid_slots:
+        return []
+
+    merged = []
+    range_start, range_end = grid_slots[0]
+
+    for s, e in grid_slots[1:]:
+        if s == range_end:
+            range_end = e
+        else:
+            merged.append((range_start, range_end))
+            range_start, range_end = s, e
+
+    merged.append((range_start, range_end))
+    return merged
+
+
+def _calculate_block_hours(blocks):
+    """Sum up hours from a list of schedule blocks."""
+    total = 0.0
+    for b in blocks:
+        total += _time_diff_hours(b['start_time'], b['end_time'])
+    return total
+
+
+# ---------------------------------------------------------------------------
+# Time utility helpers
+# ---------------------------------------------------------------------------
+
+def _parse_time(time_str):
+    """Parse 'HH:MM' string to a datetime (date part is arbitrary)."""
+    return datetime.strptime(time_str, '%H:%M')
+
+
+def _format_time(dt):
+    """Format a datetime to 'HH:MM' string."""
+    return dt.strftime('%H:%M')
+
+
+def _time_diff_hours(start_str, end_str):
+    """Calculate the difference in hours between two 'HH:MM' strings."""
+    start = _parse_time(start_str)
+    end = _parse_time(end_str)
+    delta = (end - start).total_seconds() / 3600
+    return max(0.0, delta)
+
+
+def _add_hours(time_str, hours):
+    """Add fractional hours to an 'HH:MM' time string, return 'HH:MM'."""
+    dt = _parse_time(time_str)
+    dt += timedelta(hours=hours)
+    return _format_time(dt)
+
+
+def _overlaps(s1, e1, s2, e2):
+    """Check if time range (s1, e1) overlaps with (s2, e2).
+
+    All arguments are 'HH:MM' strings. Overlap means the intersection
+    has positive duration (touching endpoints do not count).
+    """
+    start1 = _parse_time(s1)
+    end1 = _parse_time(e1)
+    start2 = _parse_time(s2)
+    end2 = _parse_time(e2)
+    return start1 < end2 and start2 < end1

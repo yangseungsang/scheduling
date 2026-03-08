@@ -1,7 +1,6 @@
-venv/
 __pycache__/
 *.pyc
-*.db
-.DS_Store
+venv/
 .env
-.pytest_cache/
+*.bak
+scheduling.db

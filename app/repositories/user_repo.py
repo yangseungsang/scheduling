@@ -1,40 +1,45 @@
-from app.db import get_db
+from app.json_store import read_json, write_json, generate_id
+
+FILENAME = 'users.json'
 
 
-def get_all_users():
-    db = get_db()
-    return db.execute(
-        'SELECT id, name, email, role, created_at FROM users ORDER BY name'
-    ).fetchall()
+def get_all():
+    return read_json(FILENAME)
 
 
-def get_user_by_id(user_id):
-    db = get_db()
-    return db.execute(
-        'SELECT id, name, email, role FROM users WHERE id = ?', (user_id,)
-    ).fetchone()
+def get_by_id(user_id):
+    for u in read_json(FILENAME):
+        if u['id'] == user_id:
+            return u
+    return None
 
 
-def create_user(name, email, role='member'):
-    db = get_db()
-    cursor = db.execute(
-        'INSERT INTO users (name, email, role) VALUES (?, ?, ?)',
-        (name, email, role)
-    )
-    db.commit()
-    return cursor.lastrowid
+def create(name, role, color):
+    users = read_json(FILENAME)
+    user = {
+        'id': generate_id('u_'),
+        'name': name,
+        'role': role,
+        'color': color,
+    }
+    users.append(user)
+    write_json(FILENAME, users)
+    return user
 
 
-def update_user(user_id, name, email, role):
-    db = get_db()
-    db.execute(
-        'UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?',
-        (name, email, role, user_id)
-    )
-    db.commit()
+def update(user_id, name, role, color):
+    users = read_json(FILENAME)
+    for u in users:
+        if u['id'] == user_id:
+            u['name'] = name
+            u['role'] = role
+            u['color'] = color
+            write_json(FILENAME, users)
+            return u
+    return None
 
 
-def delete_user(user_id):
-    db = get_db()
-    db.execute('DELETE FROM users WHERE id = ?', (user_id,))
-    db.commit()
+def delete(user_id):
+    users = read_json(FILENAME)
+    users = [u for u in users if u['id'] != user_id]
+    write_json(FILENAME, users)

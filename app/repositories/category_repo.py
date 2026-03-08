@@ -1,39 +1,43 @@
-from app.db import get_db
+from app.json_store import read_json, write_json, generate_id
+
+FILENAME = 'categories.json'
 
 
-def get_all_categories():
-    db = get_db()
-    return db.execute(
-        'SELECT id, name, color FROM categories ORDER BY name'
-    ).fetchall()
+def get_all():
+    return read_json(FILENAME)
 
 
-def get_category_by_id(category_id):
-    db = get_db()
-    return db.execute(
-        'SELECT id, name, color FROM categories WHERE id = ?', (category_id,)
-    ).fetchone()
+def get_by_id(cat_id):
+    for c in read_json(FILENAME):
+        if c['id'] == cat_id:
+            return c
+    return None
 
 
-def create_category(name, color):
-    db = get_db()
-    cursor = db.execute(
-        'INSERT INTO categories (name, color) VALUES (?, ?)', (name, color)
-    )
-    db.commit()
-    return cursor.lastrowid
+def create(name, color):
+    categories = read_json(FILENAME)
+    cat = {
+        'id': generate_id('c_'),
+        'name': name,
+        'color': color,
+    }
+    categories.append(cat)
+    write_json(FILENAME, categories)
+    return cat
 
 
-def update_category(category_id, name, color):
-    db = get_db()
-    db.execute(
-        'UPDATE categories SET name = ?, color = ? WHERE id = ?',
-        (name, color, category_id)
-    )
-    db.commit()
+def update(cat_id, name, color):
+    categories = read_json(FILENAME)
+    for c in categories:
+        if c['id'] == cat_id:
+            c['name'] = name
+            c['color'] = color
+            write_json(FILENAME, categories)
+            return c
+    return None
 
 
-def delete_category(category_id):
-    db = get_db()
-    db.execute('DELETE FROM categories WHERE id = ?', (category_id,))
-    db.commit()
+def delete(cat_id):
+    categories = read_json(FILENAME)
+    categories = [c for c in categories if c['id'] != cat_id]
+    write_json(FILENAME, categories)

@@ -1,183 +1,62 @@
-from app.db import get_db
+from datetime import datetime
+
+from app.json_store import read_json, write_json, generate_id
+
+FILENAME = 'tasks.json'
 
 
-def get_all_tasks(status=None, category_id=None, assignee_id=None,
-                   search=None):
-    db = get_db()
-    query = '''
-        SELECT t.id, t.title, t.description, t.category_id, t.priority,
-               t.estimated_minutes, t.status, t.due_date, t.created_by,
-               t.created_at, t.updated_at,
-               c.name as category_name, c.color as category_color,
-               GROUP_CONCAT(u.name, ', ') as assignees
-        FROM tasks t
-        LEFT JOIN categories c ON t.category_id = c.id
-        LEFT JOIN task_assignees ta ON t.id = ta.task_id
-        LEFT JOIN users u ON ta.user_id = u.id
-        WHERE 1=1
-    '''
-    params = []
-    if status:
-        query += ' AND t.status = ?'
-        params.append(status)
-    if category_id:
-        query += ' AND t.category_id = ?'
-        params.append(category_id)
-    if assignee_id:
-        query += ' AND ta.user_id = ?'
-        params.append(assignee_id)
-    if search:
-        escaped = search.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
-        query += " AND (t.title LIKE ? ESCAPE '\\' OR t.description LIKE ? ESCAPE '\\')"
-        like_term = f'%{escaped}%'
-        params.extend([like_term, like_term])
-    query += ' GROUP BY t.id ORDER BY t.created_at DESC'
-    return db.execute(query, params).fetchall()
+def get_all():
+    return read_json(FILENAME)
 
 
-def get_task_by_id(task_id):
-    db = get_db()
-    task = db.execute('''
-        SELECT t.*, c.name as category_name, c.color as category_color
-        FROM tasks t
-        LEFT JOIN categories c ON t.category_id = c.id
-        WHERE t.id = ?
-    ''', (task_id,)).fetchone()
-    if task:
-        assignees = db.execute('''
-            SELECT u.id, u.name FROM users u
-            JOIN task_assignees ta ON u.id = ta.user_id
-            WHERE ta.task_id = ?
-        ''', (task_id,)).fetchall()
-        return dict(task), [dict(a) for a in assignees]
-    return None, []
+def get_by_id(task_id):
+    for t in read_json(FILENAME):
+        if t['id'] == task_id:
+            return t
+    return None
 
 
-def create_task(title, description, category_id, priority, estimated_minutes,
-                due_date, created_by, assignee_ids):
-    db = get_db()
-    cursor = db.execute('''
-        INSERT INTO tasks (title, description, category_id, priority,
-                           estimated_minutes, due_date, created_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (title, description, category_id, priority, estimated_minutes,
-          due_date, created_by))
-    task_id = cursor.lastrowid
-    for uid in assignee_ids:
-        db.execute(
-            'INSERT INTO task_assignees (task_id, user_id) VALUES (?, ?)',
-            (task_id, uid)
-        )
-    db.commit()
-    return task_id
-
-
-def update_task(task_id, title, description, category_id, priority,
-                estimated_minutes, due_date, assignee_ids):
-    db = get_db()
-    db.execute('''
-        UPDATE tasks
-        SET title=?, description=?, category_id=?, priority=?,
-            estimated_minutes=?, due_date=?, updated_at=CURRENT_TIMESTAMP
-        WHERE id=?
-    ''', (title, description, category_id, priority, estimated_minutes,
-          due_date, task_id))
-    db.execute('DELETE FROM task_assignees WHERE task_id = ?', (task_id,))
-    for uid in assignee_ids:
-        db.execute(
-            'INSERT INTO task_assignees (task_id, user_id) VALUES (?, ?)',
-            (task_id, uid)
-        )
-    db.commit()
-
-
-def update_task_status(task_id, status):
-    db = get_db()
-    db.execute('''
-        UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-    ''', (status, task_id))
-    db.commit()
-
-
-def delete_task(task_id):
-    db = get_db()
-    db.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
-    db.commit()
-
-
-def get_unscheduled_tasks(category_id=None):
-    """스케줄에 배치되지 않은 미완료 업무 목록."""
-    db = get_db()
-    query = '''
-        SELECT t.id, t.title, t.category_id, t.priority, t.estimated_minutes,
-               t.status, t.due_date, c.name as category_name, c.color as category_color,
-               GROUP_CONCAT(u.name, ', ') as assignees
-        FROM tasks t
-        LEFT JOIN categories c ON t.category_id = c.id
-        LEFT JOIN task_assignees ta ON t.id = ta.task_id
-        LEFT JOIN users u ON ta.user_id = u.id
-        WHERE t.status NOT IN ('completed', 'cancelled')
-        AND t.id NOT IN (
-            SELECT DISTINCT task_id FROM schedule_blocks WHERE is_draft = 0
-        )
-    '''
-    params = []
-    if category_id:
-        query += ' AND t.category_id = ?'
-        params.append(category_id)
-    query += ' GROUP BY t.id ORDER BY t.priority DESC, t.due_date ASC'
-    return db.execute(query, params).fetchall()
-
-
-def get_task_notes(task_id):
-    db = get_db()
-    return db.execute('''
-        SELECT tn.id, tn.content, tn.created_at, u.name as author
-        FROM task_notes tn
-        LEFT JOIN users u ON tn.user_id = u.id
-        WHERE tn.task_id = ?
-        ORDER BY tn.created_at DESC
-    ''', (task_id,)).fetchall()
-
-
-def add_task_note(task_id, user_id, content):
-    db = get_db()
-    db.execute(
-        'INSERT INTO task_notes (task_id, user_id, content) VALUES (?, ?, ?)',
-        (task_id, user_id, content)
-    )
-    db.commit()
-
-
-def get_dashboard_stats(today_str):
-    """대시보드 위젯용 통계: 오늘 예정, 지연, 팀원별 현황."""
-    db = get_db()
-    today_scheduled = db.execute('''
-        SELECT COUNT(DISTINCT sb.task_id) as cnt
-        FROM schedule_blocks sb
-        JOIN tasks t ON sb.task_id = t.id
-        WHERE sb.assigned_date = ? AND sb.is_draft = 0
-          AND t.status != 'completed'
-    ''', (today_str,)).fetchone()['cnt']
-
-    overdue = db.execute('''
-        SELECT COUNT(*) as cnt FROM tasks
-        WHERE due_date < ? AND status NOT IN ('completed', 'cancelled')
-    ''', (today_str,)).fetchone()['cnt']
-
-    user_workload = db.execute('''
-        SELECT u.name, COUNT(t.id) as task_count
-        FROM users u
-        LEFT JOIN task_assignees ta ON u.id = ta.user_id
-        LEFT JOIN tasks t ON ta.task_id = t.id
-          AND t.status NOT IN ('completed', 'cancelled')
-        GROUP BY u.id
-        ORDER BY task_count DESC
-    ''').fetchall()
-
-    return {
-        'today_scheduled': today_scheduled,
-        'overdue': overdue,
-        'user_workload': user_workload,
+def create(title, description, assignee_id, category_id, priority,
+           estimated_hours, deadline):
+    tasks = read_json(FILENAME)
+    task = {
+        'id': generate_id('t_'),
+        'title': title,
+        'description': description,
+        'assignee_id': assignee_id,
+        'category_id': category_id,
+        'priority': priority,
+        'estimated_hours': estimated_hours,
+        'remaining_hours': estimated_hours,
+        'deadline': deadline,
+        'status': 'waiting',
+        'created_at': datetime.now().isoformat(timespec='seconds'),
     }
+    tasks.append(task)
+    write_json(FILENAME, tasks)
+    return task
+
+
+def update(task_id, title, description, assignee_id, category_id, priority,
+           estimated_hours, remaining_hours, deadline, status):
+    tasks = read_json(FILENAME)
+    for t in tasks:
+        if t['id'] == task_id:
+            t['title'] = title
+            t['description'] = description
+            t['assignee_id'] = assignee_id
+            t['category_id'] = category_id
+            t['priority'] = priority
+            t['estimated_hours'] = estimated_hours
+            t['remaining_hours'] = remaining_hours
+            t['deadline'] = deadline
+            t['status'] = status
+            write_json(FILENAME, tasks)
+            return t
+    return None
+
+
+def delete(task_id):
+    tasks = read_json(FILENAME)
+    tasks = [t for t in tasks if t['id'] != task_id]
+    write_json(FILENAME, tasks)

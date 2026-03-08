@@ -1,28 +1,34 @@
-{% extends 'base.html' %}
-{% block title %}카테고리 관리{% endblock %}
+{% extends "base.html" %}
+{% block title %}카테고리 관리 - 스케줄링{% endblock %}
+
 {% block content %}
-<div class="d-flex justify-content-between mb-3">
-    <h1 class="h4">카테고리 관리</h1>
-    <a href="{{ url_for('admin.create_category') }}" class="btn btn-primary"><i class="bi bi-plus" aria-hidden="true"></i> 추가</a>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2>카테고리 관리</h2>
+  <a href="{{ url_for('admin.category_new') }}" class="btn btn-primary">카테고리 추가</a>
 </div>
-<div class="card">
-    <table class="table mb-0" aria-label="카테고리 목록">
-        <thead class="table-light"><tr><th scope="col">색상</th><th scope="col">이름</th><th scope="col"><span class="visually-hidden">작업</span></th></tr></thead>
-        <tbody>
-        {% for cat in categories %}
-        <tr>
-            <td><span style="display:inline-block;width:40px;height:20px;background:{{ cat['color'] }};border-radius:4px;" role="img" aria-label="{{ cat['color'] }} 색상"></span></td>
-            <td>{{ cat['name'] }}</td>
-            <td>
-                <a href="{{ url_for('admin.edit_category', category_id=cat['id']) }}" class="btn btn-sm btn-outline-secondary">수정</a>
-                <form method="post" action="{{ url_for('admin.delete_category', category_id=cat['id']) }}" class="d-inline" onsubmit="return confirm('삭제?')">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                    <button class="btn btn-sm btn-outline-danger">삭제</button>
-                </form>
-            </td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
+
+<table class="table table-hover">
+  <thead>
+    <tr>
+      <th>색상</th>
+      <th>이름</th>
+      <th>액션</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for cat in categories %}
+    <tr>
+      <td><span class="badge" style="background-color: {{ cat.color }}">&nbsp;&nbsp;&nbsp;</span></td>
+      <td>{{ cat.name }}</td>
+      <td>
+        <a href="{{ url_for('admin.category_edit', cat_id=cat.id) }}" class="btn btn-sm btn-outline-primary">수정</a>
+        <form method="POST" action="{{ url_for('admin.category_delete', cat_id=cat.id) }}" class="d-inline"
+              onsubmit="return confirm('정말 삭제하시겠습니까?')">
+          <button type="submit" class="btn btn-sm btn-outline-danger">삭제</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
 {% endblock %}

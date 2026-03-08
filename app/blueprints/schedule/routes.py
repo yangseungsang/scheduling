@@ -1,270 +1,335 @@
 import calendar
-import re
-from datetime import date, timedelta, datetime
-from flask import render_template, request, redirect, url_for, jsonify, flash
-from app.blueprints.schedule import schedule_bp
-from app.repositories import schedule_repo, task_repo, category_repo, settings_repo
-from app.services.scheduler import generate_draft
+from datetime import date, datetime, timedelta
 
-_DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
-_TIME_RE = re.compile(r'^\d{2}:\d{2}$')
+from flask import Blueprint, render_template, request, jsonify
+
+from app.repositories import (
+    category_repo,
+    schedule_repo,
+    settings_repo,
+    task_repo,
+    user_repo,
+)
+
+schedule_bp = Blueprint('schedule', __name__, url_prefix='/schedule')
 
 
-def _parse_date(date_str, default=None):
-    """날짜 문자열을 파싱. 실패 시 default 반환."""
-    if not date_str or not _DATE_RE.match(date_str):
-        return default
-    try:
-        return datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return default
+def _parse_date(date_str):
+    """Parse a date string (YYYY-MM-DD) or return today."""
+    if date_str:
+        try:
+            return datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+    return date.today()
+
+
+def _enrich_blocks(blocks, users_map, tasks_map, categories_map, color_by):
+    """Add task title, assignee name/color, category name/color to blocks."""
+    enriched = []
+    for b in blocks:
+        block = dict(b)
+        task = tasks_map.get(b.get('task_id'))
+        assignee = users_map.get(b.get('assignee_id'))
+        category = None
+        if task:
+            category = categories_map.get(task.get('category_id'))
+
+        block['task_title'] = task['title'] if task else '(삭제된 업무)'
+        block['assignee_name'] = assignee['name'] if assignee else '(미배정)'
+        block['assignee_color'] = assignee['color'] if assignee else '#6c757d'
+        block['category_name'] = category['name'] if category else ''
+        block['category_color'] = category['color'] if category else '#6c757d'
+
+        if color_by == 'category':
+            block['color'] = block['category_color']
+        else:
+            block['color'] = block['assignee_color']
+
+        enriched.append(block)
+    return enriched
+
+
+def _build_maps():
+    """Build lookup maps for users, tasks, categories."""
+    users = user_repo.get_all()
+    tasks = task_repo.get_all()
+    categories = category_repo.get_all()
+    return (
+        {u['id']: u for u in users},
+        {t['id']: t for t in tasks},
+        {c['id']: c for c in categories},
+    )
+
+
+def _generate_time_slots(settings):
+    """Generate list of time slot strings from work_start to work_end."""
+    interval = settings.get('grid_interval_minutes', 15)
+    start = datetime.strptime(settings['work_start'], '%H:%M')
+    end = datetime.strptime(settings['work_end'], '%H:%M')
+    slots = []
+    current = start
+    while current < end:
+        slots.append(current.strftime('%H:%M'))
+        current += timedelta(minutes=interval)
+    return slots
+
+
+def _is_break_slot(time_str, settings):
+    """Check if a time slot falls within lunch or break periods."""
+    lunch_start = settings.get('lunch_start', '12:00')
+    lunch_end = settings.get('lunch_end', '13:00')
+    if lunch_start <= time_str < lunch_end:
+        return True
+    for brk in settings.get('breaks', []):
+        if brk['start'] <= time_str < brk['end']:
+            return True
+    return False
 
 
 @schedule_bp.route('/')
 def day_view():
-    date_str = request.args.get('date')
-    current_date = _parse_date(date_str, default=date.today())
-    date_str = current_date.strftime('%Y-%m-%d')
-    category_id = request.args.get('category_id', type=int)
-    prev_date = (current_date - timedelta(days=1)).strftime('%Y-%m-%d')
-    next_date = (current_date + timedelta(days=1)).strftime('%Y-%m-%d')
+    current_date = _parse_date(request.args.get('date'))
+    settings = settings_repo.get()
+    users_map, tasks_map, categories_map = _build_maps()
 
-    blocks = schedule_repo.get_blocks_for_date(date_str)
-    unscheduled = task_repo.get_unscheduled_tasks(category_id=category_id)
-    categories = category_repo.get_all_categories()
-    work_hours = settings_repo.get_work_hours()
-    lsh, lsm = map(int, work_hours['lunch_start'].split(':'))
-    leh, lem = map(int, work_hours['lunch_end'].split(':'))
-    lunch_start_min = lsh * 60 + lsm
-    lunch_end_min   = leh * 60 + lem
-    dashboard = task_repo.get_dashboard_stats(date_str)
+    blocks = schedule_repo.get_by_date(current_date.isoformat())
+    enriched = _enrich_blocks(
+        blocks, users_map, tasks_map, categories_map,
+        settings.get('block_color_by', 'assignee'),
+    )
 
-    return render_template('schedule/day.html',
-                           blocks=blocks, unscheduled=unscheduled,
-                           categories=categories, work_hours=work_hours,
-                           current_date=date_str, prev_date=prev_date,
-                           next_date=next_date, selected_category=category_id,
-                           dashboard=dashboard,
-                           lunch_start_min=lunch_start_min,
-                           lunch_end_min=lunch_end_min)
+    time_slots = _generate_time_slots(settings)
+    break_slots = {s for s in time_slots if _is_break_slot(s, settings)}
+
+    prev_date = current_date - timedelta(days=1)
+    next_date = current_date + timedelta(days=1)
+
+    return render_template(
+        'schedule/day.html',
+        current_date=current_date,
+        prev_date=prev_date,
+        next_date=next_date,
+        blocks=enriched,
+        time_slots=time_slots,
+        break_slots=break_slots,
+        settings=settings,
+    )
 
 
 @schedule_bp.route('/week')
 def week_view():
-    date_str = request.args.get('date')
-    current_date = _parse_date(date_str, default=date.today())
-    category_id = request.args.get('category_id', type=int)
+    current_date = _parse_date(request.args.get('date'))
+    settings = settings_repo.get()
+    users_map, tasks_map, categories_map = _build_maps()
+
+    # Monday of the current week
     week_start = current_date - timedelta(days=current_date.weekday())
     week_end = week_start + timedelta(days=6)
-    prev_week = (week_start - timedelta(days=7)).strftime('%Y-%m-%d')
-    next_week = (week_start + timedelta(days=7)).strftime('%Y-%m-%d')
-
-    blocks = schedule_repo.get_blocks_for_week(
-        week_start.strftime('%Y-%m-%d'), week_end.strftime('%Y-%m-%d'))
-    categories = category_repo.get_all_categories()
-    work_hours = settings_repo.get_work_hours()
-    unscheduled = task_repo.get_unscheduled_tasks(category_id=category_id)
     week_days = [week_start + timedelta(days=i) for i in range(7)]
 
-    # 타임라인 절대 위치 계산 (PX_PER_MIN = 2)
-    PX = 2
-    wsh, wsm = map(int, work_hours['work_start'].split(':'))
-    weh, wem = map(int, work_hours['work_end'].split(':'))
-    lsh, lsm = map(int, work_hours['lunch_start'].split(':'))
-    leh, lem = map(int, work_hours['lunch_end'].split(':'))
-    work_start_min = wsh * 60 + wsm
-    work_end_min = weh * 60 + wem
-    timeline_height_px = (work_end_min - work_start_min) * PX
-    lunch_top_px = (lsh * 60 + lsm - work_start_min) * PX
-    lunch_height_px = (leh * 60 + lem - lsh * 60 - lsm) * PX
+    blocks = schedule_repo.get_by_date_range(
+        week_start.isoformat(), week_end.isoformat(),
+    )
+    enriched = _enrich_blocks(
+        blocks, users_map, tasks_map, categories_map,
+        settings.get('block_color_by', 'assignee'),
+    )
 
+    # Group blocks by (date, time_slot)
     blocks_by_date = {}
-    for block in blocks:
-        # PARSE_DECLTYPES로 인해 DATE 컬럼이 datetime.date로 반환될 수 있으므로 문자열로 통일
-        d = block['assigned_date']
-        d = d.strftime('%Y-%m-%d') if hasattr(d, 'strftime') else str(d)
-        if d not in blocks_by_date:
-            blocks_by_date[d] = []
-        b = dict(block)
-        b['assigned_date'] = d  # 문자열로 통일
-        sh, sm = map(int, b['start_time'].split(':'))
-        eh, em = map(int, b['end_time'].split(':'))
-        b['top_px'] = (sh * 60 + sm - work_start_min) * PX
-        b['height_px'] = max(20, (eh * 60 + em - sh * 60 - sm) * PX)
-        blocks_by_date[d].append(b)
+    for b in enriched:
+        blocks_by_date.setdefault(b['date'], []).append(b)
 
-    return render_template('schedule/week.html',
-                           blocks_by_date=blocks_by_date, week_days=week_days,
-                           categories=categories, work_hours=work_hours,
-                           unscheduled=unscheduled,
-                           prev_week=prev_week, next_week=next_week,
-                           selected_category=category_id,
-                           today=date.today(),
-                           work_start_min=work_start_min,
-                           work_end_min=work_end_min,
-                           work_start_h=wsh,
-                           work_end_h=weh,
-                           timeline_height_px=timeline_height_px,
-                           lunch_top_px=lunch_top_px,
-                           lunch_height_px=lunch_height_px,
-                           lunch_start_min=lsh * 60 + lsm,
-                           lunch_end_min=leh * 60 + lem)
+    time_slots = _generate_time_slots(settings)
+    break_slots = {s for s in time_slots if _is_break_slot(s, settings)}
+
+    prev_week = current_date - timedelta(weeks=1)
+    next_week = current_date + timedelta(weeks=1)
+
+    day_names = ['월', '화', '수', '목', '금', '토', '일']
+
+    return render_template(
+        'schedule/week.html',
+        current_date=current_date,
+        week_start=week_start,
+        week_end=week_end,
+        week_days=week_days,
+        day_names=day_names,
+        prev_date=prev_week,
+        next_date=next_week,
+        blocks_by_date=blocks_by_date,
+        time_slots=time_slots,
+        break_slots=break_slots,
+        settings=settings,
+        today=date.today(),
+    )
 
 
 @schedule_bp.route('/month')
 def month_view():
-    today = date.today()
-    year = request.args.get('year', today.year, type=int)
-    month = request.args.get('month', today.month, type=int)
-    if not (1 <= month <= 12):
-        month = today.month
-    if not (1900 <= year <= 9999):
-        year = today.year
-    category_id = request.args.get('category_id', type=int)
+    current_date = _parse_date(request.args.get('date'))
+    settings = settings_repo.get()
+    users_map, tasks_map, categories_map = _build_maps()
 
-    blocks = schedule_repo.get_blocks_for_month(year, month)
-    categories = category_repo.get_all_categories()
+    year = current_date.year
+    month = current_date.month
 
+    cal = calendar.Calendar(firstweekday=0)  # Monday first
+    month_days = cal.monthdayscalendar(year, month)
+
+    # Date range for the month
+    first_day = date(year, month, 1)
+    last_day = date(year, month, calendar.monthrange(year, month)[1])
+
+    blocks = schedule_repo.get_by_date_range(
+        first_day.isoformat(), last_day.isoformat(),
+    )
+    enriched = _enrich_blocks(
+        blocks, users_map, tasks_map, categories_map,
+        settings.get('block_color_by', 'assignee'),
+    )
+
+    # Group blocks by date
     blocks_by_date = {}
-    for block in blocks:
-        d = block['assigned_date']
-        if d not in blocks_by_date:
-            blocks_by_date[d] = []
-        blocks_by_date[d].append(dict(block))
+    for b in enriched:
+        blocks_by_date.setdefault(b['date'], []).append(b)
 
-    cal = calendar.monthcalendar(year, month)
-    prev_month = month - 1 if month > 1 else 12
-    prev_year = year if month > 1 else year - 1
-    next_month = month + 1 if month < 12 else 1
-    next_year = year if month < 12 else year + 1
+    # Build calendar weeks with date objects
+    weeks = []
+    for week in month_days:
+        week_data = []
+        for day_num in week:
+            if day_num == 0:
+                week_data.append(None)
+            else:
+                d = date(year, month, day_num)
+                day_blocks = blocks_by_date.get(d.isoformat(), [])
+                week_data.append({
+                    'date': d,
+                    'day': day_num,
+                    'blocks': day_blocks,
+                })
+        weeks.append(week_data)
 
-    return render_template('schedule/month.html',
-                           blocks_by_date=blocks_by_date, cal=cal,
-                           year=year, month=month, today=today,
-                           categories=categories, selected_category=category_id,
-                           prev_month=prev_month, prev_year=prev_year,
-                           next_month=next_month, next_year=next_year)
+    # Previous/next month
+    if month == 1:
+        prev_month_date = date(year - 1, 12, 1)
+    else:
+        prev_month_date = date(year, month - 1, 1)
+    if month == 12:
+        next_month_date = date(year + 1, 1, 1)
+    else:
+        next_month_date = date(year, month + 1, 1)
+
+    day_names = ['월', '화', '수', '목', '금', '토', '일']
+
+    return render_template(
+        'schedule/month.html',
+        current_date=current_date,
+        year=year,
+        month=month,
+        weeks=weeks,
+        day_names=day_names,
+        prev_date=prev_month_date,
+        next_date=next_month_date,
+        today=date.today(),
+        settings=settings,
+    )
 
 
-# --- API Endpoints ---
+# ---------------------------------------------------------------------------
+# API Endpoints
+# ---------------------------------------------------------------------------
 
 @schedule_bp.route('/api/blocks', methods=['POST'])
 def api_create_block():
-    data = request.json or {}
-    task_id = data.get('task_id')
-    assigned_date = data.get('assigned_date')
-    start_time = data.get('start_time')
-    end_time = data.get('end_time')
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '요청 데이터가 없습니다.'}), 400
 
-    if not task_id or not assigned_date:
-        return jsonify({'success': False, 'error': 'task_id and assigned_date required'}), 400
-    if not start_time or not end_time:
-        return jsonify({'success': False, 'error': 'start_time and end_time required'}), 400
-    if not _DATE_RE.match(assigned_date):
-        return jsonify({'success': False, 'error': 'invalid date format (YYYY-MM-DD)'}), 400
-    if not _TIME_RE.match(start_time) or not _TIME_RE.match(end_time):
-        return jsonify({'success': False, 'error': 'invalid time format (HH:MM)'}), 400
-    if start_time >= end_time:
-        return jsonify({'success': False, 'error': 'start_time must be before end_time'}), 400
+    required = ['task_id', 'assignee_id', 'date', 'start_time', 'end_time']
+    for field in required:
+        if not data.get(field):
+            return jsonify({'error': f'{field}은(는) 필수 항목입니다.'}), 400
 
-    block_id = schedule_repo.create_block(
-        task_id=task_id,
-        assigned_date=assigned_date,
-        start_time=start_time,
-        end_time=end_time,
+    block = schedule_repo.create(
+        task_id=data['task_id'],
+        assignee_id=data['assignee_id'],
+        date=data['date'],
+        start_time=data['start_time'],
+        end_time=data['end_time'],
         is_draft=data.get('is_draft', False),
+        is_locked=data.get('is_locked', False),
+        origin=data.get('origin', 'manual'),
     )
-    return jsonify({'success': True, 'block_id': block_id}), 201
+    return jsonify(block), 201
 
 
-@schedule_bp.route('/api/blocks/<int:block_id>', methods=['PUT'])
+@schedule_bp.route('/api/blocks/<block_id>', methods=['PUT'])
 def api_update_block(block_id):
-    data = request.json or {}
-    assigned_date = data.get('assigned_date')
-    start_time = data.get('start_time')
-    end_time = data.get('end_time')
+    block = schedule_repo.get_by_id(block_id)
+    if not block:
+        return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
 
-    if not assigned_date:
-        return jsonify({'success': False, 'error': 'assigned_date required'}), 400
-    if not start_time or not end_time:
-        return jsonify({'success': False, 'error': 'start_time and end_time required'}), 400
-    if not _DATE_RE.match(assigned_date):
-        return jsonify({'success': False, 'error': 'invalid date format (YYYY-MM-DD)'}), 400
-    if not _TIME_RE.match(start_time) or not _TIME_RE.match(end_time):
-        return jsonify({'success': False, 'error': 'invalid time format (HH:MM)'}), 400
-    if start_time >= end_time:
-        return jsonify({'success': False, 'error': 'start_time must be before end_time'}), 400
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '요청 데이터가 없습니다.'}), 400
 
-    schedule_repo.update_block(
-        block_id=block_id,
-        assigned_date=assigned_date,
-        start_time=start_time,
-        end_time=end_time,
-    )
-    return jsonify({'success': True})
+    allowed = ['date', 'start_time', 'end_time', 'is_draft', 'is_locked']
+    updates = {k: v for k, v in data.items() if k in allowed}
+
+    updated = schedule_repo.update(block_id, **updates)
+    return jsonify(updated)
 
 
-@schedule_bp.route('/api/blocks/<int:block_id>', methods=['DELETE'])
+@schedule_bp.route('/api/blocks/<block_id>', methods=['DELETE'])
 def api_delete_block(block_id):
-    schedule_repo.delete_block(block_id)
+    block = schedule_repo.get_by_id(block_id)
+    if not block:
+        return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
+
+    schedule_repo.delete(block_id)
     return jsonify({'success': True})
+
+
+@schedule_bp.route('/api/blocks/<block_id>/lock', methods=['PUT'])
+def api_toggle_lock(block_id):
+    block = schedule_repo.get_by_id(block_id)
+    if not block:
+        return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
+
+    new_locked = not block.get('is_locked', False)
+    updated = schedule_repo.update(block_id, is_locked=new_locked)
+    return jsonify(updated)
 
 
 @schedule_bp.route('/api/draft/generate', methods=['POST'])
-def api_generate_draft():
-    data = request.json or {}
-    category_id = data.get('category_id')
-    start_date_str = data.get('start_date', date.today().strftime('%Y-%m-%d'))
-    start_date = _parse_date(start_date_str, default=date.today())
-
-    work_hours = settings_repo.get_work_hours()
-    tasks = task_repo.get_unscheduled_tasks(category_id=category_id)
-    tasks_list = [dict(t) for t in tasks]
-
-    end_date_str = (start_date + timedelta(days=14)).strftime('%Y-%m-%d')
-    existing = schedule_repo.get_blocks_for_week(start_date.strftime('%Y-%m-%d'), end_date_str)
-    occupied_by_date = {}
-    for block in existing:
-        if not block['is_draft']:
-            d = block['assigned_date']
-            occupied_by_date.setdefault(d, []).append({
-                'start_time': block['start_time'],
-                'end_time': block['end_time']
-            })
-
-    draft_blocks = generate_draft(tasks_list, work_hours, occupied_by_date, start_date)
-
-    schedule_repo.discard_draft_blocks(category_id=category_id)
-    for b in draft_blocks:
-        schedule_repo.create_block(
-            task_id=b['task_id'],
-            assigned_date=b['assigned_date'],
-            start_time=b['start_time'],
-            end_time=b['end_time'],
-            is_draft=True,
-        )
-
-    scheduled_ids = {b['task_id'] for b in draft_blocks}
-    unscheduled_ids = [t['id'] for t in tasks_list if t['id'] not in scheduled_ids]
+def api_draft_generate():
+    from app.services.scheduler import generate_draft_schedule
+    result = generate_draft_schedule()
     return jsonify({
-        'success': True,
-        'count': len(draft_blocks),
-        'blocks': draft_blocks,
-        'unscheduled_task_ids': unscheduled_ids,
+        'placed_count': len(result['placed']),
+        'unplaced': [
+            {
+                'task_id': u['task']['id'],
+                'task_title': u['task']['title'],
+                'remaining_hours': u['remaining_unscheduled_hours'],
+            }
+            for u in result['unplaced']
+        ],
     })
 
 
 @schedule_bp.route('/api/draft/approve', methods=['POST'])
-def api_approve_draft():
-    data = request.json or {}
-    category_id = data.get('category_id')
-    schedule_repo.approve_draft_blocks(category_id=category_id)
+def api_draft_approve():
+    from app.services.scheduler import approve_drafts
+    approve_drafts()
     return jsonify({'success': True})
 
 
 @schedule_bp.route('/api/draft/discard', methods=['POST'])
-def api_discard_draft():
-    data = request.json or {}
-    category_id = data.get('category_id')
-    schedule_repo.discard_draft_blocks(category_id=category_id)
+def api_draft_discard():
+    from app.services.scheduler import discard_drafts
+    discard_drafts()
     return jsonify({'success': True})

@@ -1,0 +1,24 @@
+[
+  {
+    "id": "sb_5e0c5e53",
+    "task_id": "t_f9dd58b0",
+    "assignee_id": "",
+    "date": "2026-03-06",
+    "start_time": "09:30",
+    "end_time": "10:15",
+    "is_draft": true,
+    "is_locked": false,
+    "origin": "auto"
+  },
+  {
+    "id": "sb_59cd2220",
+    "task_id": "t_f9dd58b0",
+    "assignee_id": "",
+    "date": "2026-03-08",
+    "start_time": "10:00",
+    "end_time": "10:15",
+    "is_draft": true,
+    "is_locked": false,
+    "origin": "auto"
+  }
+]

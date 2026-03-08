@@ -1,40 +1,32 @@
-from flask import g
-from app.db import get_db
+from app.json_store import read_json, write_json
+
+FILENAME = 'settings.json'
+
+DEFAULTS = {
+    'work_start': '09:00',
+    'work_end': '18:00',
+    'lunch_start': '12:00',
+    'lunch_end': '13:00',
+    'breaks': [
+        {'start': '09:45', 'end': '10:00'},
+        {'start': '14:45', 'end': '15:00'},
+    ],
+    'grid_interval_minutes': 15,
+    'max_schedule_days': 14,
+    'block_color_by': 'assignee',
+}
 
 
-def get_all_settings():
-    if '_settings_cache' in g:
-        return g._settings_cache
-    db = get_db()
-    rows = db.execute('SELECT key, value FROM settings').fetchall()
-    result = {row['key']: row['value'] for row in rows}
-    g._settings_cache = result
-    return result
+def get():
+    settings = read_json(FILENAME)
+    if not settings:
+        settings = DEFAULTS.copy()
+        write_json(FILENAME, settings)
+    return settings
 
 
-def get_setting(key):
-    db = get_db()
-    row = db.execute('SELECT value FROM settings WHERE key = ?', (key,)).fetchone()
-    return row['value'] if row else None
-
-
-def update_setting(key, value):
-    db = get_db()
-    db.execute(
-        'INSERT INTO settings (key, value) VALUES (?, ?) '
-        'ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-        (key, value)
-    )
-    db.commit()
-    g.pop('_settings_cache', None)
-
-
-def get_work_hours():
-    """근무시간 정보를 딕셔너리로 반환."""
-    settings = get_all_settings()
-    return {
-        'work_start': settings.get('work_start', '09:00'),
-        'work_end': settings.get('work_end', '18:00'),
-        'lunch_start': settings.get('lunch_start', '12:00'),
-        'lunch_end': settings.get('lunch_end', '13:00'),
-    }
+def update(data):
+    settings = get()
+    settings.update(data)
+    write_json(FILENAME, settings)
+    return settings
