@@ -283,29 +283,3 @@ def _format_time(dt):
     return dt.strftime('%H:%M')
 
 
-def _time_diff_hours(start_str, end_str):
-    """Calculate the difference in hours between two 'HH:MM' strings."""
-    start = _parse_time(start_str)
-    end = _parse_time(end_str)
-    delta = (end - start).total_seconds() / 3600
-    return max(0.0, delta)
-
-
-def _add_hours(time_str, hours):
-    """Add fractional hours to an 'HH:MM' time string, return 'HH:MM'."""
-    dt = _parse_time(time_str)
-    dt += timedelta(hours=hours)
-    return _format_time(dt)
-
-
-def _overlaps(s1, e1, s2, e2):
-    """Check if time range (s1, e1) overlaps with (s2, e2).
-
-    All arguments are 'HH:MM' strings. Overlap means the intersection
-    has positive duration (touching endpoints do not count).
-    """
-    start1 = _parse_time(s1)
-    end1 = _parse_time(e1)
-    start2 = _parse_time(s2)
-    end2 = _parse_time(e2)
-    return start1 < end2 and start2 < end1

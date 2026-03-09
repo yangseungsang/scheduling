@@ -474,6 +474,14 @@ body {
 }
 .month-block-item {
   cursor: grab;
+  font-size: 0.7rem;
+  padding: 1px 4px;
+  margin-bottom: 2px;
+  border-radius: 2px;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Queue drop highlight */
@@ -485,33 +493,12 @@ body {
 .day-number { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
 .day-number a { text-decoration: none; color: inherit; }
 .day-number a:hover { color: #0d6efd; }
-.month-block-item {
-  font-size: 0.7rem;
-  padding: 1px 4px;
-  margin-bottom: 2px;
-  border-radius: 2px;
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 .month-block-item.draft { border: 1px dashed rgba(255,255,255,0.7); }
 .month-more-count { font-size: 0.7rem; color: #6c757d; padding-left: 4px; }
 
 /* ==================================================================
    Context menu & Toast
    ================================================================== */
-/* ---- Drag ghost ---- */
-.drag-ghost {
-  pointer-events: none;
-}
-body.dragging-active {
-  cursor: grabbing !important;
-  user-select: none;
-}
-body.dragging-active * {
-  cursor: grabbing !important;
-}
 
 #block-context-menu {
   min-width: 120px;

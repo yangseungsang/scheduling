@@ -554,8 +554,6 @@
     if (btn && q) btn.onclick = function () { q.classList.toggle('collapsed'); };
   }
 
-  // Export button is now in base.html navbar (not managed by drag_drop.js)
-
   // =====================================================================
   // Init
   // =====================================================================
