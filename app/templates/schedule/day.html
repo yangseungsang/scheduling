@@ -60,14 +60,24 @@
           {% set col_total = block.col_total|default(1) %}
           {% set col_width = 100.0 / col_total %}
           {% set col_left = col_width * col_index %}
-          <div class="schedule-block{% if block.is_draft %} draft{% endif %}"
+          <div class="schedule-block{% if block.is_draft %} draft{% endif %} block-status-{{ block.block_status }}"
                data-block-id="{{ block.id }}"
                data-task-id="{{ block.task_id }}"
+               data-block-status="{{ block.block_status }}"
+               data-memo="{{ block.memo }}"
                data-start-time="{{ block.start_time }}"
                data-end-time="{{ block.end_time }}"
                  style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }}; left: {{ col_left }}%; width: {{ col_width }}%; right: auto;">
             <div class="resize-handle resize-handle-top"></div>
-            <div class="block-title">{{ block.task_title }}</div>
+            <div class="block-title">
+              {{ block.task_title }}
+              <span class="block-status-badge badge-status-{{ block.block_status }}">
+                {% if block.block_status == 'in_progress' %}진행
+                {% elif block.block_status == 'completed' %}완료
+                {% elif block.block_status == 'cancelled' %}불가
+                {% endif %}
+              </span>
+            </div>
             <div class="block-meta">
               <span class="block-assignee">{{ block.assignee_name }}</span>
               {% if block.category_name %}
@@ -82,6 +92,9 @@
               {% endif %}
               <span class="block-time">{{ block.start_time }}–{{ block.end_time }}</span>
             </div>
+            {% if block.memo %}
+            <span class="memo-icon" title="{{ block.memo }}"><i class="bi bi-sticky-fill"></i></span>
+            {% endif %}
             {% if block.is_locked %}
             <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>
             {% endif %}

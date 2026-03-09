@@ -47,12 +47,16 @@
                 </a>
               </div>
               {% for block in day_data.blocks[:3] %}
-              <div class="month-block-item{% if block.is_draft %} draft{% endif %}"
+              <div class="month-block-item{% if block.is_draft %} draft{% endif %} block-status-{{ block.block_status }}"
                    data-block-id="{{ block.id }}"
                    data-task-id="{{ block.task_id }}"
+                   data-block-status="{{ block.block_status }}"
                    style="background-color: {{ block.color }};"
                    title="{{ block.task_title }} ({{ block.assignee_name }})">
-                {{ block.task_title }}
+                {% if block.block_status == 'in_progress' %}<i class="bi bi-play-circle-fill month-status-icon"></i>
+                {% elif block.block_status == 'completed' %}<i class="bi bi-check-circle-fill month-status-icon"></i>
+                {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-circle-fill month-status-icon"></i>
+                {% endif %}{{ block.task_title }}
               </div>
               {% endfor %}
               {% if day_data.blocks|length > 3 %}

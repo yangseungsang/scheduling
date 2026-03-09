@@ -384,7 +384,50 @@
   }
 
   // =====================================================================
-  // 4. Context menu
+  // 4. Memo modal
+  // =====================================================================
+  function openMemoModal(blockId, currentMemo) {
+    var existing = document.getElementById('memo-modal-backdrop');
+    if (existing) existing.remove();
+
+    var backdrop = document.createElement('div');
+    backdrop.id = 'memo-modal-backdrop';
+    backdrop.className = 'memo-modal-backdrop';
+    backdrop.innerHTML =
+      '<div class="memo-modal">' +
+        '<div class="memo-modal-header">메모</div>' +
+        '<textarea class="memo-modal-input" id="memo-textarea" rows="4" placeholder="메모를 입력하세요...">' +
+          (currentMemo || '').replace(/</g, '&lt;') +
+        '</textarea>' +
+        '<div class="memo-modal-actions">' +
+          '<button class="btn btn-sm btn-secondary" id="memo-cancel">취소</button>' +
+          '<button class="btn btn-sm btn-primary" id="memo-save">저장</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(backdrop);
+
+    var textarea = document.getElementById('memo-textarea');
+    textarea.focus();
+
+    document.getElementById('memo-cancel').onclick = function () { backdrop.remove(); };
+    backdrop.addEventListener('click', function (ev) {
+      if (ev.target === backdrop) backdrop.remove();
+    });
+    document.getElementById('memo-save').onclick = function () {
+      var memo = textarea.value.trim();
+      api('PUT', '/schedule/api/blocks/' + blockId + '/memo', { memo: memo })
+        .then(function () {
+          backdrop.remove();
+          location.reload();
+        })
+        .catch(function (err) {
+          showToast(err.message, 'danger');
+        });
+    };
+  }
+
+  // =====================================================================
+  // 5. Context menu
   // =====================================================================
   function initContextMenu() {
     document.addEventListener('contextmenu', function (e) {
@@ -396,11 +439,29 @@
       if (old) old.remove();
 
       var blockId = block.dataset.blockId;
+      var currentStatus = block.dataset.blockStatus || 'pending';
       var menu = document.createElement('div');
       menu.id = 'block-context-menu';
       menu.className = 'dropdown-menu show';
       menu.style.cssText = 'position:fixed;z-index:1200;left:' + e.clientX + 'px;top:' + e.clientY + 'px;';
+
+      var statusItems = [
+        { value: 'pending', label: '시작 전', icon: 'bi-hourglass' },
+        { value: 'in_progress', label: '진행 중', icon: 'bi-play-circle' },
+        { value: 'completed', label: '완료', icon: 'bi-check-circle' },
+        { value: 'cancelled', label: '불가', icon: 'bi-x-circle' },
+      ];
+      var statusHtml = '<div class="dropdown-header" style="font-size:0.75rem;padding:4px 12px;">상태 변경</div>';
+      statusItems.forEach(function (s) {
+        var active = s.value === currentStatus ? ' active' : '';
+        statusHtml += '<button class="dropdown-item' + active + '" data-action="status" data-status="' + s.value + '">' +
+          '<i class="bi ' + s.icon + '"></i> ' + s.label + '</button>';
+      });
+
       menu.innerHTML =
+        statusHtml +
+        '<div class="dropdown-divider"></div>' +
+        '<button class="dropdown-item" data-action="memo"><i class="bi bi-sticky"></i> 메모</button>' +
         '<button class="dropdown-item" data-action="to-queue"><i class="bi bi-arrow-left-square"></i> 큐로 보내기</button>' +
         '<button class="dropdown-item" data-action="lock"><i class="bi bi-lock"></i> 잠금 토글</button>' +
         '<button class="dropdown-item text-danger" data-action="delete"><i class="bi bi-trash"></i> 삭제</button>';
@@ -410,7 +471,13 @@
         var btn = ev.target.closest('[data-action]');
         if (!btn) return;
         menu.remove();
-        if (btn.dataset.action === 'to-queue') {
+        if (btn.dataset.action === 'memo') {
+          openMemoModal(blockId, block.dataset.memo || '');
+        } else if (btn.dataset.action === 'status') {
+          api('PUT', '/schedule/api/blocks/' + blockId + '/status', { block_status: btn.dataset.status })
+            .then(function () { location.reload(); })
+            .catch(function (err) { showToast(err.message, 'danger'); });
+        } else if (btn.dataset.action === 'to-queue') {
           api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
             .then(function () {
               showToast('큐로 되돌렸습니다.', 'success');

@@ -18,13 +18,14 @@
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav">
-          <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">캘린더</a>
-            <ul class="dropdown-menu">
-              <li><a class="dropdown-item" href="{{ url_for('schedule.day_view') }}">일간 뷰</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('schedule.week_view') }}">주간 뷰</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('schedule.month_view') }}">월간 뷰</a></li>
-            </ul>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('schedule.day_view') }}">일간</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('schedule.week_view') }}">주간</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('schedule.month_view') }}">월간</a>
           </li>
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('tasks.task_list') }}">업무</a>
@@ -61,7 +62,7 @@
           </div>
           <button class="btn btn-sm btn-outline-light" id="mode-toggle" title="편집/읽기 모드 전환">
             <i class="bi bi-pencil-fill" id="mode-icon"></i>
-            <span id="mode-label" class="d-none d-md-inline ms-1">편집</span>
+            <span id="mode-label" class="ms-1">편집모드</span>
           </button>
         </div>
       </div>
@@ -74,11 +75,11 @@
       if (mode === 'readonly') {
         document.body.classList.add('readonly-mode');
         document.getElementById('mode-icon').className = 'bi bi-eye-fill';
-        document.getElementById('mode-label').textContent = '읽기';
+        document.getElementById('mode-label').textContent = '읽기모드';
       } else {
         document.body.classList.remove('readonly-mode');
         document.getElementById('mode-icon').className = 'bi bi-pencil-fill';
-        document.getElementById('mode-label').textContent = '편집';
+        document.getElementById('mode-label').textContent = '편집모드';
       }
     }
     document.addEventListener('DOMContentLoaded', applyMode);

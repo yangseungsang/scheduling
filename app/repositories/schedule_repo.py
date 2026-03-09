@@ -30,7 +30,8 @@ def get_by_assignee(assignee_id):
 
 
 def create(task_id, assignee_id, date, start_time, end_time,
-           is_draft=False, is_locked=False, origin='manual'):
+           is_draft=False, is_locked=False, origin='manual',
+           block_status='pending'):
     blocks = read_json(FILENAME)
     block = {
         'id': generate_id('sb_'),
@@ -42,10 +43,18 @@ def create(task_id, assignee_id, date, start_time, end_time,
         'is_draft': is_draft,
         'is_locked': is_locked,
         'origin': origin,
+        'block_status': block_status,
+        'memo': '',
     }
     blocks.append(block)
     write_json(FILENAME, blocks)
     return block
+
+
+ALLOWED_FIELDS = {
+    'date', 'start_time', 'end_time', 'is_draft', 'is_locked',
+    'block_status', 'task_id', 'assignee_id', 'origin', 'memo',
+}
 
 
 def update(block_id, **kwargs):
@@ -53,7 +62,7 @@ def update(block_id, **kwargs):
     for b in blocks:
         if b['id'] == block_id:
             for key, value in kwargs.items():
-                if key in b:
+                if key in ALLOWED_FIELDS:
                     b[key] = value
             write_json(FILENAME, blocks)
             return b

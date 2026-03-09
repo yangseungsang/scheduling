@@ -165,17 +165,6 @@
     "origin": "manual"
   },
   {
-    "id": "sb_a7f6e318",
-    "task_id": "t_003",
-    "assignee_id": "u_003",
-    "date": "2026-03-10",
-    "start_time": "09:45",
-    "end_time": "10:45",
-    "is_draft": false,
-    "is_locked": false,
-    "origin": "manual"
-  },
-  {
     "id": "sb_c698ad07",
     "task_id": "t_002",
     "assignee_id": "u_002",
@@ -196,5 +185,89 @@
     "is_draft": false,
     "is_locked": false,
     "origin": "manual"
+  },
+  {
+    "id": "sb_f502fb2b",
+    "task_id": "t_005",
+    "assignee_id": "u_001",
+    "date": "2026-03-09",
+    "start_time": "16:00",
+    "end_time": "16:45",
+    "is_draft": false,
+    "is_locked": false,
+    "origin": "auto",
+    "block_status": "pending"
+  },
+  {
+    "id": "sb_72293c17",
+    "task_id": "t_008",
+    "assignee_id": "u_001",
+    "date": "2026-03-09",
+    "start_time": "08:45",
+    "end_time": "10:45",
+    "is_draft": false,
+    "is_locked": false,
+    "origin": "manual",
+    "block_status": "pending"
+  },
+  {
+    "id": "sb_097adec9",
+    "task_id": "t_004",
+    "assignee_id": "u_004",
+    "date": "2026-03-09",
+    "start_time": "08:00",
+    "end_time": "08:15",
+    "is_draft": true,
+    "is_locked": false,
+    "origin": "auto",
+    "block_status": "pending"
+  },
+  {
+    "id": "sb_5794f9e9",
+    "task_id": "t_008",
+    "assignee_id": "u_001",
+    "date": "2026-03-09",
+    "start_time": "08:00",
+    "end_time": "08:15",
+    "is_draft": true,
+    "is_locked": false,
+    "origin": "auto",
+    "block_status": "pending"
+  },
+  {
+    "id": "sb_618eff54",
+    "task_id": "t_010",
+    "assignee_id": "u_002",
+    "date": "2026-03-09",
+    "start_time": "20:15",
+    "end_time": "23:30",
+    "is_draft": false,
+    "is_locked": false,
+    "origin": "manual",
+    "block_status": "pending"
+  },
+  {
+    "id": "sb_adcd36ca",
+    "task_id": "t_010",
+    "assignee_id": "u_002",
+    "date": "2026-03-09",
+    "start_time": "12:00",
+    "end_time": "13:45",
+    "is_draft": false,
+    "is_locked": false,
+    "origin": "manual",
+    "block_status": "pending"
+  },
+  {
+    "id": "sb_92d9f950",
+    "task_id": "t_005",
+    "assignee_id": "u_001",
+    "date": "2026-03-11",
+    "start_time": "17:30",
+    "end_time": "20:45",
+    "is_draft": false,
+    "is_locked": false,
+    "origin": "manual",
+    "block_status": "pending"
   }
 ]

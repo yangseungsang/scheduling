@@ -507,24 +507,110 @@ body {
 #toast-container { z-index: 1100; }
 
 /* ==================================================================
+   Block status styles
+   ================================================================== */
+/* Status badge (inside block-title) */
+.block-status-badge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-left: 4px;
+  line-height: 1.3;
+}
+.badge-status-pending { display: none; }
+.badge-status-in_progress { background: rgba(255,255,255,0.85); color: #0d6efd; }
+.badge-status-completed { background: rgba(255,255,255,0.85); color: #198754; }
+.badge-status-cancelled { background: rgba(255,255,255,0.85); color: #dc3545; }
+
+/* Block-level visual cues */
+.block-status-completed { opacity: 0.6; }
+.block-status-cancelled { opacity: 0.4; }
+
+/* Month view status icon */
+.month-status-icon { font-size: 0.6rem; margin-right: 2px; vertical-align: middle; }
+
+/* Context menu status active item */
+#block-context-menu .dropdown-item.active {
+  background-color: #e9ecef;
+  color: #212529;
+  font-weight: 600;
+}
+
+/* Memo icon on blocks */
+.memo-icon {
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.8);
+  pointer-events: none;
+}
+
+/* Memo modal */
+.memo-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 1300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.memo-modal {
+  background: #fff;
+  border-radius: 8px;
+  padding: 16px;
+  width: 360px;
+  max-width: 90vw;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+.memo-modal-header {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+}
+.memo-modal-input {
+  width: 100%;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.88rem;
+  resize: vertical;
+  outline: none;
+}
+.memo-modal-input:focus {
+  border-color: #86b7fe;
+  box-shadow: 0 0 0 3px rgba(13,110,253,0.15);
+}
+.memo-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+/* ==================================================================
    Same-task hover highlight
    ================================================================== */
 .schedule-block.task-linked-hover,
 .week-block.task-linked-hover {
-  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline: 2px solid rgba(255, 255, 255, 0.6);
   outline-offset: -1px;
-  filter: brightness(1.25);
+  filter: brightness(1.1);
   z-index: 5;
 }
 .month-block-item.task-linked-hover {
-  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline: 2px solid rgba(255, 255, 255, 0.6);
   outline-offset: -1px;
-  filter: brightness(1.25);
+  filter: brightness(1.1);
 }
 .queue-task-item.task-linked-hover {
-  outline: 2px solid #0d6efd;
+  outline: 2px solid #6ea8fe;
   outline-offset: -1px;
-  background-color: #e8f0fe !important;
+  background-color: #f0f4fa !important;
 }
 
 /* ==================================================================
@@ -586,9 +672,53 @@ body {
 }
 
 /* ==================================================================
-   Task list / Admin tables
+   Task list page
    ================================================================== */
-.task-table th { white-space: nowrap; font-size: 0.85rem; }
-.task-table td { vertical-align: middle; font-size: 0.9rem; }
-.filter-bar .form-select { font-size: 0.85rem; }
+.task-list-page { max-width: 800px; margin: 0 auto; padding: 20px 16px; }
+.task-list-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;
+}
+.task-filter-bar {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.task-filter-bar .form-select { width: auto; min-width: 120px; font-size: 0.82rem; }
+.task-table-wrap {
+  background: #fff; border: 1px solid #e9ecef; border-radius: 8px; overflow: hidden;
+}
+.task-table {
+  width: 100%; border-collapse: collapse; margin: 0;
+}
+.task-table thead th {
+  font-size: 0.78rem; font-weight: 600; color: #6c757d; text-transform: uppercase;
+  letter-spacing: 0.03em; padding: 10px 12px;
+  background: #f8f9fa; border-bottom: 1px solid #e9ecef;
+  white-space: nowrap;
+}
+.task-table thead th:first-child { width: 28px; padding-right: 0; }
+.task-table tbody td {
+  padding: 10px 12px; font-size: 0.88rem; color: #495057;
+  border-bottom: 1px solid #f1f3f5; vertical-align: middle;
+}
+.task-table tbody tr:last-child td { border-bottom: none; }
+.task-row { cursor: pointer; transition: background 0.12s; }
+.task-row:hover { background: #f8f9fa; }
+.task-cell-title { font-weight: 600; color: #212529; }
+.task-priority-dot {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%;
+}
+.task-priority-dot.priority-high { background: #dc3545; }
+.task-priority-dot.priority-medium { background: #ffc107; }
+.task-priority-dot.priority-low { background: #0dcaf0; }
+.task-status-chip {
+  display: inline-block; padding: 2px 10px; border-radius: 12px;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+}
+.status-waiting { background: #f1f3f5; color: #868e96; }
+.status-progress { background: #dbeafe; color: #2563eb; }
+.status-done { background: #d1fae5; color: #059669; }
+.task-empty-cell {
+  text-align: center; padding: 40px 16px !important; color: #adb5bd; font-size: 0.9rem;
+}
+
+/* Admin tables */
 .admin-table .badge { min-width: 30px; }

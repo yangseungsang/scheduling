@@ -545,7 +545,7 @@ class TestScheduleBlockAPI:
         assert r.get_json()['end_time'] == '09:30'
 
     def test_update_block_resize_syncs_remaining_hours(self, client):
-        """On resize, task.remaining_hours should equal total scheduled time."""
+        """On resize, task.remaining_hours = estimated - total scheduled."""
         uid = _create_user(client)
         tid = _create_task(client, uid, hours='4')
         block, _ = _create_block(client, tid, uid, start='09:00', end='11:00')
@@ -555,7 +555,7 @@ class TestScheduleBlockAPI:
             'resize': True,
         })
         task = client.get(f'/tasks/api/{tid}').get_json()['task']
-        assert task['remaining_hours'] == 1.0
+        assert task['remaining_hours'] == 3.0  # 4h estimated - 1h scheduled
 
     def test_update_block_overlap_rejected(self, client):
         uid = _create_user(client)

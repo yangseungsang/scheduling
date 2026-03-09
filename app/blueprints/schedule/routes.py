@@ -67,6 +67,8 @@ def _enrich_blocks(blocks, users_map, tasks_map, categories_map, color_by):
         block['category_name'] = category['name'] if category else ''
         block['category_color'] = category['color'] if category else '#6c757d'
         block['color'] = block['category_color'] if color_by == 'category' else block['assignee_color']
+        block['block_status'] = b.get('block_status', 'pending')
+        block['memo'] = b.get('memo', '')
 
         enriched.append(block)
     return enriched
@@ -85,9 +87,12 @@ def _get_queue_tasks(users_map, categories_map):
 
     queue = []
     for t in tasks:
-        if t['status'] == 'completed' or t.get('remaining_hours', 0) <= 0:
+        if t['status'] == 'completed':
             continue
-        remaining = t.get('remaining_hours', 0) - scheduled_hours.get(t['id'], 0)
+        est = t.get('estimated_hours', 0)
+        if est <= 0:
+            continue
+        remaining = est - scheduled_hours.get(t['id'], 0)
         if remaining <= 0:
             continue
 
@@ -472,6 +477,7 @@ def api_create_block():
         is_locked=data.get('is_locked', False),
         origin=data.get('origin', 'manual'),
     )
+    _sync_task_remaining_hours(data['task_id'])
     return jsonify(block), 201
 
 
@@ -485,7 +491,7 @@ def api_update_block(block_id):
     if not data:
         return jsonify({'error': '요청 데이터가 없습니다.'}), 400
 
-    allowed = {'date', 'start_time', 'end_time', 'is_draft', 'is_locked'}
+    allowed = {'date', 'start_time', 'end_time', 'is_draft', 'is_locked', 'block_status'}
     updates = {k: v for k, v in data.items() if k in allowed}
     is_resize = data.get('resize', False)
 
@@ -521,7 +527,10 @@ def api_delete_block(block_id):
     block = schedule_repo.get_by_id(block_id)
     if not block:
         return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
+    task_id = block.get('task_id')
     schedule_repo.delete(block_id)
+    if task_id:
+        _sync_task_remaining_hours(task_id)
     return jsonify({'success': True})
 
 
@@ -534,17 +543,51 @@ def api_toggle_lock(block_id):
     return jsonify(updated)
 
 
+VALID_BLOCK_STATUSES = {'pending', 'in_progress', 'completed', 'cancelled'}
+
+
+@schedule_bp.route('/api/blocks/<block_id>/status', methods=['PUT'])
+def api_update_block_status(block_id):
+    block = schedule_repo.get_by_id(block_id)
+    if not block:
+        return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
+    data = request.get_json()
+    if not data or 'block_status' not in data:
+        return jsonify({'error': '상태 값이 필요합니다.'}), 400
+    status = data['block_status']
+    if status not in VALID_BLOCK_STATUSES:
+        return jsonify({'error': '유효하지 않은 상태입니다.'}), 400
+    updated = schedule_repo.update(block_id, block_status=status)
+    return jsonify(updated)
+
+
+@schedule_bp.route('/api/blocks/<block_id>/memo', methods=['PUT'])
+def api_update_block_memo(block_id):
+    block = schedule_repo.get_by_id(block_id)
+    if not block:
+        return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
+    data = request.get_json()
+    if data is None:
+        return jsonify({'error': '요청 데이터가 없습니다.'}), 400
+    memo = data.get('memo', '')
+    updated = schedule_repo.update(block_id, memo=memo)
+    return jsonify(updated)
+
+
 def _sync_task_remaining_hours(task_id):
-    """Set task remaining_hours to match total scheduled block time."""
+    """Set task remaining_hours = estimated_hours - total scheduled block time."""
     total_min = sum(
         time_to_minutes(b['end_time']) - time_to_minutes(b['start_time'])
         for b in schedule_repo.get_all()
         if b['task_id'] == task_id
     )
-    total_hours = round(total_min / 60.0, 2)
+    scheduled_hours = round(total_min / 60.0, 2)
     task = task_repo.get_by_id(task_id)
-    if task and task.get('remaining_hours', 0) != total_hours:
-        task_repo.patch(task_id, remaining_hours=total_hours)
+    if task:
+        est = task.get('estimated_hours', 0)
+        new_remaining = round(max(est - scheduled_hours, 0), 2)
+        if task.get('remaining_hours', 0) != new_remaining:
+            task_repo.patch(task_id, remaining_hours=new_remaining)
 
 
 # ---------------------------------------------------------------------------
