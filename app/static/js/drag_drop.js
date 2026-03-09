@@ -107,13 +107,20 @@
           durationMinutes: Math.round(heightPx / SLOT_HEIGHT) * GRID_MINUTES,
         };
         el.style.opacity = '0.5';
-        el.style.pointerEvents = 'none';
+        // Disable pointer-events on ALL schedule blocks so time-slots
+        // in other day columns can receive dragover/drop events
+        document.querySelectorAll('.schedule-block').forEach(function (b) {
+          b.style.pointerEvents = 'none';
+        });
         e.dataTransfer.effectAllowed = 'move';
         e.dataTransfer.setData('text/plain', 'block:' + el.dataset.blockId);
       });
       el.addEventListener('dragend', function () {
         el.style.opacity = '1';
-        el.style.pointerEvents = '';
+        // Restore pointer-events on all schedule blocks
+        document.querySelectorAll('.schedule-block').forEach(function (b) {
+          b.style.pointerEvents = '';
+        });
         clearDragOver();
         dragData = null;
       });
@@ -134,11 +141,20 @@
           el: el,
         };
         el.classList.add('dragging');
+        // Disable pointer-events on all schedule blocks so time-slots
+        // in week view columns can receive dragover/drop events
+        document.querySelectorAll('.schedule-block').forEach(function (b) {
+          b.style.pointerEvents = 'none';
+        });
         e.dataTransfer.effectAllowed = 'copy';
         e.dataTransfer.setData('text/plain', 'task:' + el.dataset.taskId);
       });
       el.addEventListener('dragend', function () {
         el.classList.remove('dragging');
+        // Restore pointer-events on all schedule blocks
+        document.querySelectorAll('.schedule-block').forEach(function (b) {
+          b.style.pointerEvents = '';
+        });
         clearDragOver();
         dragData = null;
       });

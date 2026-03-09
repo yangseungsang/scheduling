@@ -277,6 +277,92 @@ def month_view():
 
 
 # ---------------------------------------------------------------------------
+# Break-aware end time adjustment
+# ---------------------------------------------------------------------------
+
+def _time_to_minutes(t):
+    """Convert 'HH:MM' to total minutes."""
+    parts = t.split(':')
+    return int(parts[0]) * 60 + int(parts[1])
+
+
+def _minutes_to_time(m):
+    """Convert total minutes to 'HH:MM'."""
+    return f'{m // 60:02d}:{m % 60:02d}'
+
+
+def _get_break_periods(settings):
+    """Return sorted list of (start_min, end_min) for lunch + breaks."""
+    periods = []
+    lunch_s = settings.get('lunch_start', '12:00')
+    lunch_e = settings.get('lunch_end', '13:00')
+    periods.append((_time_to_minutes(lunch_s), _time_to_minutes(lunch_e)))
+    for brk in settings.get('breaks', []):
+        periods.append((_time_to_minutes(brk['start']), _time_to_minutes(brk['end'])))
+    periods.sort()
+    return periods
+
+
+def _adjust_end_for_breaks(start_time, end_time, settings):
+    """Adjust end_time so that actual work duration is preserved.
+
+    For each break period that falls within [start_time, end_time],
+    the end_time is pushed forward by the break's duration.
+    This is applied iteratively since pushing end_time may expose
+    additional breaks.
+    """
+    work_end = _time_to_minutes(settings.get('work_end', '18:00'))
+    start_min = _time_to_minutes(start_time)
+    end_min = _time_to_minutes(end_time)
+    work_duration = end_min - start_min
+    if work_duration <= 0:
+        return end_time
+
+    breaks = _get_break_periods(settings)
+
+    # Walk forward from start_time, accumulating work minutes and
+    # skipping break periods until we've placed enough work time.
+    current = start_min
+    remaining_work = work_duration
+
+    while remaining_work > 0:
+        # Find the next break that starts at or after 'current'
+        # or overlaps with current position
+        next_break = None
+        for bs, be in breaks:
+            if be <= current:
+                continue  # break already passed
+            if bs <= current:
+                # We're inside a break, skip to end of it
+                current = be
+                continue
+            next_break = (bs, be)
+            break
+
+        if next_break is None:
+            # No more breaks ahead; place all remaining work
+            current += remaining_work
+            remaining_work = 0
+        else:
+            bs, be = next_break
+            available = bs - current
+            if available >= remaining_work:
+                # Enough room before the next break
+                current += remaining_work
+                remaining_work = 0
+            else:
+                # Fill up to break, skip break, continue
+                remaining_work -= available
+                current = be  # jump past break
+
+    # Cap at work_end
+    if current > work_end:
+        current = work_end
+
+    return _minutes_to_time(current)
+
+
+# ---------------------------------------------------------------------------
 # API Endpoints
 # ---------------------------------------------------------------------------
 
@@ -298,12 +384,18 @@ def api_create_block():
         if task:
             assignee_id = task.get('assignee_id', '')
 
+    # Adjust end_time to skip breaks/lunch
+    settings = settings_repo.get()
+    adjusted_end = _adjust_end_for_breaks(
+        data['start_time'], data['end_time'], settings,
+    )
+
     block = schedule_repo.create(
         task_id=data['task_id'],
         assignee_id=assignee_id,
         date=data['date'],
         start_time=data['start_time'],
-        end_time=data['end_time'],
+        end_time=adjusted_end,
         is_draft=data.get('is_draft', False),
         is_locked=data.get('is_locked', False),
         origin=data.get('origin', 'manual'),
@@ -323,6 +415,13 @@ def api_update_block(block_id):
 
     allowed = ['date', 'start_time', 'end_time', 'is_draft', 'is_locked']
     updates = {k: v for k, v in data.items() if k in allowed}
+
+    # Adjust end_time to skip breaks/lunch when time is being changed
+    if 'start_time' in updates and 'end_time' in updates:
+        settings = settings_repo.get()
+        updates['end_time'] = _adjust_end_for_breaks(
+            updates['start_time'], updates['end_time'], settings,
+        )
 
     updated = schedule_repo.update(block_id, **updates)
     return jsonify(updated)
