@@ -22,13 +22,15 @@
   <div class="task-queue-body" id="task-queue-body">
     {% if queue_tasks %}
     {% for task in queue_tasks %}
+    {% set queue_color = task.category_color if settings.block_color_by == 'category' else task.assignee_color %}
     <div class="queue-task-item"
          data-task-id="{{ task.id }}"
          data-assignee-id="{{ task.assignee_id }}"
          data-remaining-hours="{{ task.remaining_unscheduled_hours }}"
          data-priority="{{ task.priority }}"
          data-title="{{ task.title }}"
-         data-deadline="{{ task.deadline or '9999-12-31' }}">
+         data-deadline="{{ task.deadline or '9999-12-31' }}"
+         style="border-left: 4px solid {{ queue_color }};">
       <div class="queue-task-title">{{ task.title }}</div>
       <div class="queue-task-meta">
         <span class="badge badge-{{ task.priority }}">

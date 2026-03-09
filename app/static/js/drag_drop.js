@@ -555,6 +555,29 @@
   }
 
   // =====================================================================
+  // 9. Same-task hover highlight
+  // =====================================================================
+  function initTaskHoverLink() {
+    var allItems = document.querySelectorAll('[data-task-id]');
+    if (!allItems.length) return;
+
+    allItems.forEach(function (el) {
+      el.addEventListener('mouseenter', function () {
+        var taskId = el.dataset.taskId;
+        if (!taskId) return;
+        document.querySelectorAll('[data-task-id="' + taskId + '"]').forEach(function (item) {
+          item.classList.add('task-linked-hover');
+        });
+      });
+      el.addEventListener('mouseleave', function () {
+        document.querySelectorAll('.task-linked-hover').forEach(function (item) {
+          item.classList.remove('task-linked-hover');
+        });
+      });
+    });
+  }
+
+  // =====================================================================
   // Init
   // =====================================================================
   function isReadonly() {
@@ -571,5 +594,6 @@
     initDraftControls();
     initQueueSort();
     initQueueToggle();
+    initTaskHoverLink();
   });
 })();

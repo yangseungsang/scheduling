@@ -49,6 +49,7 @@
               {% for block in day_data.blocks[:3] %}
               <div class="month-block-item{% if block.is_draft %} draft{% endif %}"
                    data-block-id="{{ block.id }}"
+                   data-task-id="{{ block.task_id }}"
                    style="background-color: {{ block.color }};"
                    title="{{ block.task_title }} ({{ block.assignee_name }})">
                 {{ block.task_title }}

@@ -71,6 +71,7 @@
               {% set col_left = col_width * col_index %}
               <div class="week-block schedule-block{% if block.is_draft %} draft{% endif %}"
                    data-block-id="{{ block.id }}"
+                   data-task-id="{{ block.task_id }}"
                    data-start-time="{{ block.start_time }}"
                    data-end-time="{{ block.end_time }}"
                    style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }}; left: {{ col_left }}%; width: {{ col_width }}%; right: auto;">
