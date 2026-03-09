@@ -56,6 +56,18 @@ def update(task_id, title, description, assignee_id, category_id, priority,
     return None
 
 
+def patch(task_id, **kwargs):
+    """Partial update — only modify the given fields."""
+    tasks = read_json(FILENAME)
+    for t in tasks:
+        if t['id'] == task_id:
+            for k, v in kwargs.items():
+                t[k] = v
+            write_json(FILENAME, tasks)
+            return t
+    return None
+
+
 def delete(task_id):
     tasks = read_json(FILENAME)
     tasks = [t for t in tasks if t['id'] != task_id]

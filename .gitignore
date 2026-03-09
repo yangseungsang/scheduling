@@ -4,3 +4,7 @@ venv/
 .env
 *.bak
 scheduling.db
+
+# Frontend
+frontend/node_modules/
+frontend/dist/

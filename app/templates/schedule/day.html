@@ -56,19 +56,71 @@
           {% set end_min = end_parts[0]|int * 60 + end_parts[1]|int %}
           {% set top_px = ((start_min - work_start_min) / interval * slot_height)|int %}
           {% set height_px = ((end_min - start_min) / interval * slot_height)|int %}
+          {% set col_index = block.col_index|default(0) %}
+          {% set col_total = block.col_total|default(1) %}
+          {% set col_width = 100.0 / col_total %}
+          {% set col_left = col_width * col_index %}
           <div class="schedule-block{% if block.is_draft %} draft{% endif %}"
                data-block-id="{{ block.id }}"
                data-start-time="{{ block.start_time }}"
                data-end-time="{{ block.end_time }}"
-               draggable="true"
-               style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }};">
+                 style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }}; left: {{ col_left }}%; width: {{ col_width }}%; right: auto;">
             <div class="resize-handle resize-handle-top"></div>
             <div class="block-title">{{ block.task_title }}</div>
-            <div class="block-assignee">{{ block.assignee_name }}</div>
+            <div class="block-meta">
+              <span class="block-assignee">{{ block.assignee_name }}</span>
+              {% if block.category_name %}
+              <span class="block-category">{{ block.category_name }}</span>
+              {% endif %}
+            </div>
+            <div class="block-info">
+              {% if block.priority %}
+              <span class="block-priority block-priority-{{ block.priority }}">
+                {{ '높음' if block.priority == 'high' else ('중간' if block.priority == 'medium' else '낮음') }}
+              </span>
+              {% endif %}
+              <span class="block-time">{{ block.start_time }}–{{ block.end_time }}</span>
+            </div>
             {% if block.is_locked %}
             <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>
             {% endif %}
+            <button class="btn-to-queue" data-block-id="{{ block.id }}" title="큐로 보내기">
+              <i class="bi bi-arrow-left-square"></i>
+            </button>
             <div class="resize-handle resize-handle-bottom"></div>
+            {# Break overlays #}
+            {% set block_start_parts = block.start_time.split(':') %}
+            {% set block_start_min = block_start_parts[0]|int * 60 + block_start_parts[1]|int %}
+            {% set block_end_parts = block.end_time.split(':') %}
+            {% set block_end_min = block_end_parts[0]|int * 60 + block_end_parts[1]|int %}
+
+            {# Lunch overlay #}
+            {% set lunch_s = settings.lunch_start.split(':') %}
+            {% set lunch_start_min = lunch_s[0]|int * 60 + lunch_s[1]|int %}
+            {% set lunch_e = settings.lunch_end.split(':') %}
+            {% set lunch_end_min = lunch_e[0]|int * 60 + lunch_e[1]|int %}
+            {% set ov_start = [block_start_min, lunch_start_min]|max %}
+            {% set ov_end = [block_end_min, lunch_end_min]|min %}
+            {% if ov_start < ov_end %}
+            {% set ov_top = ((ov_start - block_start_min) / interval * slot_height)|int %}
+            {% set ov_height = ((ov_end - ov_start) / interval * slot_height)|int %}
+            <div class="block-break-overlay" style="top:{{ ov_top }}px;height:{{ ov_height }}px;"></div>
+            {% endif %}
+
+            {# Break overlays #}
+            {% for brk in settings.breaks %}
+            {% set bs = brk.start.split(':') %}
+            {% set brk_start_min = bs[0]|int * 60 + bs[1]|int %}
+            {% set be = brk.end.split(':') %}
+            {% set brk_end_min = be[0]|int * 60 + be[1]|int %}
+            {% set ov_start = [block_start_min, brk_start_min]|max %}
+            {% set ov_end = [block_end_min, brk_end_min]|min %}
+            {% if ov_start < ov_end %}
+            {% set ov_top = ((ov_start - block_start_min) / interval * slot_height)|int %}
+            {% set ov_height = ((ov_end - ov_start) / interval * slot_height)|int %}
+            <div class="block-break-overlay" style="top:{{ ov_top }}px;height:{{ ov_height }}px;"></div>
+            {% endif %}
+            {% endfor %}
           </div>
           {% endfor %}
         </div>
@@ -79,5 +131,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/drag_drop.js') }}"></script>
+<script src="{{ url_for('static', filename='js/drag_drop.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}

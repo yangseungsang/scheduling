@@ -2,6 +2,8 @@
 
 {% block title %}월간 뷰 — {{ year }}년 {{ month }}월{% endblock %}
 
+{% block main_class %}container-fluid p-0{% endblock %}
+
 {% block content %}
 <div class="schedule-layout">
   {# Task queue sidebar #}
@@ -46,6 +48,7 @@
               </div>
               {% for block in day_data.blocks[:3] %}
               <div class="month-block-item{% if block.is_draft %} draft{% endif %}"
+                   data-block-id="{{ block.id }}"
                    style="background-color: {{ block.color }};"
                    title="{{ block.task_title }} ({{ block.assignee_name }})">
                 {{ block.task_title }}
@@ -67,5 +70,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/drag_drop.js') }}"></script>
+<script src="{{ url_for('static', filename='js/drag_drop.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}

@@ -6,7 +6,7 @@
   <title>{% block title %}스케줄링{% endblock %}</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}?v={{ cache_bust }}" rel="stylesheet">
   {% block head %}{% endblock %}
 </head>
 <body>
@@ -38,9 +38,94 @@
             </ul>
           </li>
         </ul>
+        <div class="ms-auto d-flex align-items-center">
+          <div class="export-dropdown me-2">
+            <button class="btn btn-sm btn-outline-light" id="btn-export-toggle" title="내보내기">
+              <i class="bi bi-download"></i><span class="d-none d-md-inline ms-1">내보내기</span>
+            </button>
+            <div class="export-dropdown-menu" id="export-menu" style="display:none">
+              <div class="export-dropdown-title">스케줄 내보내기</div>
+              <label class="export-label">시작일</label>
+              <input type="date" class="form-control form-control-sm" id="export-start">
+              <label class="export-label">종료일</label>
+              <input type="date" class="form-control form-control-sm" id="export-end">
+              <label class="export-label">형식</label>
+              <select class="form-select form-select-sm" id="export-format">
+                <option value="xlsx" selected>Excel (xlsx)</option>
+                <option value="csv">CSV</option>
+              </select>
+              <button class="btn btn-sm btn-primary w-100 mt-2" id="btn-export-download">
+                <i class="bi bi-download"></i> 다운로드
+              </button>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline-light" id="mode-toggle" title="편집/읽기 모드 전환">
+            <i class="bi bi-pencil-fill" id="mode-icon"></i>
+            <span id="mode-label" class="d-none d-md-inline ms-1">편집</span>
+          </button>
+        </div>
       </div>
     </div>
   </nav>
+  <script>
+  (function() {
+    var mode = localStorage.getItem('scheduleMode') || 'edit';
+    function applyMode() {
+      if (mode === 'readonly') {
+        document.body.classList.add('readonly-mode');
+        document.getElementById('mode-icon').className = 'bi bi-eye-fill';
+        document.getElementById('mode-label').textContent = '읽기';
+      } else {
+        document.body.classList.remove('readonly-mode');
+        document.getElementById('mode-icon').className = 'bi bi-pencil-fill';
+        document.getElementById('mode-label').textContent = '편집';
+      }
+    }
+    document.addEventListener('DOMContentLoaded', applyMode);
+    document.getElementById('mode-toggle').addEventListener('click', function() {
+      mode = mode === 'edit' ? 'readonly' : 'edit';
+      localStorage.setItem('scheduleMode', mode);
+      applyMode();
+    });
+  })();
+  </script>
+  <script>
+  (function() {
+    var menu = document.getElementById('export-menu');
+    var btn = document.getElementById('btn-export-toggle');
+    var wrapper = btn.parentElement;
+    var startInput = document.getElementById('export-start');
+    var endInput = document.getElementById('export-end');
+
+    // Default dates: current week
+    var d = new Date();
+    var dayOfWeek = d.getDay() || 7;
+    var mon = new Date(d);
+    mon.setDate(d.getDate() - dayOfWeek + 1);
+    var sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    startInput.value = mon.toISOString().slice(0, 10);
+    endInput.value = sun.toISOString().slice(0, 10);
+
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    });
+    document.addEventListener('click', function(e) {
+      if (!wrapper.contains(e.target)) menu.style.display = 'none';
+    });
+    menu.addEventListener('click', function(e) { e.stopPropagation(); });
+
+    document.getElementById('btn-export-download').addEventListener('click', function() {
+      var s = startInput.value, en = endInput.value;
+      if (!s || !en) { alert('시작일과 종료일을 입력하세요.'); return; }
+      if (s > en) { alert('시작일이 종료일보다 클 수 없습니다.'); return; }
+      var fmt = document.getElementById('export-format').value;
+      window.location.href = '/schedule/api/export?start_date=' + s + '&end_date=' + en + '&format=' + fmt;
+      menu.style.display = 'none';
+    });
+  })();
+  </script>
 
   <main class="{% block main_class %}container mt-3{% endblock %}" {% block main_attrs %}{% endblock %}>
     {% with messages = get_flashed_messages(with_categories=true) %}

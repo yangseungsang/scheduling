@@ -1,9 +1,11 @@
 # PRD: 팀 업무 스케줄링 서비스
 
 ## Context
+
 팀원들의 업무를 공유 캘린더 형태로 관리하고, 우선순위 기반 자동 스케줄링 기능을 제공하는 웹 서비스를 새로 구축한다. MVP 수준으로 빠르게 시작하기 위해 JSON 파일 기반 데이터 저장소를 사용하고, 인증 없이 팀원 이름 선택만으로 사용할 수 있도록 한다.
 
 ## 기술 스택
+
 - **Backend:** Flask + Jinja2
 - **Frontend:** Bootstrap 5 + SortableJS (드래그앤드랍)
 - **데이터 저장:** JSON 파일 (DB 없음)
@@ -14,6 +16,7 @@
 ## 1. 핵심 기능
 
 ### 1.1 업무(Task) 관리
+
 - 업무 CRUD (생성/조회/수정/삭제)
 - 업무 속성:
   - 제목, 설명
@@ -28,6 +31,7 @@
 - **Task:ScheduleBlock = 1:N 관계** — 예상 소요시간이 하루 가용 시간을 초과하면 여러 날짜의 블록으로 분할 배치
 
 ### 1.2 캘린더 뷰
+
 - **일간 뷰:** 시간대별 타임라인에 업무 블록 표시
 - **주간 뷰:** 7일 × 시간대 그리드
 - **월간 뷰:** 날짜별 업무 요약 표시
@@ -36,6 +40,7 @@
 - **색상 표시 옵션:** 블록 색상을 담당자 색상 또는 카테고리 색상 중 선택 가능 (설정에서 변경)
 
 ### 1.3 드래그앤드랍
+
 - 캘린더 위에서 업무 블록을 드래그하여 시간/날짜 변경
 - SortableJS 라이브러리 활용
 - 드래그 시 시각적 피드백
@@ -43,6 +48,7 @@
 - **HTML 데이터 속성:** 캘린더 셀에 `data-date`, `data-time` 속성을 부여하여 뷰 형태(일간/주간)에 관계없이 일관된 드롭 처리
 
 ### 1.4 자동 스케줄링
+
 - 미배치 업무들을 우선순위/마감일 기반으로 자동 배치
 - `remaining_hours`가 남아있는 업무만 대상으로 블록 생성
 - 스케줄링 규칙:
@@ -61,6 +67,7 @@
   - 에러 없이 가능한 만큼만 배치하고 나머지를 알림
 
 ### 1.5 사용자/설정 관리
+
 - 로그인 없이 사용 (팀원 이름 선택 방식)
 - 관리자 페이지:
   - 팀원 관리 (이름, 역할 등록)
@@ -73,25 +80,25 @@
 ## 2. 데이터 모델 (JSON 파일 기반)
 
 ### ID 생성 전략
+
 - `uuid4` 사용 (예: `"t_a1b2c3d4"`)
 - `json_store.py`에 `generate_id(prefix)` 유틸리티 함수 정의
 - 접두사로 엔티티 구분: `u_` (user), `c_` (category), `t_` (task), `sb_` (schedule_block)
 
 ### `data/users.json`
+
 ```json
-[
-  { "id": "u_a1b2c3d4", "name": "홍길동", "role": "개발자", "color": "#4A90D9" }
-]
+[{ "id": "u_a1b2c3d4", "name": "홍길동", "role": "개발자", "color": "#4A90D9" }]
 ```
 
 ### `data/categories.json`
+
 ```json
-[
-  { "id": "c_a1b2c3d4", "name": "개발", "color": "#28a745" }
-]
+[{ "id": "c_a1b2c3d4", "name": "개발", "color": "#28a745" }]
 ```
 
 ### `data/tasks.json`
+
 ```json
 [
   {
@@ -111,6 +118,7 @@
 ```
 
 ### `data/schedule_blocks.json`
+
 ```json
 [
   {
@@ -126,10 +134,12 @@
   }
 ]
 ```
+
 - `is_locked`: `true`이면 자동 스케줄링 시 이동/삭제 불가
 - `origin`: `"auto"` (자동 스케줄링 생성) 또는 `"manual"` (수동 배치)
 
 ### `data/settings.json`
+
 ```json
 {
   "work_start": "09:00",
@@ -140,36 +150,38 @@
   "block_color_by": "assignee"
 }
 ```
+
 - `block_color_by`: `"assignee"` (담당자 색상) 또는 `"category"` (카테고리 색상)
 
 ---
 
 ## 3. URL 구조
 
-| URL | 설명 |
-|-----|------|
-| `/` | → `/schedule/` 리다이렉트 |
-| `/schedule/` | 일간 뷰 |
-| `/schedule/week` | 주간 뷰 |
-| `/schedule/month` | 월간 뷰 |
-| `/tasks/` | 업무 목록 |
-| `/tasks/new` | 업무 생성 |
-| `/tasks/<id>` | 업무 상세 |
-| `/tasks/<id>/edit` | 업무 수정 |
-| `/admin/settings` | 설정 관리 |
-| `/admin/users` | 팀원 관리 |
-| `/admin/categories` | 카테고리 관리 |
+| URL                 | 설명                      |
+| ------------------- | ------------------------- |
+| `/`                 | → `/schedule/` 리다이렉트 |
+| `/schedule/`        | 일간 뷰                   |
+| `/schedule/week`    | 주간 뷰                   |
+| `/schedule/month`   | 월간 뷰                   |
+| `/tasks/`           | 업무 목록                 |
+| `/tasks/new`        | 업무 생성                 |
+| `/tasks/<id>`       | 업무 상세                 |
+| `/tasks/<id>/edit`  | 업무 수정                 |
+| `/admin/settings`   | 설정 관리                 |
+| `/admin/users`      | 팀원 관리                 |
+| `/admin/categories` | 카테고리 관리             |
 
 ### API 엔드포인트
-| Method | URL | 설명 |
-|--------|-----|------|
-| POST | `/schedule/api/blocks` | 스케줄 블록 생성 |
-| PUT | `/schedule/api/blocks/<id>` | 블록 수정 (드래그앤드랍) |
-| DELETE | `/schedule/api/blocks/<id>` | 블록 삭제 |
-| PUT | `/schedule/api/blocks/<id>/lock` | 블록 잠금/해제 토글 |
-| POST | `/schedule/api/draft/generate` | 자동 스케줄링 초안 생성 |
-| POST | `/schedule/api/draft/approve` | 초안 확정 |
-| POST | `/schedule/api/draft/discard` | 초안 폐기 |
+
+| Method | URL                              | 설명                     |
+| ------ | -------------------------------- | ------------------------ |
+| POST   | `/schedule/api/blocks`           | 스케줄 블록 생성         |
+| PUT    | `/schedule/api/blocks/<id>`      | 블록 수정 (드래그앤드랍) |
+| DELETE | `/schedule/api/blocks/<id>`      | 블록 삭제                |
+| PUT    | `/schedule/api/blocks/<id>/lock` | 블록 잠금/해제 토글      |
+| POST   | `/schedule/api/draft/generate`   | 자동 스케줄링 초안 생성  |
+| POST   | `/schedule/api/draft/approve`    | 초안 확정                |
+| POST   | `/schedule/api/draft/discard`    | 초안 폐기                |
 
 ---
 
@@ -217,6 +229,7 @@ scheduling/
 ## 5. UI 일관성 요구사항
 
 모든 사용자 액션(생성/수정/삭제/드래그 등) 후 UI가 반드시 최신 상태를 반영해야 한다.
+
 - API 호출 후 성공 응답을 받으면 관련 DOM을 즉시 갱신 (새로고침 없이)
 - 실패 시 UI를 이전 상태로 롤백하고 에러 피드백 표시
 - 모든 상태 변경 경로에서 빠짐없이 UI 업데이트 처리
@@ -224,6 +237,7 @@ scheduling/
 ---
 
 ## 6. 비기능 요구사항
+
 - **파일 잠금:** `portalocker` 라이브러리로 JSON 동시 접근 시 데이터 무결성 보장
 - **백업:** 매 쓰기 작업 전 `.bak` 파일 자동 생성 (json_store.py에서 처리)
 - Bootstrap 5 반응형 레이아웃

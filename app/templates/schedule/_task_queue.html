@@ -5,21 +5,39 @@
       <i class="bi bi-chevron-left"></i>
     </button>
   </div>
+  <div class="queue-sort-bar">
+    <button class="queue-sort-btn active" data-sort="deadline" title="마감일 순">
+      <i class="bi bi-calendar-event"></i>
+    </button>
+    <button class="queue-sort-btn" data-sort="name" title="이름 순">
+      <i class="bi bi-sort-alpha-down"></i>
+    </button>
+    <button class="queue-sort-btn" data-sort="hours" title="남은시간 순">
+      <i class="bi bi-clock"></i>
+    </button>
+    <button class="queue-sort-btn" data-sort="priority" title="우선순위 순">
+      <i class="bi bi-exclamation-triangle"></i>
+    </button>
+  </div>
   <div class="task-queue-body" id="task-queue-body">
     {% if queue_tasks %}
     {% for task in queue_tasks %}
     <div class="queue-task-item"
-         draggable="true"
          data-task-id="{{ task.id }}"
          data-assignee-id="{{ task.assignee_id }}"
-         data-remaining-hours="{{ task.remaining_hours }}"
-         data-priority="{{ task.priority }}">
+         data-remaining-hours="{{ task.remaining_unscheduled_hours }}"
+         data-priority="{{ task.priority }}"
+         data-title="{{ task.title }}"
+         data-deadline="{{ task.deadline or '9999-12-31' }}">
       <div class="queue-task-title">{{ task.title }}</div>
       <div class="queue-task-meta">
         <span class="badge badge-{{ task.priority }}">
           {{ '높음' if task.priority == 'high' else ('중간' if task.priority == 'medium' else '낮음') }}
         </span>
-        <span class="text-muted">{{ task.remaining_hours }}h</span>
+        {% if task.category_name %}
+        <span class="queue-task-category" style="color: {{ task.category_color }};">{{ task.category_name }}</span>
+        {% endif %}
+        <span class="text-muted">{{ task.remaining_unscheduled_hours }}h</span>
       </div>
       <div class="queue-task-assignee">{{ task.assignee_name }}</div>
       {% if task.deadline %}

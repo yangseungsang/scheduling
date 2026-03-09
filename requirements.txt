@@ -1,3 +1,4 @@
 flask
 portalocker
+openpyxl
 pytest

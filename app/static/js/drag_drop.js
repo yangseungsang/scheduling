@@ -1,6 +1,5 @@
 /**
- * Drag-and-drop (block move + queue-to-schedule) + block resize.
- * Uses native HTML5 drag-and-drop with 15-minute grid snap.
+ * Calendar drag-drop & resize — mouse-event based.
  */
 (function () {
   'use strict';
@@ -8,276 +7,312 @@
   var GRID_MINUTES = 15;
   var SLOT_HEIGHT = 24;
 
-  // -----------------------------------------------------------------------
-  // Toast helper
-  // -----------------------------------------------------------------------
-  function showToast(message, type) {
-    type = type || 'info';
-    var container = document.getElementById('toast-container');
-    if (!container) {
-      container = document.createElement('div');
-      container.id = 'toast-container';
-      container.className = 'position-fixed bottom-0 end-0 p-3';
-      container.style.zIndex = '1100';
-      document.body.appendChild(container);
+  // =====================================================================
+  // Toast
+  // =====================================================================
+  function showToast(msg, type) {
+    var c = document.getElementById('toast-container');
+    if (!c) {
+      c = document.createElement('div');
+      c.id = 'toast-container';
+      c.className = 'position-fixed bottom-0 end-0 p-3';
+      c.style.zIndex = '1100';
+      document.body.appendChild(c);
     }
-    var toast = document.createElement('div');
-    toast.className = 'toast align-items-center text-bg-' + type + ' border-0 show';
-    toast.setAttribute('role', 'alert');
-    toast.innerHTML =
-      '<div class="d-flex"><div class="toast-body">' + message +
+    var t = document.createElement('div');
+    t.className = 'toast align-items-center text-bg-' + (type || 'info') + ' border-0 show';
+    t.innerHTML = '<div class="d-flex"><div class="toast-body">' + msg +
       '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
-    container.appendChild(toast);
-    setTimeout(function () { toast.remove(); }, 4000);
+    c.appendChild(t);
+    setTimeout(function () { t.remove(); }, 4000);
   }
 
-  // -----------------------------------------------------------------------
-  // API helper
-  // -----------------------------------------------------------------------
+  // =====================================================================
+  // API
+  // =====================================================================
   function api(method, url, data) {
-    var opts = {
+    return fetch(url, {
       method: method,
       headers: { 'Content-Type': 'application/json' },
-    };
-    if (data) opts.body = JSON.stringify(data);
-    return fetch(url, opts).then(function (res) {
-      return res.json().then(function (json) {
-        if (!res.ok) throw new Error(json.error || '오류가 발생했습니다.');
-        return json;
+      body: data ? JSON.stringify(data) : undefined,
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) throw new Error(j.error || '오류가 발생했습니다.');
+        return j;
       });
     });
   }
 
-  // -----------------------------------------------------------------------
+  // =====================================================================
   // Time helpers
-  // -----------------------------------------------------------------------
-  function snapTime(timeStr) {
-    var parts = timeStr.split(':');
-    var h = parseInt(parts[0], 10);
-    var m = parseInt(parts[1], 10);
-    m = Math.round(m / GRID_MINUTES) * GRID_MINUTES;
-    if (m >= 60) { h += 1; m = 0; }
-    return pad(h) + ':' + pad(m);
+  // =====================================================================
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function timeToMin(t) { var p = t.split(':'); return +p[0] * 60 + +p[1]; }
+  function minToTime(m) { return pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
+  function snapMin(m) { return Math.round(m / GRID_MINUTES) * GRID_MINUTES; }
+
+  // =====================================================================
+  // Block visibility toggle — hide all blocks so elementFromPoint hits time-slots
+  // =====================================================================
+  function hideAllBlocks() {
+    document.querySelectorAll('.schedule-block, .month-block-item').forEach(function (b) {
+      b.style.pointerEvents = 'none';
+    });
   }
-
-  function addMinutes(timeStr, mins) {
-    var parts = timeStr.split(':');
-    var total = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10) + mins;
-    var h = Math.floor(total / 60);
-    var m = total % 60;
-    return pad(h) + ':' + pad(m);
-  }
-
-  function timeToMinutes(timeStr) {
-    var parts = timeStr.split(':');
-    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-  }
-
-  function minutesToTime(mins) {
-    var h = Math.floor(mins / 60);
-    var m = mins % 60;
-    return pad(h) + ':' + pad(m);
-  }
-
-  function pad(n) {
-    return String(n).padStart(2, '0');
-  }
-
-  // -----------------------------------------------------------------------
-  // Drag state
-  // -----------------------------------------------------------------------
-  var dragData = null;
-
-  // -----------------------------------------------------------------------
-  // 1. Existing block drag (move)
-  // -----------------------------------------------------------------------
-  function initBlockDrag() {
-    document.querySelectorAll('.schedule-block[data-block-id]').forEach(function (el) {
-      el.addEventListener('dragstart', function (e) {
-        // Don't drag if resizing
-        if (el.classList.contains('resizing')) {
-          e.preventDefault();
-          return;
-        }
-        var heightPx = el.offsetHeight;
-        dragData = {
-          type: 'block-move',
-          blockId: el.dataset.blockId,
-          el: el,
-          durationMinutes: Math.round(heightPx / SLOT_HEIGHT) * GRID_MINUTES,
-        };
-        el.style.opacity = '0.5';
-        // Disable pointer-events on ALL schedule blocks so time-slots
-        // in other day columns can receive dragover/drop events
-        document.querySelectorAll('.schedule-block').forEach(function (b) {
-          b.style.pointerEvents = 'none';
-        });
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', 'block:' + el.dataset.blockId);
-      });
-      el.addEventListener('dragend', function () {
-        el.style.opacity = '1';
-        // Restore pointer-events on all schedule blocks
-        document.querySelectorAll('.schedule-block').forEach(function (b) {
-          b.style.pointerEvents = '';
-        });
-        clearDragOver();
-        dragData = null;
-      });
+  function showAllBlocks() {
+    document.querySelectorAll('.schedule-block, .month-block-item').forEach(function (b) {
+      b.style.pointerEvents = '';
     });
   }
 
-  // -----------------------------------------------------------------------
-  // 2. Queue task drag (new block creation)
-  // -----------------------------------------------------------------------
-  function initQueueDrag() {
-    document.querySelectorAll('.queue-task-item[data-task-id]').forEach(function (el) {
-      el.addEventListener('dragstart', function (e) {
-        dragData = {
-          type: 'queue-task',
-          taskId: el.dataset.taskId,
-          assigneeId: el.dataset.assigneeId || '',
-          remainingHours: parseFloat(el.dataset.remainingHours) || 1,
-          el: el,
-        };
-        el.classList.add('dragging');
-        // Disable pointer-events on all schedule blocks so time-slots
-        // in week view columns can receive dragover/drop events
-        document.querySelectorAll('.schedule-block').forEach(function (b) {
-          b.style.pointerEvents = 'none';
-        });
-        e.dataTransfer.effectAllowed = 'copy';
-        e.dataTransfer.setData('text/plain', 'task:' + el.dataset.taskId);
-      });
-      el.addEventListener('dragend', function () {
-        el.classList.remove('dragging');
-        // Restore pointer-events on all schedule blocks
-        document.querySelectorAll('.schedule-block').forEach(function (b) {
-          b.style.pointerEvents = '';
-        });
-        clearDragOver();
-        dragData = null;
-      });
-    });
+  // =====================================================================
+  // Find target under cursor
+  // =====================================================================
+  function findTarget(x, y) {
+    var el = document.elementFromPoint(x, y);
+    if (!el) return null;
+    var slot = el.closest('.time-slot');
+    if (slot && slot.dataset.date && slot.dataset.time) {
+      return { type: 'slot', date: slot.dataset.date, time: slot.dataset.time, el: slot };
+    }
+    var cell = el.closest('.month-day-cell[data-date]');
+    if (cell) {
+      return { type: 'month', date: cell.dataset.date, el: cell };
+    }
+    var queue = el.closest('#task-queue');
+    if (queue) {
+      return { type: 'queue', el: queue };
+    }
+    return null;
   }
 
-  // -----------------------------------------------------------------------
-  // 3. Droppable time slots (day/week views)
-  // -----------------------------------------------------------------------
-  function initTimeSlotDrop() {
-    document.querySelectorAll('.time-slot').forEach(function (el) {
-      el.addEventListener('dragover', onDragOver);
-      el.addEventListener('dragleave', onDragLeave);
-      el.addEventListener('drop', onTimeSlotDrop);
-    });
+  // =====================================================================
+  // Ghost element
+  // =====================================================================
+  function createGhost(text, color, w) {
+    var g = document.createElement('div');
+    g.textContent = text;
+    g.style.cssText =
+      'position:fixed;z-index:9999;pointer-events:none;opacity:0.85;' +
+      'padding:4px 8px;border-radius:4px;font-size:0.75rem;color:#fff;' +
+      'white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3);' +
+      'background:' + (color || '#0d6efd') + ';width:' + (w || 120) + 'px;';
+    document.body.appendChild(g);
+    return g;
   }
 
-  function onDragOver(e) {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = dragData && dragData.type === 'queue-task' ? 'copy' : 'move';
-    e.currentTarget.classList.add('drag-over');
-  }
-
-  function onDragLeave(e) {
-    e.currentTarget.classList.remove('drag-over');
-  }
-
-  function onTimeSlotDrop(e) {
-    e.preventDefault();
-    e.currentTarget.classList.remove('drag-over');
-    if (!dragData) return;
-
-    var slot = e.currentTarget;
-    var newDate = slot.dataset.date;
-    var newTime = snapTime(slot.dataset.time);
-
-    if (dragData.type === 'block-move') {
-      // Move existing block
-      var duration = dragData.durationMinutes || GRID_MINUTES;
-      var newEnd = addMinutes(newTime, duration);
-      api('PUT', '/schedule/api/blocks/' + dragData.blockId, {
-        date: newDate,
-        start_time: newTime,
-        end_time: newEnd,
-      }).then(function () {
-        location.reload();
-      }).catch(function (err) {
-        showToast(err.message, 'danger');
-      });
-
-    } else if (dragData.type === 'queue-task') {
-      // Create new block sized to remaining_hours (capped at 4h to avoid overflow)
-      var blockMinutes = Math.min(dragData.remainingHours * 60, 240);
-      blockMinutes = Math.max(blockMinutes, GRID_MINUTES); // at least 1 slot
-      // Snap to grid
-      blockMinutes = Math.round(blockMinutes / GRID_MINUTES) * GRID_MINUTES;
-      var newEnd = addMinutes(newTime, blockMinutes);
-
-      api('POST', '/schedule/api/blocks', {
-        task_id: dragData.taskId,
-        assignee_id: dragData.assigneeId,
-        date: newDate,
-        start_time: newTime,
-        end_time: newEnd,
-        origin: 'manual',
-      }).then(function () {
-        location.reload();
-      }).catch(function (err) {
-        showToast(err.message, 'danger');
-      });
+  // =====================================================================
+  // Highlight
+  // =====================================================================
+  var highlighted = null;
+  function setHighlight(target) {
+    clearHighlight();
+    if (target && target.el) {
+      target.el.classList.add('drag-over');
+      highlighted = target.el;
     }
   }
+  function clearHighlight() {
+    if (highlighted) highlighted.classList.remove('drag-over');
+    highlighted = null;
+  }
 
-  // -----------------------------------------------------------------------
-  // 4. Droppable month day cells
-  // -----------------------------------------------------------------------
-  function initMonthDrop() {
-    document.querySelectorAll('.month-day-cell[data-date]').forEach(function (el) {
-      el.addEventListener('dragover', function (e) {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'copy';
-        el.classList.add('drag-over');
-      });
-      el.addEventListener('dragleave', function () {
-        el.classList.remove('drag-over');
-      });
-      el.addEventListener('drop', function (e) {
-        e.preventDefault();
-        el.classList.remove('drag-over');
-        if (!dragData || dragData.type !== 'queue-task') return;
+  // =====================================================================
+  // Generic drag helper
+  // =====================================================================
+  function startDrag(e, opts) {
+    if (e.button !== 0) return;
+    if (isReadonly()) return;
+    e.preventDefault();
 
-        // Create block at work_start (09:00) for 1 hour
-        var cellDate = el.dataset.date;
-        api('POST', '/schedule/api/blocks', {
-          task_id: dragData.taskId,
-          assignee_id: dragData.assigneeId,
-          date: cellDate,
-          start_time: '09:00',
-          end_time: '10:00',
-          origin: 'manual',
-        }).then(function () {
-          location.reload();
-        }).catch(function (err) {
-          showToast(err.message, 'danger');
+    var startX = e.clientX, startY = e.clientY;
+    var dragging = false;
+    var ghost = null;
+
+    function onMove(ev) {
+      ev.preventDefault();
+      var dx = ev.clientX - startX, dy = ev.clientY - startY;
+      if (!dragging && Math.abs(dx) + Math.abs(dy) < 5) return;
+
+      if (!dragging) {
+        dragging = true;
+        ghost = createGhost(opts.ghostText, opts.ghostColor, opts.ghostWidth);
+        hideAllBlocks();
+        if (opts.sourceEl) opts.sourceEl.style.opacity = '0.3';
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'grabbing';
+      }
+
+      ghost.style.left = ev.clientX + 12 + 'px';
+      ghost.style.top = ev.clientY + 12 + 'px';
+
+      var target = findTarget(ev.clientX, ev.clientY);
+      setHighlight(target);
+    }
+
+    function onUp(ev) {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+
+      var target = null;
+      if (dragging) {
+        target = findTarget(ev.clientX, ev.clientY);
+      }
+
+      clearHighlight();
+      showAllBlocks();
+      if (ghost) ghost.remove();
+      if (opts.sourceEl) opts.sourceEl.style.opacity = '';
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+
+      if (!dragging) return;
+
+      if (target) opts.onDrop(target);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }
+
+  // =====================================================================
+  // 1. Block move
+  // =====================================================================
+  function initBlockMove() {
+    document.querySelectorAll('.schedule-block[data-block-id]').forEach(function (block) {
+      block.addEventListener('mousedown', function (e) {
+        if (e.target.closest('.resize-handle')) return;
+
+        var blockId = block.dataset.blockId;
+        var title = (block.querySelector('.block-title') || {}).textContent || '';
+        var color = block.style.backgroundColor || '#0d6efd';
+        var startTime = block.dataset.startTime;
+        var endTime = block.dataset.endTime;
+        var durationMin = timeToMin(endTime) - timeToMin(startTime);
+
+        startDrag(e, {
+          sourceEl: block,
+          ghostText: title,
+          ghostColor: color,
+          ghostWidth: block.offsetWidth,
+          onDrop: function (target) {
+            if (target.type === 'queue') {
+              api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+                .then(function () { location.reload(); })
+                .catch(function (err) { showToast(err.message, 'danger'); });
+            } else if (target.type === 'slot') {
+              var t = snapMin(timeToMin(target.time));
+              api('PUT', '/schedule/api/blocks/' + blockId, {
+                date: target.date,
+                start_time: minToTime(t),
+                end_time: minToTime(t + durationMin),
+              }).then(function () {
+                location.reload();
+              }).catch(function (err) {
+                showToast(err.message, 'danger');
+              });
+            } else if (target.type === 'month') {
+              api('PUT', '/schedule/api/blocks/' + blockId, {
+                date: target.date,
+              }).then(function () {
+                location.reload();
+              }).catch(function (err) {
+                showToast(err.message, 'danger');
+              });
+            }
+          },
         });
       });
     });
   }
 
-  function clearDragOver() {
-    document.querySelectorAll('.drag-over').forEach(function (el) {
-      el.classList.remove('drag-over');
+  // =====================================================================
+  // 2. Queue drag
+  // =====================================================================
+  function initQueueDrag() {
+    document.querySelectorAll('.queue-task-item[data-task-id]').forEach(function (item) {
+      item.addEventListener('mousedown', function (e) {
+        var taskId = item.dataset.taskId;
+        var assigneeId = item.dataset.assigneeId || '';
+        var remaining = parseFloat(item.dataset.remainingHours) || 1;
+        var title = (item.querySelector('.queue-task-title') || {}).textContent || '';
+
+        startDrag(e, {
+          sourceEl: item,
+          ghostText: title,
+          ghostColor: '#0d6efd',
+          ghostWidth: 150,
+          onDrop: function (target) {
+            var blockMin = Math.min(remaining * 60, 240);
+            blockMin = Math.max(blockMin, GRID_MINUTES);
+            blockMin = Math.round(blockMin / GRID_MINUTES) * GRID_MINUTES;
+
+            if (target.type === 'slot') {
+              var t = snapMin(timeToMin(target.time));
+              api('POST', '/schedule/api/blocks', {
+                task_id: taskId, assignee_id: assigneeId,
+                date: target.date,
+                start_time: minToTime(t),
+                end_time: minToTime(t + blockMin),
+                origin: 'manual',
+              }).then(function () { location.reload(); })
+                .catch(function (err) { showToast(err.message, 'danger'); });
+
+            } else if (target.type === 'month') {
+              api('POST', '/schedule/api/blocks', {
+                task_id: taskId, assignee_id: assigneeId,
+                date: target.date,
+                start_time: '09:00',
+                end_time: minToTime(snapMin(blockMin) + 540),
+                origin: 'manual',
+              }).then(function () { location.reload(); })
+                .catch(function (err) { showToast(err.message, 'danger'); });
+            }
+          },
+        });
+      });
     });
   }
 
-  // -----------------------------------------------------------------------
-  // 5. Block resize (top/bottom handles)
-  // -----------------------------------------------------------------------
-  function initResize() {
-    var resizeState = null;
+  // =====================================================================
+  // 2b. Month block move
+  // =====================================================================
+  function initMonthBlockMove() {
+    document.querySelectorAll('.month-block-item[data-block-id]').forEach(function (item) {
+      item.addEventListener('mousedown', function (e) {
+        var blockId = item.dataset.blockId;
+        var title = item.textContent.trim();
+        var color = item.style.backgroundColor || '#0d6efd';
 
+        startDrag(e, {
+          sourceEl: item,
+          ghostText: title,
+          ghostColor: color,
+          ghostWidth: 120,
+          onDrop: function (target) {
+            if (target.type === 'queue') {
+              api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+                .then(function () { location.reload(); })
+                .catch(function (err) { showToast(err.message, 'danger'); });
+            } else if (target.type === 'month') {
+              api('PUT', '/schedule/api/blocks/' + blockId, {
+                date: target.date,
+              }).then(function () { location.reload(); })
+                .catch(function (err) { showToast(err.message, 'danger'); });
+            }
+          },
+        });
+      });
+    });
+  }
+
+  // =====================================================================
+  // 3. Block resize
+  // =====================================================================
+  function initResize() {
     document.querySelectorAll('.resize-handle').forEach(function (handle) {
       handle.addEventListener('mousedown', function (e) {
+        if (isReadonly()) return;
         e.preventDefault();
         e.stopPropagation();
 
@@ -285,213 +320,258 @@
         if (!block) return;
 
         var isTop = handle.classList.contains('resize-handle-top');
-        var startY = e.clientY;
+        var blockId = block.dataset.blockId;
         var origTop = parseInt(block.style.top, 10);
         var origHeight = parseInt(block.style.height, 10);
+        var startY = e.clientY;
 
         block.classList.add('resizing');
-        block.setAttribute('draggable', 'false');
 
-        resizeState = {
-          block: block,
-          blockId: block.dataset.blockId,
-          isTop: isTop,
-          startY: startY,
-          origTop: origTop,
-          origHeight: origHeight,
-        };
+        function onMove(ev) {
+          ev.preventDefault();
+          var delta = ev.clientY - startY;
+          var snapped = Math.round(delta / SLOT_HEIGHT) * SLOT_HEIGHT;
 
-        function onMouseMove(ev) {
-          if (!resizeState) return;
-          var delta = ev.clientY - resizeState.startY;
-          // Snap delta to slot increments
-          var snappedDelta = Math.round(delta / SLOT_HEIGHT) * SLOT_HEIGHT;
-
-          if (resizeState.isTop) {
-            var newTop = resizeState.origTop + snappedDelta;
-            var newHeight = resizeState.origHeight - snappedDelta;
-            if (newHeight >= SLOT_HEIGHT && newTop >= 0) {
-              resizeState.block.style.top = newTop + 'px';
-              resizeState.block.style.height = newHeight + 'px';
+          if (isTop) {
+            var newTop = origTop + snapped;
+            var newH = origHeight - snapped;
+            if (newH >= SLOT_HEIGHT && newTop >= 0) {
+              block.style.top = newTop + 'px';
+              block.style.height = newH + 'px';
             }
           } else {
-            var newHeight = resizeState.origHeight + snappedDelta;
-            if (newHeight >= SLOT_HEIGHT) {
-              resizeState.block.style.height = newHeight + 'px';
+            var newH2 = origHeight + snapped;
+            if (newH2 >= SLOT_HEIGHT) {
+              block.style.height = newH2 + 'px';
             }
           }
         }
 
-        function onMouseUp() {
-          document.removeEventListener('mousemove', onMouseMove);
-          document.removeEventListener('mouseup', onMouseUp);
-          if (!resizeState) return;
-
-          var block = resizeState.block;
+        function onUp() {
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
           block.classList.remove('resizing');
-          block.setAttribute('draggable', 'true');
 
           var finalTop = parseInt(block.style.top, 10);
-          var finalHeight = parseInt(block.style.height, 10);
+          var finalH = parseInt(block.style.height, 10);
 
-          // Calculate new times from pixel positions
-          // Find the work_start from the first time-gutter-label or time-slot
           var firstSlot = document.querySelector('.time-slot[data-time]');
-          var workStartMinutes = firstSlot ? timeToMinutes(firstSlot.dataset.time) : 540;
+          var wsMin = firstSlot ? timeToMin(firstSlot.dataset.time) : 540;
+          var newStartMin = wsMin + Math.round(finalTop / SLOT_HEIGHT) * GRID_MINUTES;
+          var durMin = Math.round(finalH / SLOT_HEIGHT) * GRID_MINUTES;
 
-          var newStartMinutes = workStartMinutes + Math.round(finalTop / SLOT_HEIGHT) * GRID_MINUTES;
-          var durationMinutes = Math.round(finalHeight / SLOT_HEIGHT) * GRID_MINUTES;
-          var newEndMinutes = newStartMinutes + durationMinutes;
+          var newStart = minToTime(newStartMin);
+          var newEnd = minToTime(newStartMin + durMin);
 
-          var newStart = minutesToTime(newStartMinutes);
-          var newEnd = minutesToTime(newEndMinutes);
-
-          // Only update if actually changed
           if (newStart !== block.dataset.startTime || newEnd !== block.dataset.endTime) {
-            api('PUT', '/schedule/api/blocks/' + resizeState.blockId, {
+            api('PUT', '/schedule/api/blocks/' + blockId, {
               start_time: newStart,
               end_time: newEnd,
-            }).then(function () {
-              location.reload();
-            }).catch(function (err) {
-              showToast(err.message, 'danger');
-              // Rollback
-              block.style.top = resizeState.origTop + 'px';
-              block.style.height = resizeState.origHeight + 'px';
-            });
+              resize: true,
+            }).then(function () { location.reload(); })
+              .catch(function (err) {
+                showToast(err.message, 'danger');
+                block.style.top = origTop + 'px';
+                block.style.height = origHeight + 'px';
+              });
           }
-
-          resizeState = null;
         }
 
-        document.addEventListener('mousemove', onMouseMove);
-        document.addEventListener('mouseup', onMouseUp);
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
       });
     });
   }
 
-  // -----------------------------------------------------------------------
-  // 6. Block context menu (right-click: lock toggle, delete)
-  // -----------------------------------------------------------------------
-  function initBlockActions() {
+  // =====================================================================
+  // 4. Context menu
+  // =====================================================================
+  function initContextMenu() {
     document.addEventListener('contextmenu', function (e) {
+      if (isReadonly()) return;
       var block = e.target.closest('.schedule-block[data-block-id]');
       if (!block) return;
       e.preventDefault();
-      showBlockMenu(e, block.dataset.blockId);
-    });
-  }
+      var old = document.getElementById('block-context-menu');
+      if (old) old.remove();
 
-  function showBlockMenu(e, blockId) {
-    var old = document.getElementById('block-context-menu');
-    if (old) old.remove();
+      var blockId = block.dataset.blockId;
+      var menu = document.createElement('div');
+      menu.id = 'block-context-menu';
+      menu.className = 'dropdown-menu show';
+      menu.style.cssText = 'position:fixed;z-index:1200;left:' + e.clientX + 'px;top:' + e.clientY + 'px;';
+      menu.innerHTML =
+        '<button class="dropdown-item" data-action="to-queue"><i class="bi bi-arrow-left-square"></i> 큐로 보내기</button>' +
+        '<button class="dropdown-item" data-action="lock"><i class="bi bi-lock"></i> 잠금 토글</button>' +
+        '<button class="dropdown-item text-danger" data-action="delete"><i class="bi bi-trash"></i> 삭제</button>';
+      document.body.appendChild(menu);
 
-    var menu = document.createElement('div');
-    menu.id = 'block-context-menu';
-    menu.className = 'dropdown-menu show';
-    menu.style.cssText = 'position:fixed;z-index:1200;left:' + e.clientX + 'px;top:' + e.clientY + 'px;';
-    menu.innerHTML =
-      '<button class="dropdown-item" data-action="lock"><i class="bi bi-lock"></i> 잠금 토글</button>' +
-      '<button class="dropdown-item text-danger" data-action="delete"><i class="bi bi-trash"></i> 삭제</button>';
-    document.body.appendChild(menu);
-
-    menu.addEventListener('click', function (ev) {
-      var btn = ev.target.closest('[data-action]');
-      if (!btn) return;
-      var action = btn.dataset.action;
-      menu.remove();
-      if (action === 'lock') {
-        api('PUT', '/schedule/api/blocks/' + blockId + '/lock').then(function () {
-          location.reload();
-        }).catch(function (err) { showToast(err.message, 'danger'); });
-      } else if (action === 'delete') {
-        if (confirm('이 블록을 삭제하시겠습니까?')) {
-          api('DELETE', '/schedule/api/blocks/' + blockId).then(function () {
-            location.reload();
-          }).catch(function (err) { showToast(err.message, 'danger'); });
-        }
-      }
-    });
-
-    setTimeout(function () {
-      document.addEventListener('click', function handler() {
+      menu.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('[data-action]');
+        if (!btn) return;
         menu.remove();
-        document.removeEventListener('click', handler);
-      }, { once: true });
-    }, 0);
+        if (btn.dataset.action === 'to-queue') {
+          api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+            .then(function () {
+              showToast('큐로 되돌렸습니다.', 'success');
+              location.reload();
+            })
+            .catch(function (err) { showToast(err.message, 'danger'); });
+        } else if (btn.dataset.action === 'lock') {
+          api('PUT', '/schedule/api/blocks/' + blockId + '/lock')
+            .then(function () { location.reload(); })
+            .catch(function (err) { showToast(err.message, 'danger'); });
+        } else if (btn.dataset.action === 'delete') {
+          if (confirm('이 블록을 삭제하시겠습니까?')) {
+            api('DELETE', '/schedule/api/blocks/' + blockId)
+              .then(function () { location.reload(); })
+              .catch(function (err) { showToast(err.message, 'danger'); });
+          }
+        }
+      });
+      setTimeout(function () {
+        document.addEventListener('click', function h() {
+          menu.remove(); document.removeEventListener('click', h);
+        }, { once: true });
+      }, 0);
+    });
   }
 
-  // -----------------------------------------------------------------------
-  // 7. Draft scheduling controls
-  // -----------------------------------------------------------------------
+  // =====================================================================
+  // 5. Draft controls
+  // =====================================================================
   function initDraftControls() {
     var toolbar = document.querySelector('.schedule-nav');
     if (!toolbar) return;
-
-    var group = document.createElement('div');
-    group.className = 'ms-auto d-flex gap-1';
-    group.innerHTML =
+    var g = document.createElement('div');
+    g.className = 'ms-auto d-flex gap-1';
+    g.innerHTML =
       '<button class="btn btn-sm btn-outline-success" id="btn-generate">자동 스케줄링</button>' +
       '<button class="btn btn-sm btn-success" id="btn-approve" style="display:none">초안 확정</button>' +
       '<button class="btn btn-sm btn-outline-danger" id="btn-discard" style="display:none">초안 폐기</button>';
-    toolbar.appendChild(group);
-
+    toolbar.appendChild(g);
     if (document.querySelector('.schedule-block.draft')) {
       document.getElementById('btn-approve').style.display = '';
       document.getElementById('btn-discard').style.display = '';
     }
-
-    document.getElementById('btn-generate').addEventListener('click', function () {
-      api('POST', '/schedule/api/draft/generate').then(function (res) {
-        var msg = res.placed_count + '개 블록이 배치되었습니다.';
-        if (res.unplaced && res.unplaced.length > 0) {
-          msg += ' (미배치 ' + res.unplaced.length + '개)';
-        }
+    document.getElementById('btn-generate').onclick = function () {
+      api('POST', '/schedule/api/draft/generate').then(function (r) {
+        var msg = r.placed_count + '개 블록 배치';
+        if (r.unplaced && r.unplaced.length) msg += ' (미배치 ' + r.unplaced.length + '개)';
         showToast(msg, 'success');
         setTimeout(function () { location.reload(); }, 500);
       }).catch(function (err) { showToast(err.message, 'danger'); });
-    });
-
-    document.getElementById('btn-approve').addEventListener('click', function () {
+    };
+    document.getElementById('btn-approve').onclick = function () {
       api('POST', '/schedule/api/draft/approve').then(function () {
-        showToast('초안이 확정되었습니다.', 'success');
+        showToast('초안 확정', 'success');
         setTimeout(function () { location.reload(); }, 500);
       }).catch(function (err) { showToast(err.message, 'danger'); });
-    });
-
-    document.getElementById('btn-discard').addEventListener('click', function () {
+    };
+    document.getElementById('btn-discard').onclick = function () {
       if (!confirm('초안을 모두 폐기하시겠습니까?')) return;
       api('POST', '/schedule/api/draft/discard').then(function () {
-        showToast('초안이 폐기되었습니다.', 'info');
+        showToast('초안 폐기', 'info');
         setTimeout(function () { location.reload(); }, 500);
       }).catch(function (err) { showToast(err.message, 'danger'); });
+    };
+  }
+
+  // =====================================================================
+  // 6. Return-to-queue buttons
+  // =====================================================================
+  function initReturnToQueue() {
+    document.querySelectorAll('.btn-to-queue[data-block-id]').forEach(function (btn) {
+      btn.addEventListener('mousedown', function (e) {
+        e.stopPropagation();
+      });
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        e.preventDefault();
+        if (isReadonly()) return;
+        var blockId = btn.dataset.blockId;
+        api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+          .then(function () {
+            showToast('큐로 되돌렸습니다.', 'success');
+            location.reload();
+          })
+          .catch(function (err) { showToast(err.message, 'danger'); });
+      });
     });
   }
 
-  // -----------------------------------------------------------------------
+  // =====================================================================
+  // 7. Queue sort
+  // =====================================================================
+  function initQueueSort() {
+    var body = document.getElementById('task-queue-body');
+    if (!body) return;
+    var priorityOrder = { high: 0, medium: 1, low: 2 };
+    var currentSort = 'deadline';
+    var ascending = true;
+
+    document.querySelectorAll('.queue-sort-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var sortKey = btn.dataset.sort;
+        if (sortKey === currentSort) {
+          ascending = !ascending;
+        } else {
+          currentSort = sortKey;
+          ascending = true;
+        }
+
+        document.querySelectorAll('.queue-sort-btn').forEach(function (b) {
+          b.classList.remove('active', 'desc');
+        });
+        btn.classList.add('active');
+        if (!ascending) btn.classList.add('desc');
+
+        var items = Array.from(body.querySelectorAll('.queue-task-item'));
+        items.sort(function (a, b) {
+          var result;
+          if (sortKey === 'name') {
+            result = (a.dataset.title || '').localeCompare(b.dataset.title || '');
+          } else if (sortKey === 'hours') {
+            result = parseFloat(a.dataset.remainingHours) - parseFloat(b.dataset.remainingHours);
+          } else if (sortKey === 'priority') {
+            result = (priorityOrder[a.dataset.priority] || 2) - (priorityOrder[b.dataset.priority] || 2);
+          } else {
+            result = (a.dataset.deadline || '').localeCompare(b.dataset.deadline || '');
+          }
+          return ascending ? result : -result;
+        });
+        items.forEach(function (item) { body.appendChild(item); });
+      });
+    });
+  }
+
+  // =====================================================================
   // 8. Queue toggle
-  // -----------------------------------------------------------------------
+  // =====================================================================
   function initQueueToggle() {
     var btn = document.getElementById('toggle-queue');
-    var queue = document.getElementById('task-queue');
-    if (!btn || !queue) return;
-
-    btn.addEventListener('click', function () {
-      queue.classList.toggle('collapsed');
-    });
+    var q = document.getElementById('task-queue');
+    if (btn && q) btn.onclick = function () { q.classList.toggle('collapsed'); };
   }
 
-  // -----------------------------------------------------------------------
+  // Export button is now in base.html navbar (not managed by drag_drop.js)
+
+  // =====================================================================
   // Init
-  // -----------------------------------------------------------------------
+  // =====================================================================
+  function isReadonly() {
+    return document.body.classList.contains('readonly-mode');
+  }
+
   document.addEventListener('DOMContentLoaded', function () {
-    initBlockDrag();
+    initBlockMove();
+    initMonthBlockMove();
     initQueueDrag();
-    initTimeSlotDrop();
-    initMonthDrop();
     initResize();
-    initBlockActions();
+    initContextMenu();
+    initReturnToQueue();
     initDraftControls();
+    initQueueSort();
     initQueueToggle();
   });
 })();

@@ -50,13 +50,11 @@ def generate_draft_schedule():
         confirmed_for_task = [
             b for b in confirmed_blocks if b['task_id'] == task['id']
         ]
-        already_scheduled = _calculate_block_hours(confirmed_for_task)
+        already_scheduled = _calculate_work_hours(confirmed_for_task, settings)
         hours_needed = task['remaining_hours'] - already_scheduled
 
         if hours_needed <= 0:
             continue
-
-        task_placed_blocks = []
 
         # Try each day starting from today, up to max_schedule_days
         for day_offset in range(max_days):
@@ -68,19 +66,24 @@ def generate_draft_schedule():
             ).strftime('%Y-%m-%d')
 
             assignee_blocks = blocks_by_assignee.get(assignee_id, [])
-            slots = _get_available_slots(
+            slots = _get_available_work_slots(
                 date_str, assignee_id, assignee_blocks, settings
             )
 
-            for slot_start, slot_end in slots:
+            for slot_start, slot_end, work_hours in slots:
                 if hours_needed <= 0:
                     break
 
-                slot_hours = _time_diff_hours(slot_start, slot_end)
-                block_hours = min(slot_hours, hours_needed)
-
-                # Calculate end time for this block
-                block_end = _add_hours(slot_start, block_hours)
+                if hours_needed >= work_hours:
+                    # Use the entire slot
+                    block_end = slot_end
+                    used_hours = work_hours
+                else:
+                    # Partially fill — compute end time for needed work hours
+                    block_end = _compute_end_for_work_hours(
+                        slot_start, hours_needed, settings
+                    )
+                    used_hours = hours_needed
 
                 block = schedule_repo.create(
                     task_id=task['id'],
@@ -95,7 +98,7 @@ def generate_draft_schedule():
 
                 placed.append(block)
                 blocks_by_assignee.setdefault(assignee_id, []).append(block)
-                hours_needed -= block_hours
+                hours_needed -= used_hours
 
         if hours_needed > 0:
             unplaced.append({
@@ -108,18 +111,18 @@ def generate_draft_schedule():
 
 def approve_drafts():
     """Approve all draft blocks and update task remaining hours."""
+    settings = settings_repo.get()
     draft_blocks = [b for b in schedule_repo.get_all() if b.get('is_draft')]
 
     # Approve in the repo (sets is_draft=False)
     schedule_repo.approve_drafts()
 
-    # Update task remaining_hours for each approved block
-    # Group by task to batch updates
+    # Update task remaining_hours — use work hours (excluding breaks)
     hours_by_task = {}
     for block in draft_blocks:
-        block_hours = _time_diff_hours(block['start_time'], block['end_time'])
+        work_hours = _work_hours_in_range(block['start_time'], block['end_time'], settings)
         hours_by_task.setdefault(block['task_id'], 0)
-        hours_by_task[block['task_id']] += block_hours
+        hours_by_task[block['task_id']] += work_hours
 
     for task_id, hours in hours_by_task.items():
         task = task_repo.get_by_id(task_id)
@@ -129,16 +132,9 @@ def approve_drafts():
         new_remaining = max(0, task['remaining_hours'] - hours)
         new_status = 'completed' if new_remaining <= 0 else task['status']
 
-        task_repo.update(
-            task_id=task_id,
-            title=task['title'],
-            description=task.get('description', ''),
-            assignee_id=task['assignee_id'],
-            category_id=task.get('category_id', ''),
-            priority=task['priority'],
-            estimated_hours=task['estimated_hours'],
-            remaining_hours=new_remaining,
-            deadline=task.get('deadline', ''),
+        task_repo.patch(
+            task_id,
+            remaining_hours=round(new_remaining, 2),
             status=new_status,
         )
 
@@ -148,78 +144,128 @@ def discard_drafts():
     schedule_repo.delete_drafts()
 
 
-def _get_available_slots(date_str, assignee_id, existing_blocks, settings):
-    """Return list of (start_time, end_time) available slot tuples for a date.
+def _get_break_periods(settings):
+    """Return sorted list of (start_str, end_str) for lunch + breaks."""
+    periods = [(settings['lunch_start'], settings['lunch_end'])]
+    for brk in settings.get('breaks', []):
+        periods.append((brk['start'], brk['end']))
+    periods.sort()
+    return periods
 
-    Generates grid-interval slots within work hours, removes lunch/breaks
-    and occupied slots, then merges consecutive slots into contiguous ranges.
+
+def _work_hours_in_range(start_str, end_str, settings):
+    """Calculate actual work hours in a time range, excluding breaks."""
+    start = _parse_time(start_str)
+    end = _parse_time(end_str)
+    total_min = (end - start).total_seconds() / 60.0
+    for bs, be in _get_break_periods(settings):
+        b_start = _parse_time(bs)
+        b_end = _parse_time(be)
+        ov_start = max(start, b_start)
+        ov_end = min(end, b_end)
+        if ov_start < ov_end:
+            total_min -= (ov_end - ov_start).total_seconds() / 60.0
+    return max(0.0, total_min / 60.0)
+
+
+def _compute_end_for_work_hours(start_str, work_hours, settings):
+    """Compute end time that provides exactly work_hours of actual work from start_str.
+
+    Walks forward from start, skipping break periods.
+    """
+    breaks = _get_break_periods(settings)
+    work_end = settings.get('work_end', '18:00')
+    current = _parse_time(start_str)
+    remaining_min = work_hours * 60.0
+    end_limit = _parse_time(work_end)
+    interval = settings.get('grid_interval_minutes', 15)
+
+    while remaining_min > 0 and current < end_limit:
+        # Check if we're inside a break
+        in_break = False
+        for bs, be in breaks:
+            b_start = _parse_time(bs)
+            b_end = _parse_time(be)
+            if b_start <= current < b_end:
+                current = b_end
+                in_break = True
+                break
+        if in_break:
+            continue
+
+        # Find next break start
+        next_break_start = end_limit
+        for bs, be in breaks:
+            b_start = _parse_time(bs)
+            if b_start > current and b_start < next_break_start:
+                next_break_start = b_start
+
+        available_min = (next_break_start - current).total_seconds() / 60.0
+        if available_min >= remaining_min:
+            current += timedelta(minutes=remaining_min)
+            remaining_min = 0
+        else:
+            remaining_min -= available_min
+            # Jump to end of the break
+            for bs, be in breaks:
+                if _parse_time(bs) == next_break_start:
+                    current = _parse_time(be)
+                    break
+
+    # Snap to grid
+    result_min = int((current - datetime(1900, 1, 1)).total_seconds() / 60)
+    snapped = ((result_min + interval - 1) // interval) * interval
+    result = datetime(1900, 1, 1) + timedelta(minutes=snapped)
+    if result > end_limit:
+        result = end_limit
+    return _format_time(result)
+
+
+def _get_available_work_slots(date_str, assignee_id, existing_blocks, settings):
+    """Return list of (start_time, end_time, work_hours) tuples.
+
+    Unlike the old version, slots span across breaks (not split by them).
+    Only existing assigned blocks cause splits.
     """
     work_start = settings['work_start']
     work_end = settings['work_end']
-    lunch_start = settings['lunch_start']
-    lunch_end = settings['lunch_end']
-    breaks = settings.get('breaks', [])
     interval = settings.get('grid_interval_minutes', 15)
 
-    # Generate all grid slots within work hours
-    grid_slots = []
+    # Get occupied time ranges for this assignee on this date
+    occupied = []
+    for b in existing_blocks:
+        if b['date'] == date_str and b['assignee_id'] == assignee_id:
+            occupied.append((_parse_time(b['start_time']), _parse_time(b['end_time'])))
+    occupied.sort()
+
+    # Build free ranges (not split by breaks, only by occupied blocks)
+    free = []
     current = _parse_time(work_start)
     end = _parse_time(work_end)
 
-    while current < end:
-        slot_end = current + timedelta(minutes=interval)
-        if slot_end > end:
-            slot_end = end
-        grid_slots.append((_format_time(current), _format_time(slot_end)))
-        current = slot_end
+    for occ_start, occ_end in occupied:
+        if current < occ_start:
+            free.append((_format_time(current), _format_time(occ_start)))
+        current = max(current, occ_end)
 
-    # Remove lunch time slots
-    grid_slots = [
-        (s, e) for s, e in grid_slots
-        if not _overlaps(s, e, lunch_start, lunch_end)
-    ]
+    if current < end:
+        free.append((_format_time(current), _format_time(end)))
 
-    # Remove break time slots
-    for brk in breaks:
-        grid_slots = [
-            (s, e) for s, e in grid_slots
-            if not _overlaps(s, e, brk['start'], brk['end'])
-        ]
+    # Calculate actual work hours for each free range
+    result = []
+    for s, e in free:
+        wh = _work_hours_in_range(s, e, settings)
+        if wh > 0:
+            result.append((s, e, round(wh, 4)))
 
-    # Remove slots occupied by existing blocks for this assignee on this date
-    assignee_day_blocks = [
-        b for b in existing_blocks
-        if b['date'] == date_str and b['assignee_id'] == assignee_id
-    ]
-    for block in assignee_day_blocks:
-        grid_slots = [
-            (s, e) for s, e in grid_slots
-            if not _overlaps(s, e, block['start_time'], block['end_time'])
-        ]
-
-    # Merge consecutive slots into contiguous ranges
-    if not grid_slots:
-        return []
-
-    merged = []
-    range_start, range_end = grid_slots[0]
-
-    for s, e in grid_slots[1:]:
-        if s == range_end:
-            range_end = e
-        else:
-            merged.append((range_start, range_end))
-            range_start, range_end = s, e
-
-    merged.append((range_start, range_end))
-    return merged
+    return result
 
 
-def _calculate_block_hours(blocks):
-    """Sum up hours from a list of schedule blocks."""
+def _calculate_work_hours(blocks, settings):
+    """Sum up actual work hours from a list of schedule blocks (excluding breaks)."""
     total = 0.0
     for b in blocks:
-        total += _time_diff_hours(b['start_time'], b['end_time'])
+        total += _work_hours_in_range(b['start_time'], b['end_time'], settings)
     return total
 
 
