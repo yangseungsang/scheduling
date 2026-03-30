@@ -1,42 +1,65 @@
 {% extends "base.html" %}
-{% block title %}{{ '업무 수정' if task else '업무 추가' }} - 스케줄링{% endblock %}
+{% block title %}{{ '시험 항목 수정' if task else '시험 항목 추가' }} - 스케줄링{% endblock %}
 
 {% block content %}
-<h2>{{ '업무 수정' if task else '업무 추가' }}</h2>
-<form method="POST" class="mt-3" style="max-width: 500px;">
+<h2>{{ '시험 항목 수정' if task else '시험 항목 추가' }}</h2>
+<form method="POST" class="mt-3" style="max-width: 600px;">
   <div class="mb-3">
-    <label class="form-label">제목</label>
-    <input type="text" class="form-control" name="title" value="{{ task.title if task else '' }}" required>
+    <label class="form-label">절차서 식별자</label>
+    <input type="text" class="form-control" name="procedure_id" id="procedure_id"
+           value="{{ task.procedure_id if task else '' }}"
+           placeholder="예: ABC-001" pattern="[A-Za-z]{3}-\d+"
+           required>
+    <div class="form-text">영문 3자리-숫자 형식 (예: SYS-001, NAV-042)</div>
+  </div>
+  <div id="procedure-info" style="display:none" class="alert alert-info mb-3">
+    <div><strong>장절명:</strong> <span id="pi-section"></span></div>
+    <div><strong>절차서 담당자:</strong> <span id="pi-owner"></span></div>
+    <div><strong>시험목록:</strong> <span id="pi-tests"></span></div>
   </div>
   <div class="mb-3">
-    <label class="form-label">설명</label>
-    <textarea class="form-control" name="description" rows="3">{{ task.description if task else '' }}</textarea>
+    <label class="form-label">소프트웨어 버전</label>
+    <select name="version_id" class="form-select" required>
+      <option value="">선택</option>
+      {% for v in versions %}
+      <option value="{{ v.id }}" {{ 'selected' if task and task.version_id == v.id }}>{{ v.name }}{% if not v.is_active %} (비활성){% endif %}</option>
+      {% endfor %}
+    </select>
   </div>
   <div class="mb-3">
-    <label class="form-label">담당자</label>
-    <select name="assignee_id" class="form-select">
-      <option value="">선택 안 함</option>
+    <label class="form-label">시험 담당자 (복수 선택 가능)</label>
+    <select name="assignee_ids" class="form-select" id="assignee-select" multiple size="4">
       {% for u in users %}
-      <option value="{{ u.id }}" {{ 'selected' if task and task.assignee_id == u.id }}>{{ u.name }}</option>
+      <option value="{{ u.id }}" {{ 'selected' if task and u.id in task.assignee_ids }}>{{ u.name }}</option>
       {% endfor %}
     </select>
+    <div id="assignee-chips" class="mt-1"></div>
   </div>
   <div class="mb-3">
-    <label class="form-label">카테고리</label>
-    <select name="category_id" class="form-select">
+    <label class="form-label">시험장소</label>
+    <select name="location_id" class="form-select">
       <option value="">선택 안 함</option>
-      {% for c in categories %}
-      <option value="{{ c.id }}" {{ 'selected' if task and task.category_id == c.id }}>{{ c.name }}</option>
+      {% for loc in locations %}
+      <option value="{{ loc.id }}" {{ 'selected' if task and task.location_id == loc.id }}>{{ loc.name }}{% if loc.description %} ({{ loc.description }}){% endif %}</option>
       {% endfor %}
     </select>
   </div>
   <div class="mb-3">
-    <label class="form-label">우선순위</label>
-    <select name="priority" class="form-select">
-      <option value="high" {{ 'selected' if task and task.priority == 'high' }}>높음</option>
-      <option value="medium" {{ 'selected' if (not task) or (task and task.priority == 'medium') }}>보통</option>
-      <option value="low" {{ 'selected' if task and task.priority == 'low' }}>낮음</option>
-    </select>
+    <label class="form-label">장절명</label>
+    <input type="text" class="form-control" name="section_name" id="section_name"
+           value="{{ task.section_name if task else '' }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">절차서 담당자</label>
+    <input type="text" class="form-control" name="procedure_owner" id="procedure_owner"
+           value="{{ task.procedure_owner if task else '' }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">시험목록</label>
+    <input type="text" class="form-control" name="test_list" id="test_list"
+           value="{{ task.test_list|join(', ') if task and task.test_list else '' }}"
+           placeholder="TC-001, TC-002, TC-003">
+    <div class="form-text">쉼표로 구분</div>
   </div>
   <div class="mb-3">
     <label class="form-label">예상 시간</label>
@@ -63,6 +86,10 @@
     <input type="date" class="form-control" name="deadline"
            value="{{ task.deadline if task else '' }}">
   </div>
+  <div class="mb-3">
+    <label class="form-label">메모</label>
+    <textarea class="form-control" name="memo" rows="3">{{ task.memo if task else '' }}</textarea>
+  </div>
   <button type="submit" class="btn btn-primary">저장</button>
   {% if task %}
   <a href="{{ url_for('tasks.task_detail', task_id=task.id) }}" class="btn btn-secondary">취소</a>
@@ -70,4 +97,43 @@
   <a href="{{ url_for('tasks.task_list') }}" class="btn btn-secondary">취소</a>
   {% endif %}
 </form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('procedure_id').addEventListener('blur', function() {
+  var pid = this.value.trim();
+  if (!pid) return;
+  fetch('/tasks/api/procedure/' + encodeURIComponent(pid))
+    .then(function(r) { return r.ok ? r.json() : null; })
+    .then(function(data) {
+      if (!data) { document.getElementById('procedure-info').style.display = 'none'; return; }
+      document.getElementById('pi-section').textContent = data.section_name || '';
+      document.getElementById('pi-owner').textContent = data.procedure_owner || '';
+      document.getElementById('pi-tests').textContent = (data.test_list || []).join(', ');
+      document.getElementById('procedure-info').style.display = 'block';
+      if (!document.getElementById('section_name').value) document.getElementById('section_name').value = data.section_name || '';
+      if (!document.getElementById('procedure_owner').value) document.getElementById('procedure_owner').value = data.procedure_owner || '';
+      if (!document.getElementById('test_list').value) document.getElementById('test_list').value = (data.test_list || []).join(', ');
+    });
+});
+
+(function() {
+  var sel = document.getElementById('assignee-select');
+  var chips = document.getElementById('assignee-chips');
+  function render() {
+    chips.innerHTML = '';
+    Array.from(sel.selectedOptions).forEach(function(opt) {
+      var chip = document.createElement('span');
+      chip.className = 'badge bg-primary me-1 mb-1';
+      chip.style.cursor = 'pointer';
+      chip.textContent = opt.text + ' \u00d7';
+      chip.addEventListener('click', function() { opt.selected = false; render(); });
+      chips.appendChild(chip);
+    });
+  }
+  sel.addEventListener('change', render);
+  render();
+})();
+</script>
 {% endblock %}

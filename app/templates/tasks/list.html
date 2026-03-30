@@ -1,58 +1,80 @@
 {% extends "base.html" %}
-{% block title %}업무 목록 - 스케줄링{% endblock %}
+{% block title %}시험 항목 목록 - 스케줄링{% endblock %}
 
 {% block content %}
 <div class="task-list-page">
-  {# Header #}
   <div class="task-list-header">
-    <h4 class="mb-0">업무 목록</h4>
+    <h4 class="mb-0">시험 항목 목록</h4>
     <a href="{{ url_for('tasks.task_new') }}" class="btn btn-primary btn-sm">
-      <i class="bi bi-plus-lg"></i> 새 업무
+      <i class="bi bi-plus-lg"></i> 새 항목
     </a>
   </div>
 
-  {# Filters #}
-  <form method="GET" class="task-filter-bar">
-    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+  <form method="GET" id="filter-form" class="task-filter-bar flex-wrap gap-2">
+    <select name="version" class="form-select form-select-sm" style="max-width:150px" onchange="this.form.submit()">
+      <option value="">전체 버전</option>
+      {% for v in versions %}
+      <option value="{{ v.id }}" {{ 'selected' if filters.version == v.id }}>{{ v.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="status" class="form-select form-select-sm" style="max-width:120px" onchange="this.form.submit()">
       <option value="">전체 상태</option>
       <option value="waiting" {{ 'selected' if filters.status == 'waiting' }}>대기</option>
       <option value="in_progress" {{ 'selected' if filters.status == 'in_progress' }}>진행 중</option>
       <option value="completed" {{ 'selected' if filters.status == 'completed' }}>완료</option>
     </select>
-    <select name="assignee" class="form-select form-select-sm" onchange="this.form.submit()">
-      <option value="">전체 담당자</option>
-      {% for u in users %}
-      <option value="{{ u.id }}" {{ 'selected' if filters.assignee == u.id }}>{{ u.name }}</option>
+    <select name="location" class="form-select form-select-sm" style="max-width:130px" onchange="this.form.submit()">
+      <option value="">전체 장소</option>
+      {% for loc in locations %}
+      <option value="{{ loc.id }}" {{ 'selected' if filters.location == loc.id }}>{{ loc.name }}</option>
       {% endfor %}
     </select>
-    <select name="priority" class="form-select form-select-sm" onchange="this.form.submit()">
-      <option value="">전체 우선순위</option>
-      <option value="high" {{ 'selected' if filters.priority == 'high' }}>높음</option>
-      <option value="medium" {{ 'selected' if filters.priority == 'medium' }}>보통</option>
-      <option value="low" {{ 'selected' if filters.priority == 'low' }}>낮음</option>
-    </select>
-    <select name="category" class="form-select form-select-sm" onchange="this.form.submit()">
-      <option value="">전체 카테고리</option>
-      {% for c in categories %}
-      <option value="{{ c.id }}" {{ 'selected' if filters.category == c.id }}>{{ c.name }}</option>
+    <input type="text" name="procedure" class="form-control form-control-sm" style="max-width:150px"
+           placeholder="절차서 검색" value="{{ filters.procedure }}"
+           onchange="this.form.submit()">
+
+    <div class="dropdown" id="assignee-filter-dropdown">
+      <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+        담당자
+      </button>
+      <ul class="dropdown-menu p-2" style="min-width: 200px;">
+        {% for u in users %}
+        <li>
+          <label class="dropdown-item py-1">
+            <input type="checkbox" name="assignee" value="{{ u.id }}"
+                   {{ 'checked' if u.id in filters.assignees }}
+                   onchange="document.getElementById('filter-form').submit()">
+            {{ u.name }}
+          </label>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+
+    <div class="d-flex flex-wrap gap-1 align-items-center">
+      {% for uid in filters.assignees %}
+      <span class="badge bg-primary">
+        {{ user_map.get(uid, uid) }}
+        <a href="?{{ 'version=' ~ filters.version ~ '&' if filters.version }}{{ 'status=' ~ filters.status ~ '&' if filters.status }}{{ 'location=' ~ filters.location ~ '&' if filters.location }}{% for a in filters.assignees if a != uid %}assignee={{ a }}&{% endfor %}" class="text-white text-decoration-none ms-1">&times;</a>
+      </span>
       {% endfor %}
-    </select>
-    {% if filters.status or filters.assignee or filters.priority or filters.category %}
+    </div>
+
+    {% if filters.status or filters.assignees or filters.location or filters.procedure or filters.version %}
     <a href="{{ url_for('tasks.task_list') }}" class="btn btn-sm btn-outline-secondary">
       <i class="bi bi-x-lg"></i> 초기화
     </a>
     {% endif %}
   </form>
 
-  {# Table #}
   <div class="task-table-wrap">
     <table class="task-table">
       <thead>
         <tr>
-          <th></th>
-          <th>제목</th>
+          <th>절차서 ID</th>
+          <th>장절명</th>
           <th>담당자</th>
-          <th>카테고리</th>
+          <th>장소</th>
           <th>시간</th>
           <th>마감일</th>
           <th>상태</th>
@@ -61,18 +83,15 @@
       <tbody>
         {% for task in tasks %}
         <tr class="task-row" onclick="location.href='{{ url_for('tasks.task_detail', task_id=task.id) }}'">
+          <td class="text-nowrap fw-bold">{{ task.procedure_id }}</td>
+          <td class="task-cell-title">{{ task.section_name or '-' }}</td>
           <td>
-            {% if task.priority == 'high' %}
-            <span class="task-priority-dot priority-high"></span>
-            {% elif task.priority == 'medium' %}
-            <span class="task-priority-dot priority-medium"></span>
-            {% else %}
-            <span class="task-priority-dot priority-low"></span>
-            {% endif %}
+            {% for uid in task.assignee_ids %}
+              {{ user_map.get(uid, uid) }}{% if not loop.last %}, {% endif %}
+            {% endfor %}
+            {% if not task.assignee_ids %}-{% endif %}
           </td>
-          <td class="task-cell-title">{{ task.title }}</td>
-          <td>{{ user_map.get(task.assignee_id, '-') }}</td>
-          <td>{{ category_map.get(task.category_id, '-') }}</td>
+          <td>{{ location_map.get(task.location_id, '-') }}</td>
           <td class="text-nowrap">{{ task.remaining_hours }}h / {{ task.estimated_hours }}h</td>
           <td class="text-nowrap">{{ task.deadline or '-' }}</td>
           <td>
@@ -88,7 +107,7 @@
         {% endfor %}
         {% if not tasks %}
         <tr>
-          <td colspan="7" class="task-empty-cell">등록된 업무가 없습니다.</td>
+          <td colspan="7" class="task-empty-cell">등록된 시험 항목이 없습니다.</td>
         </tr>
         {% endif %}
       </tbody>
