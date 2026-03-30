@@ -3,8 +3,10 @@ from app.json_store import read_json, write_json
 FILENAME = 'settings.json'
 
 DEFAULTS = {
-    'work_start': '09:00',
-    'work_end': '18:00',
+    'work_start': '08:00',
+    'work_end': '17:00',
+    'actual_work_start': '08:30',
+    'actual_work_end': '16:30',
     'lunch_start': '12:00',
     'lunch_end': '13:00',
     'breaks': [
