@@ -4,11 +4,12 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, request, jsonify, render_template, Response
 
 from app.repositories import (
-    category_repo,
+    location_repo,
     schedule_repo,
     settings_repo,
     task_repo,
     user_repo,
+    version_repo,
 )
 from app.utils.time_utils import (
     adjust_end_for_breaks,
@@ -22,15 +23,9 @@ from app.utils.time_utils import (
 schedule_bp = Blueprint('schedule', __name__, url_prefix='/schedule')
 
 DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일']
-PRIORITY_ORDER = {'high': 0, 'medium': 1, 'low': 2}
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 def _parse_date(date_str):
-    """Parse a date string (YYYY-MM-DD) or return today."""
     if date_str:
         try:
             return datetime.strptime(date_str, '%Y-%m-%d').date()
@@ -39,34 +34,50 @@ def _parse_date(date_str):
     return date.today()
 
 
+def _get_current_version_id():
+    vid = request.args.get('version')
+    if vid:
+        return vid
+    active = version_repo.get_active()
+    return active[0]['id'] if active else None
+
+
 def _build_maps():
-    """Build lookup maps for users, tasks, categories."""
     users = user_repo.get_all()
     tasks = task_repo.get_all()
-    categories = category_repo.get_all()
+    locations = location_repo.get_all()
     return (
         {u['id']: u for u in users},
         {t['id']: t for t in tasks},
-        {c['id']: c for c in categories},
+        {loc['id']: loc for loc in locations},
     )
 
 
-def _enrich_blocks(blocks, users_map, tasks_map, categories_map, color_by):
-    """Add display fields (title, names, colors) to raw schedule blocks."""
+def _enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
     enriched = []
     for b in blocks:
         block = dict(b)
         task = tasks_map.get(b.get('task_id'))
-        assignee = users_map.get(b.get('assignee_id'))
-        category = categories_map.get(task.get('category_id')) if task else None
+        location = locations_map.get(b.get('location_id'))
 
-        block['task_title'] = task['title'] if task else '(삭제된 업무)'
-        block['priority'] = task.get('priority', '') if task else ''
-        block['assignee_name'] = assignee['name'] if assignee else '(미배정)'
-        block['assignee_color'] = assignee['color'] if assignee else '#6c757d'
-        block['category_name'] = category['name'] if category else ''
-        block['category_color'] = category['color'] if category else '#6c757d'
-        block['color'] = block['category_color'] if color_by == 'category' else block['assignee_color']
+        assignee_ids = b.get('assignee_ids', [])
+        assignee_names = []
+        assignee_colors = []
+        for uid in assignee_ids:
+            u = users_map.get(uid)
+            if u:
+                assignee_names.append(u['name'])
+                assignee_colors.append(u['color'])
+
+        block['procedure_id'] = task.get('procedure_id', '') if task else ''
+        block['section_name'] = task.get('section_name', '') if task else ''
+        block['task_title'] = task.get('procedure_id', '(삭제됨)') if task else '(삭제됨)'
+        block['assignee_names'] = assignee_names
+        block['assignee_name'] = ', '.join(assignee_names) if assignee_names else '(미배정)'
+        block['assignee_color'] = assignee_colors[0] if assignee_colors else '#6c757d'
+        block['location_name'] = location['name'] if location else ''
+        block['location_color'] = location['color'] if location else '#6c757d'
+        block['color'] = block['location_color'] if color_by == 'location' else block['assignee_color']
         block['block_status'] = b.get('block_status', 'pending')
         block['memo'] = b.get('memo', '')
 
@@ -74,9 +85,10 @@ def _enrich_blocks(blocks, users_map, tasks_map, categories_map, color_by):
     return enriched
 
 
-def _get_queue_tasks(users_map, categories_map):
-    """Get tasks with remaining unscheduled hours for the task queue sidebar."""
+def _get_queue_tasks(users_map, locations_map, version_id):
     tasks = task_repo.get_all()
+    if version_id:
+        tasks = [t for t in tasks if t.get('version_id') == version_id]
     all_blocks = schedule_repo.get_all()
 
     scheduled_hours = {}
@@ -98,54 +110,54 @@ def _get_queue_tasks(users_map, categories_map):
 
         task = dict(t)
         task['remaining_unscheduled_hours'] = round(remaining, 2)
-        assignee = users_map.get(t.get('assignee_id'))
-        category = categories_map.get(t.get('category_id'))
-        task['assignee_name'] = assignee['name'] if assignee else '(미배정)'
-        task['assignee_color'] = assignee['color'] if assignee else '#6c757d'
-        task['category_name'] = category['name'] if category else ''
-        task['category_color'] = category['color'] if category else '#6c757d'
+
+        assignee_ids = t.get('assignee_ids', [])
+        assignee_names = [users_map[uid]['name'] for uid in assignee_ids if uid in users_map]
+        assignee_colors = [users_map[uid]['color'] for uid in assignee_ids if uid in users_map]
+
+        task['assignee_name'] = ', '.join(assignee_names) if assignee_names else '(미배정)'
+        task['assignee_color'] = assignee_colors[0] if assignee_colors else '#6c757d'
+
+        location = locations_map.get(t.get('location_id'))
+        task['location_name'] = location['name'] if location else ''
+        task['location_color'] = location['color'] if location else '#6c757d'
+
         queue.append(task)
 
     queue.sort(key=lambda t: (
         t.get('deadline') or '9999-12-31',
-        PRIORITY_ORDER.get(t.get('priority', 'low'), 2),
+        t.get('procedure_id', ''),
     ))
     return queue
 
 
-def _check_overlap(assignee_id, date_str, start_time, end_time, exclude_block_id=None):
-    """Check if a block would overlap with existing blocks for the same assignee."""
-    if not assignee_id:
-        return None
+def _check_overlap(assignee_ids, location_id, date_str, start_time, end_time, exclude_block_id=None):
     s1 = time_to_minutes(start_time)
     e1 = time_to_minutes(end_time)
     for b in schedule_repo.get_by_date(date_str):
-        if b['assignee_id'] != assignee_id:
-            continue
         if exclude_block_id and b['id'] == exclude_block_id:
             continue
-        if s1 < time_to_minutes(b['end_time']) and time_to_minutes(b['start_time']) < e1:
-            return b
+        s2 = time_to_minutes(b['start_time'])
+        e2 = time_to_minutes(b['end_time'])
+        if s1 < e2 and s2 < e1:
+            block_assignees = b.get('assignee_ids', [])
+            if any(a in block_assignees for a in assignee_ids):
+                return b
+            if location_id and b.get('location_id') == location_id:
+                return b
     return None
 
 
 def _compute_overlap_layout(blocks):
-    """Compute col_index/col_total for overlapping blocks (side-by-side display).
-
-    Greedy column-packing: sort by start, assign to first non-overlapping column.
-    """
     if not blocks:
         return blocks
-
     sorted_blocks = sorted(
         blocks,
         key=lambda b: (time_to_minutes(b['start_time']),
                        -time_to_minutes(b['end_time'])),
     )
-
-    columns = []  # list of (end_min, [block_indices])
+    columns = []
     block_col = {}
-
     for i, b in enumerate(sorted_blocks):
         s = time_to_minutes(b['start_time'])
         placed = False
@@ -158,7 +170,6 @@ def _compute_overlap_layout(blocks):
         if not placed:
             block_col[i] = len(columns)
             columns.append((time_to_minutes(b['end_time']), [i]))
-
     for i, b in enumerate(sorted_blocks):
         s = time_to_minutes(b['start_time'])
         e = time_to_minutes(b['end_time'])
@@ -172,18 +183,15 @@ def _compute_overlap_layout(blocks):
                 max_col = max(max_col, block_col[j] + 1)
         b['col_index'] = block_col[i]
         b['col_total'] = max_col
-
     return sorted_blocks
 
 
 def _get_break_slots(settings):
-    """Return set of time-slot strings that fall in break periods."""
     slots = generate_time_slots(settings)
     return {s for s in slots if is_break_slot(s, settings)}
 
 
 def _build_month_nav(year, month):
-    """Return (prev_month_date, next_month_date) for month navigation."""
     if month == 1:
         prev_date = date(year - 1, 12, 1)
     else:
@@ -196,7 +204,6 @@ def _build_month_nav(year, month):
 
 
 def _group_blocks_by_date(enriched):
-    """Group enriched blocks into a dict keyed by date string."""
     result = {}
     for b in enriched:
         result.setdefault(b['date'], []).append(b)
@@ -204,7 +211,6 @@ def _group_blocks_by_date(enriched):
 
 
 def _build_month_weeks(year, month, blocks_by_date):
-    """Build month calendar weeks with block data for template rendering."""
     cal = calendar.Calendar(firstweekday=0)
     weeks = []
     for week in cal.monthdayscalendar(year, month):
@@ -223,19 +229,18 @@ def _build_month_weeks(year, month, blocks_by_date):
     return weeks
 
 
-# ---------------------------------------------------------------------------
-# Template rendering routes
-# ---------------------------------------------------------------------------
-
 @schedule_bp.route('/')
 def day_view():
     current_date = _parse_date(request.args.get('date'))
     settings = settings_repo.get()
-    users_map, tasks_map, categories_map = _build_maps()
+    version_id = _get_current_version_id()
+    users_map, tasks_map, locations_map = _build_maps()
 
     blocks = schedule_repo.get_by_date(current_date.isoformat())
+    if version_id:
+        blocks = [b for b in blocks if b.get('version_id') == version_id]
     enriched = _enrich_blocks(
-        blocks, users_map, tasks_map, categories_map,
+        blocks, users_map, tasks_map, locations_map,
         settings.get('block_color_by', 'assignee'),
     )
     enriched = _compute_overlap_layout(enriched)
@@ -249,7 +254,9 @@ def day_view():
         time_slots=generate_time_slots(settings),
         break_slots=_get_break_slots(settings),
         settings=settings,
-        queue_tasks=_get_queue_tasks(users_map, categories_map),
+        queue_tasks=_get_queue_tasks(users_map, locations_map, version_id),
+        versions=version_repo.get_all(),
+        current_version_id=version_id or '',
     )
 
 
@@ -257,7 +264,8 @@ def day_view():
 def week_view():
     current_date = _parse_date(request.args.get('date'))
     settings = settings_repo.get()
-    users_map, tasks_map, categories_map = _build_maps()
+    version_id = _get_current_version_id()
+    users_map, tasks_map, locations_map = _build_maps()
 
     week_start = current_date - timedelta(days=current_date.weekday())
     week_end = week_start + timedelta(days=6)
@@ -265,8 +273,10 @@ def week_view():
     blocks = schedule_repo.get_by_date_range(
         week_start.isoformat(), week_end.isoformat(),
     )
+    if version_id:
+        blocks = [b for b in blocks if b.get('version_id') == version_id]
     enriched = _enrich_blocks(
-        blocks, users_map, tasks_map, categories_map,
+        blocks, users_map, tasks_map, locations_map,
         settings.get('block_color_by', 'assignee'),
     )
 
@@ -288,7 +298,9 @@ def week_view():
         break_slots=_get_break_slots(settings),
         settings=settings,
         today=date.today(),
-        queue_tasks=_get_queue_tasks(users_map, categories_map),
+        queue_tasks=_get_queue_tasks(users_map, locations_map, version_id),
+        versions=version_repo.get_all(),
+        current_version_id=version_id or '',
     )
 
 
@@ -296,7 +308,8 @@ def week_view():
 def month_view():
     current_date = _parse_date(request.args.get('date'))
     settings = settings_repo.get()
-    users_map, tasks_map, categories_map = _build_maps()
+    version_id = _get_current_version_id()
+    users_map, tasks_map, locations_map = _build_maps()
 
     year, month = current_date.year, current_date.month
     first_day = date(year, month, 1)
@@ -305,8 +318,10 @@ def month_view():
     blocks = schedule_repo.get_by_date_range(
         first_day.isoformat(), last_day.isoformat(),
     )
+    if version_id:
+        blocks = [b for b in blocks if b.get('version_id') == version_id]
     enriched = _enrich_blocks(
-        blocks, users_map, tasks_map, categories_map,
+        blocks, users_map, tasks_map, locations_map,
         settings.get('block_color_by', 'assignee'),
     )
 
@@ -324,23 +339,24 @@ def month_view():
         next_date=next_date,
         today=date.today(),
         settings=settings,
-        queue_tasks=_get_queue_tasks(users_map, categories_map),
+        queue_tasks=_get_queue_tasks(users_map, locations_map, version_id),
+        versions=version_repo.get_all(),
+        current_version_id=version_id or '',
     )
 
-
-# ---------------------------------------------------------------------------
-# View data API endpoints
-# ---------------------------------------------------------------------------
 
 @schedule_bp.route('/api/day')
 def api_day_data():
     current_date = _parse_date(request.args.get('date'))
     settings = settings_repo.get()
-    users_map, tasks_map, categories_map = _build_maps()
+    version_id = _get_current_version_id()
+    users_map, tasks_map, locations_map = _build_maps()
 
     blocks = schedule_repo.get_by_date(current_date.isoformat())
+    if version_id:
+        blocks = [b for b in blocks if b.get('version_id') == version_id]
     enriched = _enrich_blocks(
-        blocks, users_map, tasks_map, categories_map,
+        blocks, users_map, tasks_map, locations_map,
         settings.get('block_color_by', 'assignee'),
     )
 
@@ -353,7 +369,7 @@ def api_day_data():
         'time_slots': time_slots,
         'break_slots': [s for s in time_slots if is_break_slot(s, settings)],
         'settings': settings,
-        'queue_tasks': _get_queue_tasks(users_map, categories_map),
+        'queue_tasks': _get_queue_tasks(users_map, locations_map, version_id),
     })
 
 
@@ -361,14 +377,17 @@ def api_day_data():
 def api_week_data():
     current_date = _parse_date(request.args.get('date'))
     settings = settings_repo.get()
-    users_map, tasks_map, categories_map = _build_maps()
+    version_id = _get_current_version_id()
+    users_map, tasks_map, locations_map = _build_maps()
 
     week_start = current_date - timedelta(days=current_date.weekday())
     week_end = week_start + timedelta(days=6)
 
     blocks = schedule_repo.get_by_date_range(week_start.isoformat(), week_end.isoformat())
+    if version_id:
+        blocks = [b for b in blocks if b.get('version_id') == version_id]
     enriched = _enrich_blocks(
-        blocks, users_map, tasks_map, categories_map,
+        blocks, users_map, tasks_map, locations_map,
         settings.get('block_color_by', 'assignee'),
     )
 
@@ -386,7 +405,7 @@ def api_week_data():
         'break_slots': [s for s in time_slots if is_break_slot(s, settings)],
         'settings': settings,
         'today': date.today().isoformat(),
-        'queue_tasks': _get_queue_tasks(users_map, categories_map),
+        'queue_tasks': _get_queue_tasks(users_map, locations_map, version_id),
     })
 
 
@@ -394,22 +413,24 @@ def api_week_data():
 def api_month_data():
     current_date = _parse_date(request.args.get('date'))
     settings = settings_repo.get()
-    users_map, tasks_map, categories_map = _build_maps()
+    version_id = _get_current_version_id()
+    users_map, tasks_map, locations_map = _build_maps()
 
     year, month = current_date.year, current_date.month
     first_day = date(year, month, 1)
     last_day = date(year, month, calendar.monthrange(year, month)[1])
 
     blocks = schedule_repo.get_by_date_range(first_day.isoformat(), last_day.isoformat())
+    if version_id:
+        blocks = [b for b in blocks if b.get('version_id') == version_id]
     enriched = _enrich_blocks(
-        blocks, users_map, tasks_map, categories_map,
+        blocks, users_map, tasks_map, locations_map,
         settings.get('block_color_by', 'assignee'),
     )
 
     blocks_by_date = _group_blocks_by_date(enriched)
     prev_date, next_date = _build_month_nav(year, month)
 
-    # API returns date as iso string instead of date object
     weeks = []
     cal = calendar.Calendar(firstweekday=0)
     for week in cal.monthdayscalendar(year, month):
@@ -436,13 +457,9 @@ def api_month_data():
         'next_date': next_date.isoformat(),
         'today': date.today().isoformat(),
         'settings': settings,
-        'queue_tasks': _get_queue_tasks(users_map, categories_map),
+        'queue_tasks': _get_queue_tasks(users_map, locations_map, version_id),
     })
 
-
-# ---------------------------------------------------------------------------
-# Block CRUD API
-# ---------------------------------------------------------------------------
 
 @schedule_bp.route('/api/blocks', methods=['POST'])
 def api_create_block():
@@ -454,22 +471,30 @@ def api_create_block():
         if not data.get(field):
             return jsonify({'error': f'{field}은(는) 필수 항목입니다.'}), 400
 
-    assignee_id = data.get('assignee_id', '')
-    if not assignee_id:
-        task = task_repo.get_by_id(data['task_id'])
-        if task:
-            assignee_id = task.get('assignee_id', '')
+    task = task_repo.get_by_id(data['task_id'])
+    assignee_ids = data.get('assignee_ids', [])
+    location_id = data.get('location_id', '')
+    version_id = data.get('version_id', '')
+
+    if not assignee_ids and task:
+        assignee_ids = task.get('assignee_ids', [])
+    if not location_id and task:
+        location_id = task.get('location_id', '')
+    if not version_id and task:
+        version_id = task.get('version_id', '')
 
     settings = settings_repo.get()
     adjusted_end = adjust_end_for_breaks(data['start_time'], data['end_time'], settings)
 
-    overlap = _check_overlap(assignee_id, data['date'], data['start_time'], adjusted_end)
+    overlap = _check_overlap(assignee_ids, location_id, data['date'], data['start_time'], adjusted_end)
     if overlap:
-        return jsonify({'error': '해당 시간에 이미 다른 업무가 배치되어 있습니다.'}), 409
+        return jsonify({'error': '해당 시간에 이미 다른 시험이 배치되어 있습니다.'}), 409
 
     block = schedule_repo.create(
         task_id=data['task_id'],
-        assignee_id=assignee_id,
+        assignee_ids=assignee_ids,
+        location_id=location_id,
+        version_id=version_id,
         date=data['date'],
         start_time=data['start_time'],
         end_time=adjusted_end,
@@ -491,31 +516,31 @@ def api_update_block(block_id):
     if not data:
         return jsonify({'error': '요청 데이터가 없습니다.'}), 400
 
-    allowed = {'date', 'start_time', 'end_time', 'is_draft', 'is_locked', 'block_status'}
+    allowed = {'date', 'start_time', 'end_time', 'is_draft', 'is_locked', 'block_status', 'location_id'}
     updates = {k: v for k, v in data.items() if k in allowed}
     is_resize = data.get('resize', False)
 
-    # Preserve original work duration on move (not resize)
     if 'start_time' in updates and 'end_time' in updates and not is_resize:
         settings = settings_repo.get()
         work_mins = work_minutes_in_range(block['start_time'], block['end_time'], settings)
         raw_end = minutes_to_time(time_to_minutes(updates['start_time']) + work_mins)
         updates['end_time'] = adjust_end_for_breaks(updates['start_time'], raw_end, settings)
 
-    # Overlap check
     check_date = updates.get('date', block['date'])
     check_start = updates.get('start_time', block['start_time'])
     check_end = updates.get('end_time', block['end_time'])
+    assignee_ids = block.get('assignee_ids', [])
+    location_id = updates.get('location_id', block.get('location_id', ''))
+
     overlap = _check_overlap(
-        block['assignee_id'], check_date, check_start, check_end,
+        assignee_ids, location_id, check_date, check_start, check_end,
         exclude_block_id=block_id,
     )
     if overlap:
-        return jsonify({'error': '해당 시간에 이미 다른 업무가 배치되어 있습니다.'}), 409
+        return jsonify({'error': '해당 시간에 이미 다른 시험이 배치되어 있습니다.'}), 409
 
     updated = schedule_repo.update(block_id, **updates)
 
-    # On resize, sync task remaining_hours with total scheduled time
     if is_resize and block.get('task_id'):
         _sync_task_remaining_hours(block['task_id'])
 
@@ -575,7 +600,6 @@ def api_update_block_memo(block_id):
 
 
 def _sync_task_remaining_hours(task_id):
-    """Set task remaining_hours = estimated_hours - total scheduled block time."""
     total_min = sum(
         time_to_minutes(b['end_time']) - time_to_minutes(b['start_time'])
         for b in schedule_repo.get_all()
@@ -589,10 +613,6 @@ def _sync_task_remaining_hours(task_id):
         if task.get('remaining_hours', 0) != new_remaining:
             task_repo.patch(task_id, remaining_hours=new_remaining)
 
-
-# ---------------------------------------------------------------------------
-# Export API
-# ---------------------------------------------------------------------------
 
 @schedule_bp.route('/api/export')
 def api_export():
@@ -609,11 +629,11 @@ def api_export():
     except ValueError:
         return jsonify({'error': '날짜 형식이 올바르지 않습니다. (YYYY-MM-DD)'}), 400
 
-    users_map, tasks_map, categories_map = _build_maps()
+    users_map, tasks_map, locations_map = _build_maps()
     settings = settings_repo.get()
     blocks = schedule_repo.get_by_date_range(start_date, end_date)
     enriched = _enrich_blocks(
-        blocks, users_map, tasks_map, categories_map,
+        blocks, users_map, tasks_map, locations_map,
         settings.get('block_color_by', 'assignee'),
     )
     enriched.sort(key=lambda b: (b.get('date', ''), b.get('start_time', '')))
@@ -638,21 +658,21 @@ def api_export():
     )
 
 
-# ---------------------------------------------------------------------------
-# Draft scheduling API
-# ---------------------------------------------------------------------------
-
 @schedule_bp.route('/api/draft/generate', methods=['POST'])
 def api_draft_generate():
     from app.services.scheduler import generate_draft_schedule
-    result = generate_draft_schedule()
+    version_id = _get_current_version_id()
+    if not version_id:
+        return jsonify({'error': '버전을 선택해주세요.'}), 400
+    result = generate_draft_schedule(version_id=version_id)
     return jsonify({
         'placed_count': len(result['placed']),
         'unplaced': [
             {
                 'task_id': u['task']['id'],
-                'task_title': u['task']['title'],
+                'procedure_id': u['task'].get('procedure_id', ''),
                 'remaining_hours': u['remaining_unscheduled_hours'],
+                'reason': u.get('reason', ''),
             }
             for u in result['unplaced']
         ],
