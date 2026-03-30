@@ -70,7 +70,8 @@
                  style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }}; left: {{ col_left }}%; width: {{ col_width }}%; right: auto;">
             <div class="resize-handle resize-handle-top"></div>
             <div class="block-title">
-              {{ block.task_title }}
+              {{ block.procedure_id }}
+              {% if block.section_name %}<span class="block-section">{{ block.section_name }}</span>{% endif %}
               <span class="block-status-badge badge-status-{{ block.block_status }}">
                 {% if block.block_status == 'in_progress' %}진행
                 {% elif block.block_status == 'completed' %}완료
@@ -80,16 +81,11 @@
             </div>
             <div class="block-meta">
               <span class="block-assignee">{{ block.assignee_name }}</span>
-              {% if block.category_name %}
-              <span class="block-category">{{ block.category_name }}</span>
+              {% if block.location_name %}
+              <span class="block-category">{{ block.location_name }}</span>
               {% endif %}
             </div>
             <div class="block-info">
-              {% if block.priority %}
-              <span class="block-priority block-priority-{{ block.priority }}">
-                {{ '높음' if block.priority == 'high' else ('중간' if block.priority == 'medium' else '낮음') }}
-              </span>
-              {% endif %}
               <span class="block-time">{{ block.start_time }}–{{ block.end_time }}</span>
             </div>
             {% if block.memo %}
