@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{{ task.title }} - 스케줄링{% endblock %}
+{% block title %}{{ task.procedure_id }} - 스케줄링{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h2>{{ task.title }}</h2>
+  <h2>{{ task.procedure_id }} — {{ task.section_name or '' }}</h2>
   <div>
     <a href="{{ url_for('tasks.task_edit', task_id=task.id) }}" class="btn btn-outline-primary">수정</a>
     <form method="POST" action="{{ url_for('tasks.task_delete', task_id=task.id) }}" class="d-inline"
@@ -13,61 +13,29 @@
   </div>
 </div>
 
-<div class="card" style="max-width: 600px;">
+<div class="card" style="max-width: 700px;">
   <div class="card-body">
     <table class="table table-borderless mb-0">
-      <tr>
-        <th style="width: 130px;">설명</th>
-        <td>{{ task.description or '-' }}</td>
-      </tr>
-      <tr>
-        <th>담당자</th>
-        <td>{{ assignee.name if assignee else '-' }}</td>
-      </tr>
-      <tr>
-        <th>카테고리</th>
-        <td>{{ category.name if category else '-' }}</td>
-      </tr>
-      <tr>
-        <th>우선순위</th>
-        <td>
-          {% if task.priority == 'high' %}
-            <span class="badge bg-danger">높음</span>
-          {% elif task.priority == 'medium' %}
-            <span class="badge bg-warning text-dark">보통</span>
-          {% else %}
-            <span class="badge bg-info text-dark">낮음</span>
-          {% endif %}
-        </td>
-      </tr>
+      <tr><th style="width:140px">절차서 식별자</th><td>{{ task.procedure_id }}</td></tr>
+      <tr><th>장절명</th><td>{{ task.section_name or '-' }}</td></tr>
+      <tr><th>절차서 담당자</th><td>{{ task.procedure_owner or '-' }}</td></tr>
+      <tr><th>시험목록</th><td>{{ task.test_list|join(', ') if task.test_list else '-' }}</td></tr>
+      <tr><th>소프트웨어 버전</th><td>{{ version.name if version else '-' }}</td></tr>
+      <tr><th>시험 담당자</th><td>{{ assignee_names|join(', ') if assignee_names else '-' }}</td></tr>
+      <tr><th>시험장소</th><td>{{ location.name if location else '-' }}</td></tr>
       <tr>
         <th>상태</th>
         <td>
-          {% if task.status == 'waiting' %}
-            <span class="badge bg-secondary">대기</span>
-          {% elif task.status == 'in_progress' %}
-            <span class="badge bg-primary">진행 중</span>
-          {% else %}
-            <span class="badge bg-success">완료</span>
-          {% endif %}
+          {% if task.status == 'waiting' %}<span class="badge bg-secondary">대기</span>
+          {% elif task.status == 'in_progress' %}<span class="badge bg-primary">진행 중</span>
+          {% else %}<span class="badge bg-success">완료</span>{% endif %}
         </td>
       </tr>
-      <tr>
-        <th>예상 시간</th>
-        <td>{{ task.estimated_hours }}시간</td>
-      </tr>
-      <tr>
-        <th>잔여 시간</th>
-        <td>{{ task.remaining_hours }}시간</td>
-      </tr>
-      <tr>
-        <th>마감일</th>
-        <td>{{ task.deadline or '-' }}</td>
-      </tr>
-      <tr>
-        <th>생성일</th>
-        <td>{{ task.created_at or '-' }}</td>
-      </tr>
+      <tr><th>예상 시간</th><td>{{ task.estimated_hours }}시간</td></tr>
+      <tr><th>잔여 시간</th><td>{{ task.remaining_hours }}시간</td></tr>
+      <tr><th>마감일</th><td>{{ task.deadline or '-' }}</td></tr>
+      <tr><th>메모</th><td>{{ task.memo or '-' }}</td></tr>
+      <tr><th>생성일</th><td>{{ task.created_at or '-' }}</td></tr>
     </table>
   </div>
 </div>

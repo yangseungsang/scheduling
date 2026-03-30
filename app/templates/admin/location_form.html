@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ '장소 수정' if location else '장소 추가' }} - 스케줄링{% endblock %}
+{% block content %}
+<h2>{{ '장소 수정' if location else '장소 추가' }}</h2>
+<form method="POST" class="mt-3" style="max-width: 400px;">
+  <div class="mb-3">
+    <label class="form-label">이름</label>
+    <input type="text" class="form-control" name="name" value="{{ location.name if location else '' }}" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">설명</label>
+    <input type="text" class="form-control" name="description" value="{{ location.description if location else '' }}">
+  </div>
+  <div class="mb-3">
+    <label class="form-label">색상</label>
+    <input type="color" class="form-control form-control-color" name="color" value="{{ location.color if location else '#28a745' }}">
+  </div>
+  <button type="submit" class="btn btn-primary">저장</button>
+  <a href="{{ url_for('admin.locations') }}" class="btn btn-secondary">취소</a>
+</form>
+{% endblock %}

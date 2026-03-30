@@ -25,18 +25,32 @@ def get_by_date_range(start_date, end_date):
     ]
 
 
+def get_by_version(version_id):
+    return [b for b in read_json(FILENAME) if b.get('version_id') == version_id]
+
+
 def get_by_assignee(assignee_id):
-    return [b for b in read_json(FILENAME) if b['assignee_id'] == assignee_id]
+    return [b for b in read_json(FILENAME) if assignee_id in b.get('assignee_ids', [])]
 
 
-def create(task_id, assignee_id, date, start_time, end_time,
+def get_by_location_and_date(location_id, date_str):
+    return [
+        b for b in read_json(FILENAME)
+        if b.get('location_id') == location_id and b['date'] == date_str
+    ]
+
+
+def create(task_id, assignee_ids, location_id, version_id,
+           date, start_time, end_time,
            is_draft=False, is_locked=False, origin='manual',
            block_status='pending'):
     blocks = read_json(FILENAME)
     block = {
         'id': generate_id('sb_'),
         'task_id': task_id,
-        'assignee_id': assignee_id,
+        'assignee_ids': assignee_ids or [],
+        'location_id': location_id,
+        'version_id': version_id,
         'date': date,
         'start_time': start_time,
         'end_time': end_time,
@@ -53,7 +67,8 @@ def create(task_id, assignee_id, date, start_time, end_time,
 
 ALLOWED_FIELDS = {
     'date', 'start_time', 'end_time', 'is_draft', 'is_locked',
-    'block_status', 'task_id', 'assignee_id', 'origin', 'memo',
+    'block_status', 'task_id', 'assignee_ids', 'location_id',
+    'version_id', 'origin', 'memo',
 }
 
 

@@ -1,6 +1,6 @@
 <div class="task-queue" id="task-queue">
   <div class="task-queue-header">
-    <h6 class="mb-0">업무 큐</h6>
+    <h6 class="mb-0">시험 큐</h6>
     <button class="btn btn-sm btn-link p-0" id="toggle-queue" title="접기/펼치기">
       <i class="bi bi-chevron-left"></i>
     </button>
@@ -9,35 +9,30 @@
     <button class="queue-sort-btn active" data-sort="deadline" title="마감일 순">
       <i class="bi bi-calendar-event"></i>
     </button>
-    <button class="queue-sort-btn" data-sort="name" title="이름 순">
+    <button class="queue-sort-btn" data-sort="name" title="절차서ID 순">
       <i class="bi bi-sort-alpha-down"></i>
     </button>
     <button class="queue-sort-btn" data-sort="hours" title="남은시간 순">
       <i class="bi bi-clock"></i>
     </button>
-    <button class="queue-sort-btn" data-sort="priority" title="우선순위 순">
-      <i class="bi bi-exclamation-triangle"></i>
-    </button>
   </div>
   <div class="task-queue-body" id="task-queue-body">
     {% if queue_tasks %}
     {% for task in queue_tasks %}
-    {% set queue_color = task.category_color if settings.block_color_by == 'category' else task.assignee_color %}
+    {% set queue_color = task.location_color if settings.block_color_by == 'location' else task.assignee_color %}
     <div class="queue-task-item"
          data-task-id="{{ task.id }}"
-         data-assignee-id="{{ task.assignee_id }}"
+         data-assignee-ids="{{ task.assignee_ids|join(',') }}"
+         data-location-id="{{ task.location_id }}"
+         data-version-id="{{ task.version_id }}"
          data-remaining-hours="{{ task.remaining_unscheduled_hours }}"
-         data-priority="{{ task.priority }}"
-         data-title="{{ task.title }}"
+         data-title="{{ task.procedure_id }}"
          data-deadline="{{ task.deadline or '9999-12-31' }}"
          style="border-left: 4px solid {{ queue_color }};">
-      <div class="queue-task-title">{{ task.title }}</div>
+      <div class="queue-task-title">{{ task.procedure_id }}</div>
       <div class="queue-task-meta">
-        <span class="badge badge-{{ task.priority }}">
-          {{ '높음' if task.priority == 'high' else ('중간' if task.priority == 'medium' else '낮음') }}
-        </span>
-        {% if task.category_name %}
-        <span class="queue-task-category" style="color: {{ task.category_color }};">{{ task.category_name }}</span>
+        {% if task.location_name %}
+        <span class="queue-task-category" style="color: {{ task.location_color }};">{{ task.location_name }}</span>
         {% endif %}
         <span class="text-muted">{{ task.remaining_unscheduled_hours }}h</span>
       </div>
@@ -48,7 +43,7 @@
     </div>
     {% endfor %}
     {% else %}
-    <div class="text-muted small p-2 text-center">배치 가능한 업무가 없습니다.</div>
+    <div class="text-muted small p-2 text-center">배치 가능한 시험이 없습니다.</div>
     {% endif %}
   </div>
 </div>

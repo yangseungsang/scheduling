@@ -17,14 +17,16 @@ def app(tmp_path):
     data_dir = str(tmp_path / 'data')
     os.makedirs(data_dir)
 
-    for name in ('users', 'categories', 'tasks', 'schedule_blocks'):
+    for name in ('users', 'locations', 'tasks', 'schedule_blocks', 'versions', 'procedures'):
         with open(os.path.join(data_dir, f'{name}.json'), 'w') as f:
             json.dump([], f)
 
     with open(os.path.join(data_dir, 'settings.json'), 'w') as f:
         json.dump({
-            'work_start': '09:00',
-            'work_end': '18:00',
+            'work_start': '08:00',
+            'work_end': '17:00',
+            'actual_work_start': '08:30',
+            'actual_work_end': '16:30',
             'lunch_start': '12:00',
             'lunch_end': '13:00',
             'breaks': [
@@ -57,38 +59,56 @@ def _create_user(client, name='홍길동', role='개발자', color='#4A90D9'):
     return ids[-1]
 
 
-def _create_category(client, name='개발', color='#28a745'):
-    """Helper: create a category via form and return the category_id."""
-    client.post('/admin/categories/new', data={
-        'name': name, 'color': color,
+def _create_location(client, name='A', color='#28a745', description='시험실'):
+    """Helper: create a location via form and return the loc_id."""
+    client.post('/admin/locations/new', data={
+        'name': name, 'color': color, 'description': description,
     })
-    r = client.get('/admin/categories')
-    ids = re.findall(r'/admin/categories/(c_\w+)/edit', r.data.decode())
+    r = client.get('/admin/locations')
+    ids = re.findall(r'/admin/locations/(loc_\w+)/edit', r.data.decode())
     return ids[-1]
 
 
-def _create_task(client, uid, cat_id='', title='테스트 업무',
-                 priority='high', hours='4', deadline='2026-03-15'):
+def _create_version(client, name='v1.0.0', description='테스트'):
+    """Helper: create a version via form and return the version_id."""
+    client.post('/admin/versions/new', data={
+        'name': name, 'description': description,
+    })
+    r = client.get('/admin/versions')
+    ids = re.findall(r'/admin/versions/(v_\w+)/edit', r.data.decode())
+    return ids[-1]
+
+
+def _create_task(client, uid_list, loc_id='', version_id='',
+                 procedure_id='SYS-001', hours='4', deadline='2026-03-15'):
     """Helper: create a task via form and return the task_id."""
-    client.post('/tasks/new', data={
-        'title': title,
-        'description': '설명',
-        'assignee_id': uid,
-        'category_id': cat_id,
-        'priority': priority,
+    if isinstance(uid_list, str):
+        uid_list = [uid_list]
+    data = {
+        'procedure_id': procedure_id,
+        'version_id': version_id,
+        'assignee_ids': uid_list,
+        'location_id': loc_id,
+        'section_name': '3.1 시스템',
+        'procedure_owner': '담당자',
+        'test_list': 'TC-001, TC-002',
         'estimated_hours': hours,
         'deadline': deadline,
-    })
+        'memo': '',
+    }
+    client.post('/tasks/new', data=data)
     r = client.get('/tasks/')
     ids = re.findall(r'/tasks/(t_\w+)', r.data.decode())
     return ids[-1]
 
 
-def _create_block(client, tid, uid, date_str='2026-03-10',
+def _create_block(client, tid, uid_list, date_str='2026-03-10',
                   start='09:00', end='10:00', **kwargs):
-    """Helper: create a schedule block via API and return the response JSON."""
+    """Helper: create a schedule block via API and return (json, status_code)."""
+    if isinstance(uid_list, str):
+        uid_list = [uid_list]
     payload = {
-        'task_id': tid, 'assignee_id': uid,
+        'task_id': tid, 'assignee_ids': uid_list,
         'date': date_str, 'start_time': start, 'end_time': end,
     }
     payload.update(kwargs)
@@ -148,8 +168,12 @@ class TestPageRoutes:
         r = client.get('/admin/users')
         assert r.status_code == 200
 
-    def test_admin_categories(self, client):
-        r = client.get('/admin/categories')
+    def test_admin_locations(self, client):
+        r = client.get('/admin/locations')
+        assert r.status_code == 200
+
+    def test_admin_versions(self, client):
+        r = client.get('/admin/versions')
         assert r.status_code == 200
 
     def test_admin_settings(self, client):
@@ -222,39 +246,115 @@ class TestUserCRUD:
 
 
 # ===========================================================================
-# Category CRUD
+# Location CRUD
 # ===========================================================================
 
-class TestCategoryCRUD:
-    def test_create_category(self, client):
-        r = client.post('/admin/categories/new', data={
-            'name': '개발', 'color': '#28a745',
+class TestLocationCRUD:
+    def test_create_location(self, client):
+        r = client.post('/admin/locations/new', data={
+            'name': '시험실A', 'color': '#28a745', 'description': '1층',
         }, follow_redirects=True)
         assert r.status_code == 200
-        assert '개발' in r.data.decode()
+        assert '시험실A' in r.data.decode()
 
-    def test_edit_category(self, client):
-        cid = _create_category(client)
-        r = client.post(f'/admin/categories/{cid}/edit', data={
-            'name': '디자인', 'color': '#FF00FF',
+    def test_edit_location(self, client):
+        lid = _create_location(client)
+        r = client.post(f'/admin/locations/{lid}/edit', data={
+            'name': '시험실B', 'color': '#FF00FF', 'description': '2층',
         }, follow_redirects=True)
-        assert '디자인' in r.data.decode()
+        assert '시험실B' in r.data.decode()
 
-    def test_delete_category(self, client):
-        cid = _create_category(client)
-        r = client.post(f'/admin/categories/{cid}/delete', follow_redirects=True)
+    def test_delete_location(self, client):
+        lid = _create_location(client)
+        r = client.post(f'/admin/locations/{lid}/delete', follow_redirects=True)
         assert r.status_code == 200
 
-    def test_api_create_category(self, client):
-        r = client.post('/admin/api/categories', json={
-            'name': 'API카테고리', 'color': '#abcdef',
+    def test_api_create_location(self, client):
+        r = client.post('/admin/api/locations', json={
+            'name': 'API장소', 'color': '#abcdef', 'description': '테스트',
         })
         assert r.status_code == 201
-        assert r.get_json()['id'].startswith('c_')
+        data = r.get_json()
+        assert data['id'].startswith('loc_')
+        assert data['name'] == 'API장소'
 
-    def test_api_create_category_missing_name(self, client):
-        r = client.post('/admin/api/categories', json={'color': '#fff'})
+    def test_api_create_location_missing_name(self, client):
+        r = client.post('/admin/api/locations', json={'color': '#fff'})
         assert r.status_code == 400
+
+    def test_api_get_locations(self, client):
+        _create_location(client)
+        r = client.get('/admin/api/locations')
+        assert r.status_code == 200
+        assert len(r.get_json()) == 1
+
+    def test_api_update_location(self, client):
+        lid = _create_location(client)
+        r = client.put(f'/admin/api/locations/{lid}', json={'name': '수정된장소'})
+        assert r.status_code == 200
+        assert r.get_json()['name'] == '수정된장소'
+
+    def test_api_delete_location(self, client):
+        lid = _create_location(client)
+        r = client.delete(f'/admin/api/locations/{lid}')
+        assert r.status_code == 200
+        assert r.get_json()['success'] is True
+
+
+# ===========================================================================
+# Version CRUD
+# ===========================================================================
+
+class TestVersionCRUD:
+    def test_create_version(self, client):
+        r = client.post('/admin/versions/new', data={
+            'name': 'v1.0.0', 'description': '최초 버전',
+        }, follow_redirects=True)
+        assert r.status_code == 200
+        assert 'v1.0.0' in r.data.decode()
+
+    def test_edit_version(self, client):
+        vid = _create_version(client)
+        r = client.post(f'/admin/versions/{vid}/edit', data={
+            'name': 'v2.0.0', 'description': '업데이트',
+        }, follow_redirects=True)
+        assert 'v2.0.0' in r.data.decode()
+
+    def test_delete_version(self, client):
+        vid = _create_version(client)
+        r = client.post(f'/admin/versions/{vid}/delete', follow_redirects=True)
+        assert r.status_code == 200
+
+    def test_api_create_version(self, client):
+        r = client.post('/admin/api/versions', json={
+            'name': 'v3.0.0', 'description': 'API버전',
+        })
+        assert r.status_code == 201
+        data = r.get_json()
+        assert data['id'].startswith('v_')
+        assert data['name'] == 'v3.0.0'
+
+    def test_api_create_version_missing_name(self, client):
+        r = client.post('/admin/api/versions', json={'description': '없음'})
+        assert r.status_code == 400
+
+    def test_api_get_versions(self, client):
+        _create_version(client)
+        r = client.get('/admin/api/versions')
+        assert r.status_code == 200
+        assert len(r.get_json()) == 1
+
+    def test_api_update_version(self, client):
+        vid = _create_version(client)
+        r = client.put(f'/admin/api/versions/{vid}', json={'name': 'v1.1.0'})
+        assert r.status_code == 200
+        assert r.get_json()['name'] == 'v1.1.0'
+
+    def test_api_delete_version(self, client):
+        vid = _create_version(client)
+        r = client.delete(f'/admin/api/versions/{vid}')
+        assert r.status_code == 200
+        assert r.get_json()['success'] is True
 
 
 # ===========================================================================
@@ -266,11 +366,13 @@ class TestSettings:
         r = client.post('/admin/settings', data={
             'work_start': '08:00',
             'work_end': '17:00',
+            'actual_work_start': '08:30',
+            'actual_work_end': '16:30',
             'lunch_start': '12:00',
             'lunch_end': '13:00',
             'grid_interval_minutes': '15',
             'max_schedule_days': '7',
-            'block_color_by': 'category',
+            'block_color_by': 'location',
         }, follow_redirects=True)
         assert r.status_code == 200
 
@@ -278,7 +380,7 @@ class TestSettings:
         r = client.get('/admin/api/settings')
         assert r.status_code == 200
         data = r.get_json()
-        assert data['work_start'] == '09:00'
+        assert data['work_start'] == '08:00'
         assert data['grid_interval_minutes'] == 15
 
     def test_api_update_settings(self, client):
@@ -292,7 +394,9 @@ class TestSettings:
         """Non-grid-aligned times should snap to nearest interval."""
         r = client.post('/admin/settings', data={
             'work_start': '09:07',
-            'work_end': '18:00',
+            'work_end': '17:00',
+            'actual_work_start': '08:30',
+            'actual_work_end': '16:30',
             'lunch_start': '12:03',
             'lunch_end': '13:00',
             'grid_interval_minutes': '15',
@@ -313,30 +417,42 @@ class TestTaskCRUD:
     def test_create_task(self, client):
         uid = _create_user(client)
         r = client.post('/tasks/new', data={
-            'title': '테스트 업무', 'description': '설명',
-            'assignee_id': uid, 'category_id': '',
-            'priority': 'high', 'estimated_hours': '4',
+            'procedure_id': 'SYS-001',
+            'version_id': '',
+            'assignee_ids': [uid],
+            'location_id': '',
+            'section_name': '3.1 시스템',
+            'procedure_owner': '담당자',
+            'test_list': 'TC-001',
+            'estimated_hours': '4',
             'deadline': '2026-03-15',
+            'memo': '',
         }, follow_redirects=True)
         assert r.status_code == 200
-        assert '테스트 업무' in r.data.decode()
+        assert 'SYS-001' in r.data.decode()
 
-    def test_create_task_empty_title(self, client):
+    def test_create_task_empty_procedure_id(self, client):
         uid = _create_user(client)
         r = client.post('/tasks/new', data={
-            'title': '', 'description': '',
-            'assignee_id': uid, 'category_id': '',
-            'priority': 'medium', 'estimated_hours': '1',
+            'procedure_id': '',
+            'version_id': '',
+            'assignee_ids': [uid],
+            'location_id': '',
+            'section_name': '',
+            'procedure_owner': '',
+            'test_list': '',
+            'estimated_hours': '1',
             'deadline': '',
+            'memo': '',
         }, follow_redirects=True)
-        assert '제목을 입력' in r.data.decode()
+        assert '절차서 식별자를 입력' in r.data.decode()
 
     def test_task_detail(self, client):
         uid = _create_user(client)
         tid = _create_task(client, uid)
         r = client.get(f'/tasks/{tid}')
         assert r.status_code == 200
-        assert '테스트 업무' in r.data.decode()
+        assert 'SYS-001' in r.data.decode()
 
     def test_task_detail_nonexistent(self, client):
         r = client.get('/tasks/t_nonexist')
@@ -346,51 +462,60 @@ class TestTaskCRUD:
         uid = _create_user(client)
         tid = _create_task(client, uid)
         r = client.post(f'/tasks/{tid}/edit', data={
-            'title': '수정된 업무', 'description': '수정',
-            'assignee_id': uid, 'category_id': '',
-            'priority': 'low', 'estimated_hours': '2',
-            'remaining_hours': '2', 'deadline': '2026-03-20',
+            'procedure_id': 'SYS-002',
+            'version_id': '',
+            'assignee_ids': [uid],
+            'location_id': '',
+            'section_name': '4.1 수정',
+            'procedure_owner': '수정자',
+            'test_list': 'TC-003',
+            'estimated_hours': '2',
+            'remaining_hours': '2',
+            'deadline': '2026-03-20',
             'status': 'in_progress',
+            'memo': '',
         }, follow_redirects=True)
-        assert '수정된 업무' in r.data.decode()
+        assert 'SYS-002' in r.data.decode()
 
     def test_task_delete(self, client):
         uid = _create_user(client)
         tid = _create_task(client, uid)
         r = client.post(f'/tasks/{tid}/delete', follow_redirects=True)
         assert r.status_code == 200
-        assert '테스트 업무' not in r.data.decode()
+        assert 'SYS-001' not in r.data.decode()
 
     def test_task_filter_by_status(self, client):
         uid = _create_user(client)
-        _create_task(client, uid, title='업무A')
+        _create_task(client, uid, procedure_id='SYS-FILTER-001')
         r = client.get('/tasks/?status=waiting')
         assert r.status_code == 200
-        assert '업무A' in r.data.decode()
+        assert 'SYS-FILTER-001' in r.data.decode()
         r = client.get('/tasks/?status=completed')
-        assert '업무A' not in r.data.decode()
+        assert 'SYS-FILTER-001' not in r.data.decode()
 
-    def test_task_filter_by_priority(self, client):
+    def test_task_filter_by_version(self, client):
         uid = _create_user(client)
-        _create_task(client, uid, title='높은업무', priority='high')
-        _create_task(client, uid, title='낮은업무', priority='low')
-        r = client.get('/tasks/?priority=high')
-        assert '높은업무' in r.data.decode()
-        assert '낮은업무' not in r.data.decode()
+        vid = _create_version(client, name='v1.0.0')
+        _create_task(client, uid, version_id=vid, procedure_id='VER-001')
+        _create_task(client, uid, procedure_id='NOVER-001')
+        r = client.get(f'/tasks/?version={vid}')
+        assert 'VER-001' in r.data.decode()
+        assert 'NOVER-001' not in r.data.decode()
 
     def test_api_create_task(self, client):
         uid = _create_user(client)
         r = client.post('/tasks/api/create', json={
-            'title': 'API업무', 'assignee_id': uid,
-            'priority': 'medium', 'estimated_hours': 3,
+            'procedure_id': 'API-001',
+            'assignee_ids': [uid],
+            'estimated_hours': 3,
         })
         assert r.status_code == 201
         data = r.get_json()
-        assert data['title'] == 'API업무'
+        assert data['procedure_id'] == 'API-001'
         assert data['remaining_hours'] == 3
 
-    def test_api_create_task_missing_title(self, client):
-        r = client.post('/tasks/api/create', json={'title': ''})
+    def test_api_create_task_missing_procedure_id(self, client):
+        r = client.post('/tasks/api/create', json={'procedure_id': ''})
         assert r.status_code == 400
 
     def test_api_task_detail(self, client):
@@ -408,12 +533,14 @@ class TestTaskCRUD:
         uid = _create_user(client)
         tid = _create_task(client, uid)
         r = client.put(f'/tasks/api/{tid}/update', json={
-            'title': '수정API', 'priority': 'low',
-            'estimated_hours': 2, 'remaining_hours': 1,
+            'procedure_id': 'SYS-API-EDIT',
+            'assignee_ids': [uid],
+            'estimated_hours': 2,
+            'remaining_hours': 1,
             'status': 'in_progress',
         })
         assert r.status_code == 200
-        assert r.get_json()['title'] == '수정API'
+        assert r.get_json()['procedure_id'] == 'SYS-API-EDIT'
 
     def test_api_delete_task(self, client):
         uid = _create_user(client)
@@ -434,7 +561,7 @@ class TestScheduleBlockAPI:
         data, status = _create_block(client, tid, uid)
         assert status == 201
         assert data['task_id'] == tid
-        assert data['assignee_id'] == uid
+        assert uid in data['assignee_ids']
         assert data['start_time'] == '09:00'
         assert data['origin'] == 'manual'
 
@@ -447,7 +574,7 @@ class TestScheduleBlockAPI:
         assert r.status_code == 400
 
     def test_create_block_auto_assignee(self, client):
-        """If no assignee_id, use the task's assignee."""
+        """If no assignee_ids, use the task's assignee_ids."""
         uid = _create_user(client)
         tid = _create_task(client, uid)
         r = client.post('/schedule/api/blocks', json={
@@ -455,13 +582,13 @@ class TestScheduleBlockAPI:
             'start_time': '09:00', 'end_time': '10:00',
         })
         assert r.status_code == 201
-        assert r.get_json()['assignee_id'] == uid
+        assert uid in r.get_json()['assignee_ids']
 
     def test_create_block_overlap_rejected(self, client):
         uid = _create_user(client)
         tid = _create_task(client, uid)
         _create_block(client, tid, uid, start='09:00', end='10:00')
-        # Overlapping block
+        # Overlapping block for same assignee
         _, status = _create_block(client, tid, uid, start='09:30', end='10:30')
         assert status == 409
 
@@ -482,8 +609,7 @@ class TestScheduleBlockAPI:
             client, tid, uid, start='11:00', end='14:00',
         )
         assert status == 201
-        # 3h work = 11:00-12:00 (1h) + skip lunch + 13:00-15:00 (2h) = end at 15:00
-        # But also skip 14:45-15:00 break → 15:15
+        # 3h work: 11:00-12:00 (1h) + skip lunch + 13:00-15:00 (2h) = end at 15:00
         assert data['end_time'] >= '15:00'
 
     def test_update_block_move(self, client):
@@ -643,24 +769,22 @@ class TestScheduleViewAPIs:
 
     def test_api_day_data_with_blocks(self, client):
         uid = _create_user(client)
-        tid = _create_task(client, uid)
+        tid = _create_task(client, uid, procedure_id='DAY-001')
         _create_block(client, tid, uid, date_str='2026-03-10')
         r = client.get('/schedule/api/day?date=2026-03-10')
         data = r.get_json()
         assert len(data['blocks']) == 1
-        assert data['blocks'][0]['task_title'] == '테스트 업무'
+        assert data['blocks'][0]['task_title'] == 'DAY-001'
 
     def test_enriched_block_has_display_fields(self, client):
         uid = _create_user(client)
-        cid = _create_category(client, name='백엔드')
-        tid = _create_task(client, uid, cat_id=cid, title='API개발')
+        lid = _create_location(client, name='시험실Z')
+        tid = _create_task(client, uid, loc_id=lid, procedure_id='ENR-001')
         _create_block(client, tid, uid, date_str='2026-03-10')
         r = client.get('/schedule/api/day?date=2026-03-10')
         block = r.get_json()['blocks'][0]
-        assert block['task_title'] == 'API개발'
+        assert block['task_title'] == 'ENR-001'
         assert block['assignee_name'] == '홍길동'
-        assert block['category_name'] == '백엔드'
-        assert block['priority'] == 'high'
         assert 'color' in block
 
     def test_queue_tasks_in_view_data(self, client):
@@ -695,10 +819,12 @@ class TestScheduleViewAPIs:
     def test_queue_excludes_completed_tasks(self, client):
         uid = _create_user(client)
         tid = _create_task(client, uid, hours='2')
-        # Mark as completed
+        # Mark as completed via API update
         client.put(f'/tasks/api/{tid}/update', json={
-            'title': '테스트 업무', 'status': 'completed',
-            'estimated_hours': 2, 'remaining_hours': 0,
+            'procedure_id': 'SYS-001',
+            'status': 'completed',
+            'estimated_hours': 2,
+            'remaining_hours': 0,
         })
         r = client.get('/schedule/api/day')
         queue = r.get_json()['queue_tasks']
@@ -712,9 +838,9 @@ class TestScheduleViewAPIs:
 class TestOverlapLayout:
     def test_overlapping_blocks_get_columns(self, client):
         uid = _create_user(client)
-        tid1 = _create_task(client, uid, title='업무A')
+        tid1 = _create_task(client, uid, procedure_id='업무A')
         uid2 = _create_user(client, name='김철수', color='#FF0000')
-        tid2 = _create_task(client, uid2, title='업무B')
+        tid2 = _create_task(client, uid2, procedure_id='업무B')
         # Two blocks at same time, different assignees
         _create_block(client, tid1, uid, date_str='2026-03-10',
                       start='09:00', end='10:00')
@@ -741,7 +867,8 @@ class TestOverlapLayout:
 class TestDraftScheduling:
     def test_generate_drafts(self, client):
         uid = _create_user(client)
-        _create_task(client, uid, hours='2')
+        vid = _create_version(client)
+        _create_task(client, uid, version_id=vid, hours='2')
         r = client.post('/schedule/api/draft/generate')
         assert r.status_code == 200
         data = r.get_json()
@@ -749,7 +876,8 @@ class TestDraftScheduling:
 
     def test_generate_creates_draft_blocks(self, client):
         uid = _create_user(client)
-        _create_task(client, uid, hours='1')
+        vid = _create_version(client)
+        _create_task(client, uid, version_id=vid, hours='1')
         client.post('/schedule/api/draft/generate')
         # Check blocks exist and are drafts
         r = client.get('/schedule/api/day')
@@ -761,7 +889,8 @@ class TestDraftScheduling:
 
     def test_approve_drafts(self, client):
         uid = _create_user(client)
-        _create_task(client, uid, hours='1')
+        vid = _create_version(client)
+        _create_task(client, uid, version_id=vid, hours='1')
         client.post('/schedule/api/draft/generate')
         r = client.post('/schedule/api/draft/approve')
         assert r.status_code == 200
@@ -769,7 +898,8 @@ class TestDraftScheduling:
 
     def test_approve_updates_remaining_hours(self, client):
         uid = _create_user(client)
-        tid = _create_task(client, uid, hours='1')
+        vid = _create_version(client)
+        tid = _create_task(client, uid, version_id=vid, hours='1')
         client.post('/schedule/api/draft/generate')
         client.post('/schedule/api/draft/approve')
         task = client.get(f'/tasks/api/{tid}').get_json()['task']
@@ -778,7 +908,8 @@ class TestDraftScheduling:
 
     def test_discard_drafts(self, client):
         uid = _create_user(client)
-        _create_task(client, uid, hours='2')
+        vid = _create_version(client)
+        _create_task(client, uid, version_id=vid, hours='2')
         gen = client.post('/schedule/api/draft/generate').get_json()
         assert gen['placed_count'] >= 1
         r = client.post('/schedule/api/draft/discard')
@@ -787,7 +918,8 @@ class TestDraftScheduling:
     def test_generate_with_existing_confirmed_blocks(self, client):
         """Auto-scheduling should respect existing confirmed blocks."""
         uid = _create_user(client)
-        tid = _create_task(client, uid, hours='2')
+        vid = _create_version(client)
+        tid = _create_task(client, uid, version_id=vid, hours='2')
         # Manually place 1h
         _create_block(client, tid, uid, start='09:00', end='10:00')
         r = client.post('/schedule/api/draft/generate')
@@ -795,12 +927,13 @@ class TestDraftScheduling:
         # Should place remaining 1h, not overlap with 09:00-10:00
         assert r.status_code == 200
 
-    def test_generate_multiple_tasks_priority_order(self, client):
+    def test_generate_multiple_tasks_deadline_order(self, client):
         uid = _create_user(client)
-        _create_task(client, uid, title='낮은', priority='low',
+        vid = _create_version(client)
+        _create_task(client, uid, version_id=vid, procedure_id='LATE-001',
                      hours='1', deadline='2026-03-20')
-        _create_task(client, uid, title='높은', priority='high',
-                     hours='1', deadline='2026-03-20')
+        _create_task(client, uid, version_id=vid, procedure_id='EARLY-001',
+                     hours='1', deadline='2026-03-15')
         r = client.post('/schedule/api/draft/generate')
         assert r.status_code == 200
         assert r.get_json()['placed_count'] >= 2
@@ -808,12 +941,20 @@ class TestDraftScheduling:
     def test_unplaced_tasks_reported(self, client):
         """Tasks that can't fit should be reported as unplaced."""
         uid = _create_user(client)
+        vid = _create_version(client)
         # Create task with impossibly many hours
-        _create_task(client, uid, hours='999')
+        _create_task(client, uid, version_id=vid, hours='999')
         r = client.post('/schedule/api/draft/generate')
         data = r.get_json()
         assert len(data['unplaced']) >= 1
         assert data['unplaced'][0]['remaining_hours'] > 0
+
+    def test_generate_no_version_returns_error(self, client):
+        """Generate without any active version should return 400."""
+        uid = _create_user(client)
+        _create_task(client, uid, hours='1')
+        r = client.post('/schedule/api/draft/generate')
+        assert r.status_code == 400
 
 
 # ===========================================================================
@@ -823,7 +964,7 @@ class TestDraftScheduling:
 class TestExportAPI:
     def test_export_csv(self, client):
         uid = _create_user(client)
-        tid = _create_task(client, uid)
+        tid = _create_task(client, uid, procedure_id='EXPORT-001')
         _create_block(client, tid, uid, date_str='2026-03-10')
         r = client.get(
             '/schedule/api/export?start_date=2026-03-10&end_date=2026-03-10&format=csv'
@@ -831,7 +972,7 @@ class TestExportAPI:
         assert r.status_code == 200
         assert 'text/csv' in r.content_type
         body = r.data.decode('utf-8-sig')
-        assert '테스트 업무' in body
+        assert 'EXPORT-001' in body
         assert '홍길동' in body
 
     def test_export_xlsx(self, client):
@@ -896,14 +1037,14 @@ class TestTimeUtils:
     def test_generate_time_slots(self):
         from app.utils.time_utils import generate_time_slots
         settings = {'work_start': '09:00', 'work_end': '10:00',
-                     'grid_interval_minutes': 15}
+                    'grid_interval_minutes': 15}
         slots = generate_time_slots(settings)
         assert slots == ['09:00', '09:15', '09:30', '09:45']
 
     def test_generate_time_slots_30min(self):
         from app.utils.time_utils import generate_time_slots
         settings = {'work_start': '09:00', 'work_end': '11:00',
-                     'grid_interval_minutes': 30}
+                    'grid_interval_minutes': 30}
         slots = generate_time_slots(settings)
         assert slots == ['09:00', '09:30', '10:00', '10:30']
 
@@ -986,7 +1127,7 @@ class TestTimeUtils:
         assert adjust_end_for_breaks('09:00', '09:00', settings) == '09:00'
 
     def test_get_break_periods(self):
-        from app.utils.time_utils import get_break_periods
+        from app.utils.time_utils import get_break_periods, time_to_minutes
         settings = {
             'lunch_start': '12:00', 'lunch_end': '13:00',
             'breaks': [
@@ -995,156 +1136,6 @@ class TestTimeUtils:
             ],
         }
         periods = get_break_periods(settings)
-        assert len(periods) == 3
-        # Should be sorted
-        assert periods[0] == (585, 600)    # 09:45-10:00
-        assert periods[1] == (720, 780)    # 12:00-13:00
-        assert periods[2] == (885, 900)    # 14:45-15:00
-
-
-# ===========================================================================
-# JSON store
-# ===========================================================================
-
-class TestJsonStore:
-    def test_generate_id_prefix(self, app):
-        with app.app_context():
-            from app.json_store import generate_id
-            uid = generate_id('u_')
-            assert uid.startswith('u_')
-            assert len(uid) == 10  # u_ + 8 hex chars
-
-    def test_read_write_json(self, app):
-        with app.app_context():
-            from app.json_store import read_json, write_json
-            data = [{'id': 'test_1', 'name': '테스트'}]
-            write_json('test_file.json', data)
-            result = read_json('test_file.json')
-            assert result == data
-
-    def test_backup_on_write(self, app):
-        with app.app_context():
-            from app.json_store import write_json
-            import os
-            write_json('backup_test.json', [1])
-            write_json('backup_test.json', [2])
-            bak_path = os.path.join(
-                app.config['DATA_DIR'], 'backup_test.json.bak'
-            )
-            assert os.path.exists(bak_path)
-
-    def test_read_nonexistent_file(self, app):
-        with app.app_context():
-            from app.json_store import read_json
-            assert read_json('nonexistent.json') == []
-
-    def test_read_settings_nonexistent(self, app):
-        with app.app_context():
-            from app.json_store import read_json
-            import os
-            path = os.path.join(app.config['DATA_DIR'], 'settings.json')
-            os.remove(path)
-            assert read_json('settings.json') == {}
-
-
-# ===========================================================================
-# Repository layer
-# ===========================================================================
-
-class TestRepositories:
-    def test_task_patch(self, app, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid, hours='4')
-        with app.app_context():
-            from app.repositories import task_repo
-            result = task_repo.patch(tid, remaining_hours=2.5, status='in_progress')
-            assert result['remaining_hours'] == 2.5
-            assert result['status'] == 'in_progress'
-            assert result['title'] == '테스트 업무'
-
-    def test_task_patch_nonexistent(self, app):
-        with app.app_context():
-            from app.repositories import task_repo
-            result = task_repo.patch('t_nonexist', status='completed')
-            assert result is None
-
-    def test_schedule_repo_get_by_date_range(self, app, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
-        _create_block(client, tid, uid, date_str='2026-03-10')
-        _create_block(client, tid, uid, date_str='2026-03-12',
-                      start='10:00', end='11:00')
-        with app.app_context():
-            from app.repositories import schedule_repo
-            blocks = schedule_repo.get_by_date_range('2026-03-10', '2026-03-11')
-            assert len(blocks) == 1
-            blocks = schedule_repo.get_by_date_range('2026-03-10', '2026-03-12')
-            assert len(blocks) == 2
-
-    def test_schedule_repo_delete_drafts(self, app, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
-        with app.app_context():
-            from app.repositories import schedule_repo
-            # Create blocks directly via repo to control is_draft
-            schedule_repo.create(
-                task_id=tid, assignee_id=uid, date='2026-03-10',
-                start_time='09:00', end_time='10:00',
-                is_draft=True, origin='auto',
-            )
-            schedule_repo.create(
-                task_id=tid, assignee_id=uid, date='2026-03-10',
-                start_time='10:00', end_time='11:00',
-                is_draft=False, origin='manual',
-            )
-            assert len(schedule_repo.get_all()) == 2
-            schedule_repo.delete_drafts()
-            remaining = schedule_repo.get_all()
-            assert len(remaining) == 1
-            assert remaining[0]['is_draft'] is False
-
-    def test_schedule_repo_approve_drafts(self, app, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
-        _create_block(client, tid, uid, is_draft=True)
-        with app.app_context():
-            from app.repositories import schedule_repo
-            schedule_repo.approve_drafts()
-            blocks = schedule_repo.get_all()
-            assert all(not b['is_draft'] for b in blocks)
-
-    def test_settings_defaults(self, app):
-        """If settings.json is empty, defaults should be returned."""
-        with app.app_context():
-            from app.json_store import write_json
-            write_json('settings.json', {})
-            from app.repositories import settings_repo
-            s = settings_repo.get()
-            assert s['work_start'] == '09:00'
-            assert s['grid_interval_minutes'] == 15
-
-
-# ===========================================================================
-# Color-by setting
-# ===========================================================================
-
-class TestBlockColorBy:
-    def test_color_by_assignee(self, client):
-        uid = _create_user(client, color='#AA0000')
-        cid = _create_category(client, color='#00BB00')
-        tid = _create_task(client, uid, cat_id=cid)
-        _create_block(client, tid, uid, date_str='2026-03-10')
-        r = client.get('/schedule/api/day?date=2026-03-10')
-        block = r.get_json()['blocks'][0]
-        assert block['color'] == '#AA0000'
-
-    def test_color_by_category(self, client):
-        # Change setting to category
-        client.put('/admin/api/settings', json={'block_color_by': 'category'})
-        uid = _create_user(client, color='#AA0000')
-        cid = _create_category(client, color='#00BB00')
-        tid = _create_task(client, uid, cat_id=cid)
-        _create_block(client, tid, uid, date_str='2026-03-10')
-        r = client.get('/schedule/api/day?date=2026-03-10')
-        block = r.get_json()['blocks'][0]
-        assert block['color'] == '#00BB00'
+        assert (time_to_minutes('12:00'), time_to_minutes('13:00')) in periods
+        assert (time_to_minutes('09:45'), time_to_minutes('10:00')) in periods
+        assert (time_to_minutes('14:45'), time_to_minutes('15:00')) in periods

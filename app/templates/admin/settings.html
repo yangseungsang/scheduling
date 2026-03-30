@@ -16,6 +16,16 @@
           <label class="form-label">종료 시간</label>
           <input type="time" class="form-control" name="work_end" step="900" value="{{ settings.work_end }}">
         </div>
+      </div>
+      <div class="row mt-3">
+        <div class="col-md-3">
+          <label class="form-label">실제 업무 시작</label>
+          <input type="time" class="form-control" name="actual_work_start" value="{{ settings.actual_work_start|default('08:30') }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">실제 업무 종료</label>
+          <input type="time" class="form-control" name="actual_work_end" value="{{ settings.actual_work_end|default('16:30') }}">
+        </div>
         <div class="col-md-3">
           <label class="form-label">점심 시작</label>
           <input type="time" class="form-control" name="lunch_start" step="900" value="{{ settings.lunch_start }}">

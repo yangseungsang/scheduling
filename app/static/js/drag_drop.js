@@ -233,7 +233,9 @@
     document.querySelectorAll('.queue-task-item[data-task-id]').forEach(function (item) {
       item.addEventListener('mousedown', function (e) {
         var taskId = item.dataset.taskId;
-        var assigneeId = item.dataset.assigneeId || '';
+        var assigneeIds = item.dataset.assigneeIds ? item.dataset.assigneeIds.split(',').filter(Boolean) : [];
+        var locationId = item.dataset.locationId || '';
+        var versionId = item.dataset.versionId || '';
         var remaining = parseFloat(item.dataset.remainingHours) || 1;
         var title = (item.querySelector('.queue-task-title') || {}).textContent || '';
 
@@ -250,7 +252,8 @@
             if (target.type === 'slot') {
               var t = snapMin(timeToMin(target.time));
               api('POST', '/schedule/api/blocks', {
-                task_id: taskId, assignee_id: assigneeId,
+                task_id: taskId, assignee_ids: assigneeIds,
+                location_id: locationId, version_id: versionId,
                 date: target.date,
                 start_time: minToTime(t),
                 end_time: minToTime(t + blockMin),
@@ -260,7 +263,8 @@
 
             } else if (target.type === 'month') {
               api('POST', '/schedule/api/blocks', {
-                task_id: taskId, assignee_id: assigneeId,
+                task_id: taskId, assignee_ids: assigneeIds,
+                location_id: locationId, version_id: versionId,
                 date: target.date,
                 start_time: '09:00',
                 end_time: minToTime(snapMin(blockMin) + 540),

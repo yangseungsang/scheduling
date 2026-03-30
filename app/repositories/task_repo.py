@@ -16,20 +16,28 @@ def get_by_id(task_id):
     return None
 
 
-def create(title, description, assignee_id, category_id, priority,
-           estimated_hours, deadline):
+def get_by_version(version_id):
+    return [t for t in read_json(FILENAME) if t.get('version_id') == version_id]
+
+
+def create(procedure_id, version_id, assignee_ids, location_id,
+           section_name, procedure_owner, test_list,
+           estimated_hours, deadline, memo=''):
     tasks = read_json(FILENAME)
     task = {
         'id': generate_id('t_'),
-        'title': title,
-        'description': description,
-        'assignee_id': assignee_id,
-        'category_id': category_id,
-        'priority': priority,
+        'procedure_id': procedure_id,
+        'version_id': version_id,
+        'assignee_ids': assignee_ids or [],
+        'location_id': location_id,
+        'section_name': section_name,
+        'procedure_owner': procedure_owner,
+        'test_list': test_list or [],
         'estimated_hours': estimated_hours,
         'remaining_hours': estimated_hours,
         'deadline': deadline,
         'status': 'waiting',
+        'memo': memo,
         'created_at': datetime.now().isoformat(timespec='seconds'),
     }
     tasks.append(task)
@@ -37,27 +45,30 @@ def create(title, description, assignee_id, category_id, priority,
     return task
 
 
-def update(task_id, title, description, assignee_id, category_id, priority,
-           estimated_hours, remaining_hours, deadline, status):
+def update(task_id, procedure_id, version_id, assignee_ids, location_id,
+           section_name, procedure_owner, test_list,
+           estimated_hours, remaining_hours, deadline, status, memo=''):
     tasks = read_json(FILENAME)
     for t in tasks:
         if t['id'] == task_id:
-            t['title'] = title
-            t['description'] = description
-            t['assignee_id'] = assignee_id
-            t['category_id'] = category_id
-            t['priority'] = priority
+            t['procedure_id'] = procedure_id
+            t['version_id'] = version_id
+            t['assignee_ids'] = assignee_ids or []
+            t['location_id'] = location_id
+            t['section_name'] = section_name
+            t['procedure_owner'] = procedure_owner
+            t['test_list'] = test_list or []
             t['estimated_hours'] = estimated_hours
             t['remaining_hours'] = remaining_hours
             t['deadline'] = deadline
             t['status'] = status
+            t['memo'] = memo
             write_json(FILENAME, tasks)
             return t
     return None
 
 
 def patch(task_id, **kwargs):
-    """Partial update — only modify the given fields."""
     tasks = read_json(FILENAME)
     for t in tasks:
         if t['id'] == task_id:
