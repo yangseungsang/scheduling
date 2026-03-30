@@ -1,12 +1,11 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 
-from app.repositories import user_repo, category_repo, settings_repo
+from app.repositories import user_repo, location_repo, version_repo, settings_repo
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 
 
 def _snap_time(time_str, interval=15):
-    """Snap a time string to the nearest grid interval."""
     if not time_str or ':' not in time_str:
         return time_str
     parts = time_str.split(':')
@@ -19,7 +18,7 @@ def _snap_time(time_str, interval=15):
 
 
 # ---------------------------------------------------------------------------
-# Template rendering routes
+# Settings
 # ---------------------------------------------------------------------------
 
 @admin_bp.route('/settings', methods=['GET', 'POST'])
@@ -29,6 +28,8 @@ def settings():
         data = {
             'work_start': _snap_time(request.form['work_start'], grid),
             'work_end': _snap_time(request.form['work_end'], grid),
+            'actual_work_start': _snap_time(request.form.get('actual_work_start', '08:30'), grid),
+            'actual_work_end': _snap_time(request.form.get('actual_work_end', '16:30'), grid),
             'lunch_start': _snap_time(request.form['lunch_start'], grid),
             'lunch_end': _snap_time(request.form['lunch_end'], grid),
             'grid_interval_minutes': grid,
@@ -47,6 +48,10 @@ def settings():
         return redirect(url_for('admin.settings'))
     return render_template('admin/settings.html', settings=settings_repo.get())
 
+
+# ---------------------------------------------------------------------------
+# Users
+# ---------------------------------------------------------------------------
 
 @admin_bp.route('/users')
 def users():
@@ -91,45 +96,97 @@ def user_delete(user_id):
     return redirect(url_for('admin.users'))
 
 
-@admin_bp.route('/categories')
-def categories():
-    return render_template('admin/categories.html', categories=category_repo.get_all())
+# ---------------------------------------------------------------------------
+# Locations (replaces categories)
+# ---------------------------------------------------------------------------
+
+@admin_bp.route('/locations')
+def locations():
+    return render_template('admin/locations.html', locations=location_repo.get_all())
 
 
-@admin_bp.route('/categories/new', methods=['GET', 'POST'])
-def category_new():
+@admin_bp.route('/locations/new', methods=['GET', 'POST'])
+def location_new():
     if request.method == 'POST':
-        category_repo.create(
+        location_repo.create(
             name=request.form['name'],
             color=request.form['color'],
+            description=request.form.get('description', ''),
         )
-        flash('카테고리가 추가되었습니다.', 'success')
-        return redirect(url_for('admin.categories'))
-    return render_template('admin/category_form.html', category=None)
+        flash('시험장소가 추가되었습니다.', 'success')
+        return redirect(url_for('admin.locations'))
+    return render_template('admin/location_form.html', location=None)
 
 
-@admin_bp.route('/categories/<cat_id>/edit', methods=['GET', 'POST'])
-def category_edit(cat_id):
-    cat = category_repo.get_by_id(cat_id)
-    if not cat:
-        flash('카테고리를 찾을 수 없습니다.', 'danger')
-        return redirect(url_for('admin.categories'))
+@admin_bp.route('/locations/<loc_id>/edit', methods=['GET', 'POST'])
+def location_edit(loc_id):
+    loc = location_repo.get_by_id(loc_id)
+    if not loc:
+        flash('시험장소를 찾을 수 없습니다.', 'danger')
+        return redirect(url_for('admin.locations'))
     if request.method == 'POST':
-        category_repo.update(
-            cat_id,
+        location_repo.update(
+            loc_id,
             name=request.form['name'],
             color=request.form['color'],
+            description=request.form.get('description', ''),
         )
-        flash('카테고리가 수정되었습니다.', 'success')
-        return redirect(url_for('admin.categories'))
-    return render_template('admin/category_form.html', category=cat)
+        flash('시험장소가 수정되었습니다.', 'success')
+        return redirect(url_for('admin.locations'))
+    return render_template('admin/location_form.html', location=loc)
 
 
-@admin_bp.route('/categories/<cat_id>/delete', methods=['POST'])
-def category_delete(cat_id):
-    category_repo.delete(cat_id)
-    flash('카테고리가 삭제되었습니다.', 'success')
-    return redirect(url_for('admin.categories'))
+@admin_bp.route('/locations/<loc_id>/delete', methods=['POST'])
+def location_delete(loc_id):
+    location_repo.delete(loc_id)
+    flash('시험장소가 삭제되었습니다.', 'success')
+    return redirect(url_for('admin.locations'))
+
+
+# ---------------------------------------------------------------------------
+# Versions
+# ---------------------------------------------------------------------------
+
+@admin_bp.route('/versions')
+def versions():
+    return render_template('admin/versions.html', versions=version_repo.get_all())
+
+
+@admin_bp.route('/versions/new', methods=['GET', 'POST'])
+def version_new():
+    if request.method == 'POST':
+        version_repo.create(
+            name=request.form['name'],
+            description=request.form.get('description', ''),
+        )
+        flash('버전이 추가되었습니다.', 'success')
+        return redirect(url_for('admin.versions'))
+    return render_template('admin/version_form.html', version=None)
+
+
+@admin_bp.route('/versions/<version_id>/edit', methods=['GET', 'POST'])
+def version_edit(version_id):
+    v = version_repo.get_by_id(version_id)
+    if not v:
+        flash('버전을 찾을 수 없습니다.', 'danger')
+        return redirect(url_for('admin.versions'))
+    if request.method == 'POST':
+        version_repo.update(
+            version_id,
+            name=request.form['name'],
+            description=request.form.get('description', ''),
+            is_active='is_active' in request.form,
+        )
+        flash('버전 정보가 수정되었습니다.', 'success')
+        return redirect(url_for('admin.versions'))
+    return render_template('admin/version_form.html', version=v)
+
+
+@admin_bp.route('/versions/<version_id>/delete', methods=['POST'])
+def version_delete(version_id):
+    version_repo.delete(version_id)
+    flash('버전이 삭제되었습니다.', 'success')
+    return redirect(url_for('admin.versions'))
 
 
 # ---------------------------------------------------------------------------
@@ -189,38 +246,78 @@ def api_delete_user(user_id):
     return jsonify({'success': True})
 
 
-@admin_bp.route('/api/categories')
-def api_get_categories():
-    return jsonify(category_repo.get_all())
+@admin_bp.route('/api/locations')
+def api_get_locations():
+    return jsonify(location_repo.get_all())
 
 
-@admin_bp.route('/api/categories', methods=['POST'])
-def api_create_category():
+@admin_bp.route('/api/locations', methods=['POST'])
+def api_create_location():
     data = request.get_json()
     if not data or not data.get('name'):
         return jsonify({'error': '이름을 입력해주세요.'}), 400
-    cat = category_repo.create(
+    loc = location_repo.create(
         name=data['name'],
         color=data.get('color', '#28a745'),
+        description=data.get('description', ''),
     )
-    return jsonify(cat), 201
+    return jsonify(loc), 201
 
 
-@admin_bp.route('/api/categories/<cat_id>', methods=['PUT'])
-def api_update_category(cat_id):
-    cat = category_repo.get_by_id(cat_id)
-    if not cat:
-        return jsonify({'error': '카테고리를 찾을 수 없습니다.'}), 404
+@admin_bp.route('/api/locations/<loc_id>', methods=['PUT'])
+def api_update_location(loc_id):
+    loc = location_repo.get_by_id(loc_id)
+    if not loc:
+        return jsonify({'error': '시험장소를 찾을 수 없습니다.'}), 404
     data = request.get_json()
-    updated = category_repo.update(
-        cat_id,
-        name=data.get('name', cat['name']),
-        color=data.get('color', cat['color']),
+    updated = location_repo.update(
+        loc_id,
+        name=data.get('name', loc['name']),
+        color=data.get('color', loc['color']),
+        description=data.get('description', loc.get('description', '')),
     )
     return jsonify(updated)
 
 
-@admin_bp.route('/api/categories/<cat_id>', methods=['DELETE'])
-def api_delete_category(cat_id):
-    category_repo.delete(cat_id)
+@admin_bp.route('/api/locations/<loc_id>', methods=['DELETE'])
+def api_delete_location(loc_id):
+    location_repo.delete(loc_id)
+    return jsonify({'success': True})
+
+
+@admin_bp.route('/api/versions')
+def api_get_versions():
+    return jsonify(version_repo.get_all())
+
+
+@admin_bp.route('/api/versions', methods=['POST'])
+def api_create_version():
+    data = request.get_json()
+    if not data or not data.get('name'):
+        return jsonify({'error': '버전명을 입력해주세요.'}), 400
+    v = version_repo.create(
+        name=data['name'],
+        description=data.get('description', ''),
+    )
+    return jsonify(v), 201
+
+
+@admin_bp.route('/api/versions/<version_id>', methods=['PUT'])
+def api_update_version(version_id):
+    v = version_repo.get_by_id(version_id)
+    if not v:
+        return jsonify({'error': '버전을 찾을 수 없습니다.'}), 404
+    data = request.get_json()
+    updated = version_repo.update(
+        version_id,
+        name=data.get('name', v['name']),
+        description=data.get('description', v.get('description', '')),
+        is_active=data.get('is_active', v.get('is_active', True)),
+    )
+    return jsonify(updated)
+
+
+@admin_bp.route('/api/versions/<version_id>', methods=['DELETE'])
+def api_delete_version(version_id):
+    version_repo.delete(version_id)
     return jsonify({'success': True})
