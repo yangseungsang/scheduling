@@ -587,9 +587,11 @@ class TestScheduleBlockAPI:
     def test_create_block_overlap_rejected(self, client):
         uid = _create_user(client)
         tid = _create_task(client, uid)
-        _create_block(client, tid, uid, start='09:00', end='10:00')
-        # Overlapping block for same assignee
-        _, status = _create_block(client, tid, uid, start='09:30', end='10:30')
+        _create_block(client, tid, uid, start='09:00', end='10:00',
+                      location_id='loc_test')
+        # Overlapping block at same location
+        _, status = _create_block(client, tid, uid, start='09:30', end='10:30',
+                                  location_id='loc_test')
         assert status == 409
 
     def test_create_block_adjacent_allowed(self, client):
@@ -681,14 +683,18 @@ class TestScheduleBlockAPI:
             'resize': True,
         })
         task = client.get(f'/tasks/api/{tid}').get_json()['task']
-        assert task['remaining_hours'] == 3.0  # 4h estimated - 1h scheduled
+        # 09:00-10:00 crosses break 09:45-10:00 (15min), so work = 45min = 0.75h
+        # remaining = 4h - 0.75h = 3.25h
+        assert task['remaining_hours'] == 3.25
 
     def test_update_block_overlap_rejected(self, client):
         uid = _create_user(client)
         tid = _create_task(client, uid)
-        # Use times that don't span breaks
-        b1, _ = _create_block(client, tid, uid, start='10:00', end='11:00')
-        b2, _ = _create_block(client, tid, uid, start='11:00', end='11:30')
+        # Use times that don't span breaks, same location to trigger overlap check
+        b1, _ = _create_block(client, tid, uid, start='10:00', end='11:00',
+                              location_id='loc_test')
+        b2, _ = _create_block(client, tid, uid, start='11:00', end='11:30',
+                              location_id='loc_test')
         # Try to move b2 to overlap with b1
         r = client.put(f'/schedule/api/blocks/{b2["id"]}', json={
             'start_time': '10:00', 'end_time': '10:30',
@@ -869,7 +875,7 @@ class TestDraftScheduling:
         uid = _create_user(client)
         vid = _create_version(client)
         _create_task(client, uid, version_id=vid, hours='2')
-        r = client.post('/schedule/api/draft/generate')
+        r = client.post('/schedule/api/draft/generate', json={})
         assert r.status_code == 200
         data = r.get_json()
         assert data['placed_count'] >= 1
@@ -878,7 +884,7 @@ class TestDraftScheduling:
         uid = _create_user(client)
         vid = _create_version(client)
         _create_task(client, uid, version_id=vid, hours='1')
-        client.post('/schedule/api/draft/generate')
+        client.post('/schedule/api/draft/generate', json={})
         # Check blocks exist and are drafts
         r = client.get('/schedule/api/day')
         blocks = r.get_json()['blocks']
@@ -891,7 +897,7 @@ class TestDraftScheduling:
         uid = _create_user(client)
         vid = _create_version(client)
         _create_task(client, uid, version_id=vid, hours='1')
-        client.post('/schedule/api/draft/generate')
+        client.post('/schedule/api/draft/generate', json={})
         r = client.post('/schedule/api/draft/approve')
         assert r.status_code == 200
         assert r.get_json()['success'] is True
@@ -900,7 +906,7 @@ class TestDraftScheduling:
         uid = _create_user(client)
         vid = _create_version(client)
         tid = _create_task(client, uid, version_id=vid, hours='1')
-        client.post('/schedule/api/draft/generate')
+        client.post('/schedule/api/draft/generate', json={})
         client.post('/schedule/api/draft/approve')
         task = client.get(f'/tasks/api/{tid}').get_json()['task']
         # remaining_hours should have been decremented
@@ -910,7 +916,7 @@ class TestDraftScheduling:
         uid = _create_user(client)
         vid = _create_version(client)
         _create_task(client, uid, version_id=vid, hours='2')
-        gen = client.post('/schedule/api/draft/generate').get_json()
+        gen = client.post('/schedule/api/draft/generate', json={}).get_json()
         assert gen['placed_count'] >= 1
         r = client.post('/schedule/api/draft/discard')
         assert r.status_code == 200
@@ -922,7 +928,7 @@ class TestDraftScheduling:
         tid = _create_task(client, uid, version_id=vid, hours='2')
         # Manually place 1h
         _create_block(client, tid, uid, start='09:00', end='10:00')
-        r = client.post('/schedule/api/draft/generate')
+        r = client.post('/schedule/api/draft/generate', json={})
         data = r.get_json()
         # Should place remaining 1h, not overlap with 09:00-10:00
         assert r.status_code == 200
@@ -934,7 +940,7 @@ class TestDraftScheduling:
                      hours='1', deadline='2026-03-20')
         _create_task(client, uid, version_id=vid, procedure_id='EARLY-001',
                      hours='1', deadline='2026-03-15')
-        r = client.post('/schedule/api/draft/generate')
+        r = client.post('/schedule/api/draft/generate', json={})
         assert r.status_code == 200
         assert r.get_json()['placed_count'] >= 2
 
@@ -944,7 +950,7 @@ class TestDraftScheduling:
         vid = _create_version(client)
         # Create task with impossibly many hours
         _create_task(client, uid, version_id=vid, hours='999')
-        r = client.post('/schedule/api/draft/generate')
+        r = client.post('/schedule/api/draft/generate', json={})
         data = r.get_json()
         assert len(data['unplaced']) >= 1
         assert data['unplaced'][0]['remaining_hours'] > 0
