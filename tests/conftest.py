@@ -84,7 +84,7 @@ def _create_version(client, name='v1.0.0', description='테스트'):
 
 
 def _create_task(client, uid_list, loc_id='', version_id='',
-                 procedure_id='SYS-001', hours='4', deadline='2026-03-15'):
+                 procedure_id='SYS-001', hours='4'):
     """Helper: create a task via form and return the task_id."""
     if isinstance(uid_list, str):
         uid_list = [uid_list]
@@ -97,7 +97,6 @@ def _create_task(client, uid_list, loc_id='', version_id='',
         'procedure_owner': '담당자',
         'test_list': 'TC-001, TC-002',
         'estimated_hours': hours,
-        'deadline': deadline,
         'memo': '',
     }
     client.post('/tasks/new', data=data)

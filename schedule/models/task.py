@@ -22,7 +22,7 @@ def get_by_version(version_id):
 
 def create(procedure_id, version_id, assignee_ids, location_id,
            section_name, procedure_owner, test_list,
-           estimated_hours, deadline, memo=''):
+           estimated_hours, memo=''):
     tasks = read_json(FILENAME)
     task = {
         'id': generate_id('t_'),
@@ -35,7 +35,6 @@ def create(procedure_id, version_id, assignee_ids, location_id,
         'test_list': test_list or [],
         'estimated_hours': estimated_hours,
         'remaining_hours': estimated_hours,
-        'deadline': deadline,
         'status': 'waiting',
         'memo': memo,
         'created_at': datetime.now().isoformat(timespec='seconds'),
@@ -47,7 +46,7 @@ def create(procedure_id, version_id, assignee_ids, location_id,
 
 def update(task_id, procedure_id, version_id, assignee_ids, location_id,
            section_name, procedure_owner, test_list,
-           estimated_hours, remaining_hours, deadline, status, memo=''):
+           estimated_hours, remaining_hours, status, memo=''):
     tasks = read_json(FILENAME)
     for t in tasks:
         if t['id'] == task_id:
@@ -60,7 +59,6 @@ def update(task_id, procedure_id, version_id, assignee_ids, location_id,
             t['test_list'] = test_list or []
             t['estimated_hours'] = estimated_hours
             t['remaining_hours'] = remaining_hours
-            t['deadline'] = deadline
             t['status'] = status
             t['memo'] = memo
             write_json(FILENAME, tasks)

@@ -16,7 +16,6 @@ class TestTaskCRUD:
             'procedure_owner': '담당자',
             'test_list': 'TC-001',
             'estimated_hours': '4',
-            'deadline': '2026-03-15',
             'memo': '',
         }, follow_redirects=True)
         assert r.status_code == 200
@@ -33,7 +32,6 @@ class TestTaskCRUD:
             'procedure_owner': '',
             'test_list': '',
             'estimated_hours': '1',
-            'deadline': '',
             'memo': '',
         }, follow_redirects=True)
         assert '절차서 식별자를 입력' in r.data.decode()
@@ -62,7 +60,6 @@ class TestTaskCRUD:
             'test_list': 'TC-003',
             'estimated_hours': '2',
             'remaining_hours': '2',
-            'deadline': '2026-03-20',
             'status': 'in_progress',
             'memo': '',
         }, follow_redirects=True)

@@ -249,8 +249,12 @@ body {
 .task-queue.collapsed .queue-header-label {
   display: none;
 }
+.task-queue.collapsed .task-queue-header {
+  justify-content: center;
+  padding: 8px 0;
+}
 .task-queue.collapsed .queue-collapse-btn i::before {
-  content: "\f599";
+  content: "\f285";
 }
 
 .task-queue-header {
@@ -291,16 +295,17 @@ body {
   justify-content: center;
   width: 26px;
   height: 26px;
-  border: none;
-  background: none;
-  color: #94a3b8;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
   border-radius: 5px;
   cursor: pointer;
   transition: all 0.12s;
+  font-size: 0.82rem;
 }
 .queue-collapse-btn:hover {
-  background: #f1f5f9;
-  color: #475569;
+  background: #e2e8f0;
+  color: #1e293b;
 }
 
 .queue-search-bar {
@@ -444,6 +449,102 @@ body {
 }
 .queue-empty i {
   font-size: 1.4rem;
+}
+
+/* ==================================================================
+   Day view — location columns
+   ================================================================== */
+.day-columns-layout {
+  display: flex;
+  min-height: 100%;
+}
+.day-loc-col {
+  flex: 1;
+  min-width: 0;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+}
+.day-loc-col:last-child {
+  border-right: none;
+}
+.day-loc-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e293b;
+  background: #fff;
+  border-bottom: 3px solid #e2e8f0;
+}
+.day-loc-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.day-loc-desc {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: #94a3b8;
+}
+.day-loc-body {
+  position: relative;
+  flex: 1;
+}
+
+/* ---- Location filter bar (week/month) ---- */
+.loc-filter {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+.loc-filter-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  margin-right: 4px;
+}
+.loc-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #64748b;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+.loc-filter-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+.loc-filter-btn.active {
+  background: #1e293b;
+  color: #fff;
+  border-color: #1e293b;
+}
+.loc-filter-btn.active .loc-filter-dot {
+  border: 1.5px solid #fff;
+}
+.loc-filter-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
 }
 
 /* ==================================================================

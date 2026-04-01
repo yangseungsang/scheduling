@@ -26,6 +26,8 @@
       <h5 class="mb-0 ms-2">{{ year }}년 {{ month }}월</h5>
     </div>
 
+    {% include "schedule/_location_filter.html" %}
+
     {# Calendar grid #}
     <div class="schedule-body month-body">
       <table class="month-table">
@@ -55,6 +57,13 @@
                    data-block-id="{{ block.id }}"
                    data-task-id="{{ block.task_id }}"
                    data-block-status="{{ block.block_status }}"
+                   data-location-id="{{ block.location_id }}"
+                   data-procedure-id="{{ block.procedure_id }}"
+                   data-section-name="{{ block.section_name }}"
+                   data-assignee-name="{{ block.assignee_name }}"
+                   data-location-name="{{ block.location_name }}"
+                   data-start-time="{{ block.start_time }}"
+                   data-end-time="{{ block.end_time }}"
                    style="background-color: {{ block.color }};"
                    title="{{ block.task_title }} ({{ block.assignee_name }}) {{ block.start_time }}–{{ block.end_time }}">
                 {% if block.block_status == 'in_progress' %}<i class="bi bi-play-circle-fill month-status-icon"></i>

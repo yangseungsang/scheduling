@@ -133,7 +133,6 @@ class TestTaskModel:
                 procedure_owner='홍길동',
                 test_list=['TC-001', 'TC-002'],
                 estimated_hours=4.0,
-                deadline='2026-04-15',
                 memo='테스트 메모',
             )
             assert t['id'].startswith('t_')
@@ -156,7 +155,7 @@ class TestTaskModel:
                 assignee_ids=['u_aaa'], location_id='loc_1',
                 section_name='sec', procedure_owner='owner',
                 test_list=['TC-001'], estimated_hours=4.0,
-                deadline='2026-04-15', memo='',
+                memo='',
             )
             updated = task.update(
                 t['id'],
@@ -164,7 +163,7 @@ class TestTaskModel:
                 assignee_ids=['u_bbb', 'u_ccc'], location_id='loc_2',
                 section_name='new sec', procedure_owner='new owner',
                 test_list=['TC-003'], estimated_hours=6.0,
-                remaining_hours=3.0, deadline='2026-05-01',
+                remaining_hours=3.0,
                 status='in_progress', memo='updated',
             )
             assert updated['procedure_id'] == 'ABC-002'
@@ -179,7 +178,7 @@ class TestTaskModel:
                 assignee_ids=['u_aaa'], location_id='loc_1',
                 section_name='sec', procedure_owner='owner',
                 test_list=[], estimated_hours=4.0,
-                deadline='2026-04-15', memo='',
+                memo='',
             )
             patched = task.patch(t['id'], memo='patched memo')
             assert patched['memo'] == 'patched memo'
@@ -193,14 +192,14 @@ class TestTaskModel:
                 assignee_ids=[], location_id='',
                 section_name='', procedure_owner='',
                 test_list=[], estimated_hours=2.0,
-                deadline='', memo='',
+                memo='',
             )
             task.create(
                 procedure_id='ABC-002', version_id='v_2',
                 assignee_ids=[], location_id='',
                 section_name='', procedure_owner='',
                 test_list=[], estimated_hours=3.0,
-                deadline='', memo='',
+                memo='',
             )
             v1_tasks = task.get_by_version('v_1')
             assert len(v1_tasks) == 1

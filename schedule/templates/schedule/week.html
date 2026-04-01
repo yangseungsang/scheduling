@@ -28,6 +28,8 @@
       </h5>
     </div>
 
+    {% include "schedule/_location_filter.html" %}
+
     {# Grid #}
     <div class="schedule-body">
       <div class="week-grid">
@@ -71,10 +73,6 @@
               {% set end_min = end_parts[0]|int * 60 + end_parts[1]|int %}
               {% set top_px = ((start_min - work_start_min) / interval * slot_height)|int %}
               {% set height_px = ((end_min - start_min) / interval * slot_height)|int %}
-              {% set col_index = block.col_index|default(0) %}
-              {% set col_total = block.col_total|default(1) %}
-              {% set col_width = 100.0 / col_total %}
-              {% set col_left = col_width * col_index %}
               <div class="week-block schedule-block{% if block.is_draft %} draft{% endif %} block-status-{{ block.block_status }}"
                    data-block-id="{{ block.id }}"
                    data-task-id="{{ block.task_id }}"
@@ -82,7 +80,12 @@
                    data-memo="{{ block.memo }}"
                    data-start-time="{{ block.start_time }}"
                    data-end-time="{{ block.end_time }}"
-                   style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }}; left: {{ col_left }}%; width: {{ col_width }}%; right: auto;">
+                   data-location-id="{{ block.location_id }}"
+                   data-procedure-id="{{ block.procedure_id }}"
+                   data-section-name="{{ block.section_name }}"
+                   data-assignee-name="{{ block.assignee_name }}"
+                   data-location-name="{{ block.location_name }}"
+                   style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }};">
                 <div class="resize-handle resize-handle-top"></div>
                 <div class="block-title">
                   {{ block.task_title }}

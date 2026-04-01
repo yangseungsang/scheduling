@@ -85,7 +85,6 @@
           <th>담당자</th>
           <th>장소</th>
           <th>시간</th>
-          <th>마감일</th>
           <th>상태</th>
         </tr>
       </thead>
@@ -102,7 +101,6 @@
           </td>
           <td>{{ location_map.get(task.location_id, '-') }}</td>
           <td class="text-nowrap">{{ (task.remaining_hours * 60)|int }}분 / {{ (task.estimated_hours * 60)|int }}분</td>
-          <td class="text-nowrap">{{ task.deadline or '-' }}</td>
           <td>
             {% if task.status == 'waiting' %}
             <span class="task-status-chip status-waiting">대기</span>
@@ -116,7 +114,7 @@
         {% endfor %}
         {% if not tasks %}
         <tr>
-          <td colspan="7" class="task-empty-cell">등록된 시험 항목이 없습니다.</td>
+          <td colspan="6" class="task-empty-cell">등록된 시험 항목이 없습니다.</td>
         </tr>
         {% endif %}
       </tbody>

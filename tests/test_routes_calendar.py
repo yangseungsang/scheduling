@@ -159,8 +159,8 @@ class TestScheduleBlockAPI:
         })
         assert r.get_json()['end_time'] == '09:30'
 
-    def test_update_block_resize_syncs_remaining_hours(self, client):
-        """On resize, task.remaining_hours = estimated - total scheduled."""
+    def test_update_block_resize_syncs_estimated_hours(self, client):
+        """On resize, estimated_hours adjusts to total scheduled, remaining=0."""
         uid = _create_user(client)
         tid = _create_task(client, uid, hours='4')
         block, _ = _create_block(client, tid, uid, start='09:00', end='11:00')
@@ -170,9 +170,9 @@ class TestScheduleBlockAPI:
             'resize': True,
         })
         task = client.get(f'/tasks/api/{tid}').get_json()['task']
-        # 09:00-10:00 crosses break 09:45-10:00 (15min), so work = 45min = 0.75h
-        # remaining = 4h - 0.75h = 3.25h
-        assert task['remaining_hours'] == 3.25
+        # 09:00-10:00 crosses break 09:45-10:00 (15min), work = 45min = 0.75h
+        assert task['estimated_hours'] == 0.75
+        assert task['remaining_hours'] == 0
 
     def test_update_block_overlap_rejected(self, client):
         uid = _create_user(client)
@@ -408,13 +408,13 @@ class TestDraftScheduling:
         # Should place remaining 1h, not overlap with 09:00-10:00
         assert r.status_code == 200
 
-    def test_generate_multiple_tasks_deadline_order(self, client):
+    def test_generate_multiple_tasks_procedure_order(self, client):
         uid = _create_user(client)
         vid = _create_version(client)
         _create_task(client, uid, version_id=vid, procedure_id='LATE-001',
-                     hours='1', deadline='2026-03-20')
+                     hours='1')
         _create_task(client, uid, version_id=vid, procedure_id='EARLY-001',
-                     hours='1', deadline='2026-03-15')
+                     hours='1')
         r = client.post('/schedule/api/draft/generate', json={})
         assert r.status_code == 200
         assert r.get_json()['placed_count'] >= 2

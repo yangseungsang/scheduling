@@ -127,7 +127,7 @@
     if (!el) return null;
     var slot = el.closest('.time-slot');
     if (slot && slot.dataset.date && slot.dataset.time) {
-      return { type: 'slot', date: slot.dataset.date, time: slot.dataset.time, el: slot };
+      return { type: 'slot', date: slot.dataset.date, time: slot.dataset.time, locationId: slot.dataset.locationId || '', el: slot };
     }
     var cell = el.closest('.month-day-cell[data-date]');
     if (cell) {
@@ -143,14 +143,16 @@
   // =====================================================================
   // Ghost element
   // =====================================================================
-  function createGhost(text, color, w) {
+  function createGhost(text, color, w, h) {
     var g = document.createElement('div');
     g.textContent = text;
     g.style.cssText =
-      'position:fixed;z-index:9999;pointer-events:none;opacity:0.85;' +
+      'position:fixed;z-index:9999;pointer-events:none;opacity:0.8;' +
       'padding:4px 8px;border-radius:4px;font-size:0.75rem;color:#fff;' +
-      'white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3);' +
-      'background:' + (color || '#0d6efd') + ';width:' + (w || 120) + 'px;';
+      'overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.3);' +
+      'background:' + (color || '#0d6efd') + ';' +
+      'width:' + (w || 120) + 'px;' +
+      (h ? 'height:' + h + 'px;' : '');
     document.body.appendChild(g);
     return g;
   }
@@ -190,15 +192,15 @@
 
       if (!dragging) {
         dragging = true;
-        ghost = createGhost(opts.ghostText, opts.ghostColor, opts.ghostWidth);
+        ghost = createGhost(opts.ghostText, opts.ghostColor, opts.ghostWidth, opts.ghostHeight);
         hideAllBlocks();
         if (opts.sourceEl) opts.sourceEl.style.opacity = '0.3';
         document.body.style.userSelect = 'none';
         document.body.style.cursor = 'grabbing';
       }
 
-      ghost.style.left = ev.clientX + 12 + 'px';
-      ghost.style.top = ev.clientY + 12 + 'px';
+      ghost.style.left = ev.clientX - (ghost.offsetWidth / 2) + 'px';
+      ghost.style.top = ev.clientY - 10 + 'px';
 
       var target = findTarget(ev.clientX, ev.clientY);
       setHighlight(target);
@@ -250,6 +252,7 @@
           ghostText: title,
           ghostColor: color,
           ghostWidth: block.offsetWidth,
+          ghostHeight: block.offsetHeight,
           onDrop: function (target) {
             if (target.type === 'queue') {
               api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
@@ -257,14 +260,16 @@
                 .catch(function (err) { showToast(err.message, 'danger'); });
             } else if (target.type === 'slot') {
               var t = snapMin(timeToMin(target.time));
+              var moveUpdate = {
+                date: target.date,
+                start_time: minToTime(t),
+                end_time: minToTime(t + durationMin),
+              };
+              if (target.locationId) moveUpdate.location_id = target.locationId;
               var prevRem;
               (taskId ? getTaskRemaining(taskId) : Promise.resolve(0)).then(function (r) {
                 prevRem = r;
-                return api('PUT', '/schedule/api/blocks/' + blockId, {
-                  date: target.date,
-                  start_time: minToTime(t),
-                  end_time: minToTime(t + durationMin),
-                });
+                return api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate);
               }).then(function () {
                 if (taskId) return checkRemainingAfterPlace(taskId, title.trim(), prevRem);
               }).then(function () {
@@ -307,25 +312,28 @@
         var procedureId = (item.querySelector('.queue-card-id') || item.querySelector('.queue-task-title') || {}).textContent || '';
         var title = procedureId;
 
+        // Calculate expected block height: remaining hours * 60 / grid * slot_height
+        var blockMin = Math.round(remaining * 60);
+        blockMin = Math.max(blockMin, GRID_MINUTES);
+        blockMin = Math.round(blockMin / GRID_MINUTES) * GRID_MINUTES;
+        var expectedHeight = (blockMin / GRID_MINUTES) * SLOT_HEIGHT;
+
         startDrag(e, {
           sourceEl: item,
           ghostText: title,
           ghostColor: '#0d6efd',
           ghostWidth: 150,
+          ghostHeight: expectedHeight,
           onDrop: function (target) {
-            // Send full remaining hours — server adjusts for breaks
-            var blockMin = Math.round(remaining * 60);
-            blockMin = Math.max(blockMin, GRID_MINUTES);
-            blockMin = Math.round(blockMin / GRID_MINUTES) * GRID_MINUTES;
-
             if (target.type === 'slot') {
               var t = snapMin(timeToMin(target.time));
+              var dropLocationId = target.locationId || locationId;
               var prevRem;
               getTaskRemaining(taskId).then(function (r) {
                 prevRem = r;
                 return api('POST', '/schedule/api/blocks', {
                   task_id: taskId, assignee_ids: assigneeIds,
-                  location_id: locationId, version_id: versionId,
+                  location_id: dropLocationId, version_id: versionId,
                   date: target.date,
                   start_time: minToTime(t),
                   end_time: minToTime(t + blockMin),
@@ -818,6 +826,9 @@
 
       var escapedMemo = memo.replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
+      var taskStatus = task.status || 'waiting';
+      var taskStatusLabel = { waiting: '대기', in_progress: '진행 중', completed: '완료' }[taskStatus] || taskStatus;
+
       var html =
         '<div class="bd-box">' +
           '<div class="bd-header">' +
@@ -838,14 +849,16 @@
             '</td></tr>' +
             '<tr><td class="bd-k">시험 담당</td><td class="bd-v">' + (assigneeName || '-') + '</td></tr>' +
             '<tr><td class="bd-k">절차서 담당</td><td class="bd-v">' + (task.procedure_owner || '-') + '</td></tr>' +
-            '<tr><td class="bd-k">마감일</td><td class="bd-v">' + (task.deadline || '-') + '</td></tr>' +
+            '<tr><td class="bd-k">버전</td><td class="bd-v">' + (task.version_name || '-') + '</td></tr>' +
+            '<tr><td class="bd-k">상태</td><td class="bd-v">' + taskStatusLabel + '</td></tr>' +
             '<tr><td class="bd-k">시험목록</td><td class="bd-v">' + testListStr + '</td></tr>' +
+            '<tr><td class="bd-k">생성일</td><td class="bd-v">' + (task.created_at || '-') + '</td></tr>' +
             '<tr><td class="bd-k">메모</td><td class="bd-v">' +
               '<textarea class="bd-textarea" id="bd-memo" rows="2" placeholder="메모 입력...">' + escapedMemo + '</textarea>' +
             '</td></tr>' +
           '</table>' +
           '<div class="bd-foot">' +
-            '<a href="/tasks/' + taskId + '">상세 페이지 &rarr;</a>' +
+            '<a href="/tasks/' + taskId + '/edit">수정 페이지 &rarr;</a>' +
             '<button class="bd-save" id="bd-save">저장</button>' +
           '</div>' +
         '</div>';

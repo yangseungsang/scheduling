@@ -22,7 +22,7 @@ from schedule.helpers.time_utils import (
     time_to_minutes,
     work_minutes_in_range,
 )
-from schedule.models import schedule_block, settings, task, version
+from schedule.models import location, schedule_block, settings, task, version
 
 schedule_bp = Blueprint('schedule', __name__, url_prefix='/schedule')
 
@@ -67,7 +67,16 @@ def day_view():
         blocks, users_map, tasks_map, locations_map,
         sttngs.get('block_color_by', 'assignee'),
     )
-    enriched = compute_overlap_layout(enriched)
+    # Group blocks by location for column layout
+    locations_list = location.get_all()
+    blocks_by_location = {}
+    for loc in locations_list:
+        loc_blocks = [b for b in enriched if b.get('location_id') == loc['id']]
+        blocks_by_location[loc['id']] = compute_overlap_layout(loc_blocks)
+    # Blocks without location
+    no_loc_blocks = [b for b in enriched if not b.get('location_id')]
+    if no_loc_blocks:
+        blocks_by_location[''] = compute_overlap_layout(no_loc_blocks)
 
     return render_template(
         'schedule/day.html',
@@ -75,6 +84,8 @@ def day_view():
         prev_date=current_date - timedelta(days=1),
         next_date=current_date + timedelta(days=1),
         blocks=enriched,
+        blocks_by_location=blocks_by_location,
+        locations=locations_list,
         time_slots=generate_time_slots(sttngs),
         break_slots=get_break_slots(sttngs),
         settings=sttngs,
@@ -105,8 +116,6 @@ def week_view():
     )
 
     blocks_by_date = group_blocks_by_date(enriched)
-    for day_key in blocks_by_date:
-        blocks_by_date[day_key] = compute_overlap_layout(blocks_by_date[day_key])
 
     return render_template(
         'schedule/week.html',
@@ -122,6 +131,7 @@ def week_view():
         break_slots=get_break_slots(sttngs),
         settings=sttngs,
         today=date.today(),
+        locations=location.get_all(),
         queue_tasks=get_queue_tasks(users_map, locations_map, version_id),
         versions=version.get_all(),
         current_version_id=version_id or '',
@@ -163,6 +173,7 @@ def month_view():
         next_date=next_date,
         today=date.today(),
         settings=sttngs,
+        locations=location.get_all(),
         queue_tasks=get_queue_tasks(users_map, locations_map, version_id),
         versions=version.get_all(),
         current_version_id=version_id or '',
@@ -366,7 +377,15 @@ def api_update_block(block_id):
     updated = schedule_block.update(block_id, **updates)
 
     if is_resize and block.get('task_id'):
-        _sync_task_remaining_hours(block['task_id'])
+        # Resize changes the test duration — update estimated_hours to match total scheduled
+        sttngs = settings.get()
+        total_min = sum(
+            work_minutes_in_range(b['start_time'], b['end_time'], sttngs)
+            for b in schedule_block.get_all()
+            if b['task_id'] == block['task_id']
+        )
+        new_est = round(total_min / 60.0, 2)
+        task.patch(block['task_id'], estimated_hours=new_est, remaining_hours=0)
 
     return jsonify(updated)
 

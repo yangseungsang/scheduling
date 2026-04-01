@@ -33,7 +33,6 @@
       </tr>
       <tr><th>예상 시간</th><td>{{ (task.estimated_hours * 60)|int }}분</td></tr>
       <tr><th>잔여 시간</th><td>{{ (task.remaining_hours * 60)|int }}분</td></tr>
-      <tr><th>마감일</th><td>{{ task.deadline or '-' }}</td></tr>
       <tr><th>메모</th><td>{{ task.memo or '-' }}</td></tr>
       <tr><th>생성일</th><td>{{ task.created_at or '-' }}</td></tr>
     </table>

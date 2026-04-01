@@ -30,7 +30,7 @@ def app(tmp_path):
 
 def _make_task(app, procedure_id='ABC-001', version_id='v_1',
                assignee_ids=None, location_id='loc_1',
-               hours=3.0, deadline='2026-04-15'):
+               hours=3.0):
     with app.app_context():
         from schedule.models import task
         return task.create(
@@ -39,7 +39,7 @@ def _make_task(app, procedure_id='ABC-001', version_id='v_1',
             location_id=location_id,
             section_name='test', procedure_owner='owner',
             test_list=[], estimated_hours=hours,
-            deadline=deadline, memo='',
+            memo='',
         )
 
 

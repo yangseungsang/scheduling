@@ -48,10 +48,7 @@ def generate_draft_schedule(version_id, start_date=None, end_date=None,
         and t.get('remaining_hours', 0) > 0
     ]
 
-    tasks.sort(key=lambda t: (
-        t.get('deadline') or '9999-12-31',
-        t.get('procedure_id', ''),
-    ))
+    tasks.sort(key=lambda t: t.get('procedure_id', ''))
 
     # 2. Handle existing blocks
     schedule_block.delete_drafts()

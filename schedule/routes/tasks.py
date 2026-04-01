@@ -67,7 +67,6 @@ def task_new():
             procedure_owner=request.form.get('procedure_owner', '').strip(),
             test_list=test_list,
             estimated_hours=float(request.form.get('estimated_hours', 0) or 0),
-            deadline=request.form.get('deadline', ''),
             memo=request.form.get('memo', '').strip(),
         )
         flash('시험 항목이 생성되었습니다.', 'success')
@@ -118,7 +117,6 @@ def task_edit(task_id):
             test_list=test_list,
             estimated_hours=float(request.form.get('estimated_hours', 0) or 0),
             remaining_hours=float(request.form.get('remaining_hours', 0) or 0),
-            deadline=request.form.get('deadline', ''),
             status=request.form.get('status', 'waiting'),
             memo=request.form.get('memo', '').strip(),
         )
@@ -163,9 +161,12 @@ def api_task_detail(task_id):
     user_map = {u['id']: u['name'] for u in users}
     locations = location.get_all()
     loc_map = {loc['id']: loc['name'] for loc in locations}
+    versions = version.get_all()
+    ver_map = {v['id']: v['name'] for v in versions}
     result = dict(t)
     result['assignee_names'] = [user_map.get(uid, uid) for uid in t.get('assignee_ids', [])]
     result['location_name'] = loc_map.get(t.get('location_id', ''), '')
+    result['version_name'] = ver_map.get(t.get('version_id', ''), '')
     return jsonify({'task': result})
 
 
@@ -183,7 +184,6 @@ def api_task_create():
         procedure_owner=data.get('procedure_owner', ''),
         test_list=data.get('test_list', []),
         estimated_hours=float(data.get('estimated_hours', 0) or 0),
-        deadline=data.get('deadline', ''),
         memo=data.get('memo', ''),
     )
     return jsonify(t), 201
@@ -208,7 +208,6 @@ def api_task_update(task_id):
         test_list=data.get('test_list', []),
         estimated_hours=float(data.get('estimated_hours', 0) or 0),
         remaining_hours=float(data.get('remaining_hours', 0) or 0),
-        deadline=data.get('deadline', ''),
         status=data.get('status', 'waiting'),
         memo=data.get('memo', ''),
     )

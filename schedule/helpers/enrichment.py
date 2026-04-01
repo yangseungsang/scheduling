@@ -98,10 +98,7 @@ def get_queue_tasks(users_map, locations_map, version_id):
 
         queue.append(task_item)
 
-    queue.sort(key=lambda t: (
-        t.get('deadline') or '9999-12-31',
-        t.get('procedure_id', ''),
-    ))
+    queue.sort(key=lambda t: t.get('procedure_id', ''))
     return queue
 
 
