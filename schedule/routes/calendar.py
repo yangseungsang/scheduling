@@ -354,6 +354,14 @@ def api_update_block(block_id):
     allowed = {'date', 'start_time', 'end_time', 'is_draft', 'is_locked', 'block_status', 'location_id'}
     updates = {k: v for k, v in data.items() if k in allowed}
     is_resize = data.get('resize', False)
+    duration_minutes = data.get('duration_minutes')
+
+    # Recalculate end_time from duration_minutes (used by detail popup)
+    if duration_minutes is not None:
+        sttngs = settings.get()
+        start = block['start_time']
+        raw_end = minutes_to_time(time_to_minutes(start) + int(duration_minutes))
+        updates['end_time'] = adjust_end_for_breaks(start, raw_end, sttngs)
 
     if 'start_time' in updates and 'end_time' in updates and not is_resize:
         sttngs = settings.get()

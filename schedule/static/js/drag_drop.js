@@ -795,6 +795,7 @@
 
   function showTaskDetailPopup(taskId, opts) {
     opts = opts || {};
+    var blockId = opts.blockId || null;
     api('GET', '/tasks/api/' + taskId).then(function (res) {
       var task = res.task;
       if (!task) return;
@@ -878,12 +879,21 @@
         var newEstMin = parseInt(document.getElementById('bd-est-min').value, 10) || 0;
         var newEstHours = newEstMin / 60.0;
         var updates = { memo: newMemo };
-        if (newEstHours !== task.estimated_hours) {
+        var durationChanged = newEstHours !== task.estimated_hours;
+        if (durationChanged) {
           updates.estimated_hours = newEstHours;
           updates.remaining_hours = Math.max(0, newEstHours - (task.estimated_hours - task.remaining_hours));
         }
         // Update task
         api('PUT', '/tasks/api/' + taskId + '/update', Object.assign({}, task, updates))
+          .then(function () {
+            // If duration changed and block exists, update block end_time
+            if (durationChanged && blockId) {
+              return api('PUT', '/schedule/api/blocks/' + blockId, {
+                duration_minutes: newEstMin,
+              });
+            }
+          })
           .then(function () {
             showToast('저장되었습니다.', 'success');
             overlay.remove();
@@ -904,6 +914,7 @@
         var taskId = block.dataset.taskId;
         if (!taskId) return;
         showTaskDetailPopup(taskId, {
+          blockId: block.dataset.blockId || null,
           startTime: block.dataset.startTime || '',
           endTime: block.dataset.endTime || '',
           locationName: block.dataset.locationName || '',

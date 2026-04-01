@@ -561,6 +561,16 @@ body {
   border-right: 1px solid #dee2e6;
   background: #f8f9fa;
 }
+.time-gutter-header {
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  line-height: inherit;
+  border-bottom: 3px solid transparent;
+  visibility: hidden;
+}
+.time-gutter-header::after {
+  content: '\00a0';
+}
 .time-gutter-label {
   height: 24px;
   display: flex;

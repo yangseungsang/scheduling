@@ -34,6 +34,7 @@
       <div class="day-columns-layout">
         {# Time gutter #}
         <div class="time-gutter">
+          <div class="time-gutter-header"></div>
           {% for slot in time_slots %}
           <div class="time-gutter-label">{{ slot if loop.index0 % 2 == 0 else '' }}</div>
           {% endfor %}
