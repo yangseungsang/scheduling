@@ -7,15 +7,15 @@
   "lunch_end": "13:00",
   "breaks": [
     {
-      "start": "09:45",
+      "start": "10:00",
       "end": "10:00"
     },
     {
-      "start": "14:45",
+      "start": "15:00",
       "end": "15:00"
     }
   ],
-  "grid_interval_minutes": 15,
+  "grid_interval_minutes": 10,
   "max_schedule_days": 14,
-  "block_color_by": "location"
+  "block_color_by": "assignee"
 }
