@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, abort
 
-from schedule.models import task, user, location, version
+from schedule.models import task, user, location, version, schedule_block
 
 tasks_bp = Blueprint('tasks', __name__, url_prefix='/tasks')
 
@@ -35,10 +35,19 @@ def task_list():
     user_map = {u['id']: u['name'] for u in users}
     location_map = {loc['id']: loc['name'] for loc in locations}
 
+    # Build schedule placement status per task: 'scheduled' or 'queue'
+    all_blocks = schedule_block.get_all()
+    task_ids_scheduled = {b['task_id'] for b in all_blocks if b.get('task_id')}
+
+    schedule_status_map = {}
+    for t in tasks:
+        schedule_status_map[t['id']] = 'scheduled' if t['id'] in task_ids_scheduled else 'queue'
+
     return render_template('tasks/list.html',
                            tasks=tasks, users=users,
                            locations=locations, versions=versions,
                            user_map=user_map, location_map=location_map,
+                           schedule_status_map=schedule_status_map,
                            filters={
                                'version': version_filter or '',
                                'status': status or '',

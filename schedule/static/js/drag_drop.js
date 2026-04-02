@@ -105,6 +105,20 @@
   function minToTime(m) { return pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
   function snapMin(m) { return Math.round(m / GRID_MINUTES) * GRID_MINUTES; }
 
+  /** Calculate work minutes between start and end, excluding break periods. */
+  function workMinutes(startMin, endMin) {
+    var breaks = window.SCHEDULE_BREAKS || [];
+    var breakMin = 0;
+    for (var i = 0; i < breaks.length; i++) {
+      var bs = timeToMin(breaks[i].start);
+      var be = timeToMin(breaks[i].end);
+      var ovStart = Math.max(startMin, bs);
+      var ovEnd = Math.min(endMin, be);
+      if (ovStart < ovEnd) breakMin += ovEnd - ovStart;
+    }
+    return Math.max(0, endMin - startMin - breakMin);
+  }
+
   // =====================================================================
   // Block visibility toggle — hide all blocks so elementFromPoint hits time-slots
   // =====================================================================
@@ -120,6 +134,92 @@
   }
 
   // =====================================================================
+  // Week location guides — show location zones during drag
+  // =====================================================================
+  function getLocations() {
+    var locs = [];
+    document.querySelectorAll('.loc-filter-btn[data-loc-id]').forEach(function (b) {
+      if (b.dataset.locId) locs.push({ id: b.dataset.locId, name: b.textContent.trim(), color: '' });
+    });
+    document.querySelectorAll('.loc-filter-btn[data-loc-id]').forEach(function (b) {
+      if (!b.dataset.locId) return;
+      var dot = b.querySelector('.loc-filter-dot');
+      for (var i = 0; i < locs.length; i++) {
+        if (locs[i].id === b.dataset.locId && dot) {
+          locs[i].color = dot.style.background || dot.style.backgroundColor || '#94a3b8';
+          break;
+        }
+      }
+    });
+    return locs;
+  }
+
+  var weekGuideEl = null;
+  var weekGuideLocs = null;
+  function showWeekLocationGuides() { /* no-op: guides are now shown per-column on hover */ }
+  function hideWeekLocationGuides() {
+    if (weekGuideEl) { weekGuideEl.remove(); weekGuideEl = null; }
+  }
+
+  function getWeekGuideLocs() {
+    if (weekGuideLocs) return weekGuideLocs;
+    var locs = getLocations();
+    if (locs.length === 0) return locs;
+    var activeBtn = document.querySelector('.loc-filter-btn.active');
+    if (activeBtn && activeBtn.dataset.locId) {
+      locs = locs.filter(function (l) { return l.id === activeBtn.dataset.locId; });
+    }
+    weekGuideLocs = locs;
+    return locs;
+  }
+
+  function ensureWeekGuide(slotsEl) {
+    // Already showing on this column
+    if (weekGuideEl && weekGuideEl.parentNode === slotsEl) return weekGuideEl;
+    // Remove from previous column
+    if (weekGuideEl) { weekGuideEl.remove(); weekGuideEl = null; }
+
+    var locs = getWeekGuideLocs();
+    if (locs.length <= 1) return null;
+
+    var overlay = document.createElement('div');
+    overlay.className = 'week-loc-guide-overlay';
+    overlay.style.cssText = 'position:absolute;top:0;left:0;right:0;bottom:0;z-index:8;pointer-events:none;display:flex;';
+    for (var i = 0; i < locs.length; i++) {
+      var zone = document.createElement('div');
+      zone.className = 'week-loc-guide-zone';
+      zone.dataset.locationId = locs[i].id;
+      zone.style.cssText = 'flex:1;border-right:1px dashed ' + locs[i].color + ';position:relative;';
+      if (i === locs.length - 1) zone.style.borderRight = 'none';
+      var label = document.createElement('div');
+      label.className = 'week-loc-guide-label';
+      label.textContent = locs[i].name;
+      label.style.cssText = 'position:sticky;top:0;font-size:0.6rem;font-weight:600;color:' + locs[i].color +
+        ';text-align:center;padding:2px 0;background:rgba(255,255,255,0.85);border-bottom:2px solid ' + locs[i].color + ';white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+      zone.appendChild(label);
+      overlay.appendChild(zone);
+    }
+    slotsEl.appendChild(overlay);
+    weekGuideEl = overlay;
+    return overlay;
+  }
+
+  function resolveWeekLocation(x, slot) {
+    if (slot.dataset.locationId) return slot.dataset.locationId;
+    var slotsEl = slot.closest('.week-day-slots');
+    if (!slotsEl) return '';
+    var overlay = ensureWeekGuide(slotsEl);
+    if (!overlay) return '';
+    var zones = overlay.querySelectorAll('.week-loc-guide-zone');
+    if (zones.length === 0) return '';
+    var rect = slotsEl.getBoundingClientRect();
+    var relX = x - rect.left;
+    var zoneWidth = rect.width / zones.length;
+    var idx = Math.max(0, Math.min(zones.length - 1, Math.floor(relX / zoneWidth)));
+    return zones[idx].dataset.locationId || '';
+  }
+
+  // =====================================================================
   // Find target under cursor
   // =====================================================================
   function findTarget(x, y) {
@@ -127,7 +227,8 @@
     if (!el) return null;
     var slot = el.closest('.time-slot');
     if (slot && slot.dataset.date && slot.dataset.time) {
-      return { type: 'slot', date: slot.dataset.date, time: slot.dataset.time, locationId: slot.dataset.locationId || '', el: slot };
+      var locId = slot.dataset.locationId || resolveWeekLocation(x, slot);
+      return { type: 'slot', date: slot.dataset.date, time: slot.dataset.time, locationId: locId, el: slot };
     }
     var cell = el.closest('.month-day-cell[data-date]');
     if (cell) {
@@ -161,16 +262,42 @@
   // Highlight
   // =====================================================================
   var highlighted = null;
-  function setHighlight(target) {
+  var highlightedZone = null;
+  function setHighlight(target, x) {
     clearHighlight();
-    if (target && target.el) {
-      target.el.classList.add('drag-over');
-      highlighted = target.el;
+    if (!target || !target.el) {
+      // Cursor left the grid — remove guide
+      hideWeekLocationGuides();
+      return;
     }
+    // For weekly view with location guides, highlight the zone instead of the full slot
+    if (target.type === 'slot' && target.locationId && !target.el.dataset.locationId) {
+      var slotsEl = target.el.closest('.week-day-slots');
+      if (slotsEl) {
+        var overlay = slotsEl.querySelector('.week-loc-guide-overlay');
+        if (overlay) {
+          var zones = overlay.querySelectorAll('.week-loc-guide-zone');
+          for (var i = 0; i < zones.length; i++) {
+            if (zones[i].dataset.locationId === target.locationId) {
+              zones[i].classList.add('week-loc-guide-active');
+              highlightedZone = zones[i];
+              break;
+            }
+          }
+        }
+      }
+    } else {
+      // Not on a weekly slot — remove guide from previous column
+      hideWeekLocationGuides();
+    }
+    target.el.classList.add('drag-over');
+    highlighted = target.el;
   }
   function clearHighlight() {
     if (highlighted) highlighted.classList.remove('drag-over');
     highlighted = null;
+    if (highlightedZone) highlightedZone.classList.remove('week-loc-guide-active');
+    highlightedZone = null;
   }
 
   // =====================================================================
@@ -194,6 +321,7 @@
         dragging = true;
         ghost = createGhost(opts.ghostText, opts.ghostColor, opts.ghostWidth, opts.ghostHeight);
         hideAllBlocks();
+        showWeekLocationGuides();
         if (opts.sourceEl) opts.sourceEl.style.opacity = '0.3';
         document.body.style.userSelect = 'none';
         document.body.style.cursor = 'grabbing';
@@ -203,7 +331,7 @@
       ghost.style.top = ev.clientY - 10 + 'px';
 
       var target = findTarget(ev.clientX, ev.clientY);
-      setHighlight(target);
+      setHighlight(target, ev.clientX);
     }
 
     function onUp(ev) {
@@ -216,6 +344,8 @@
       }
 
       clearHighlight();
+      hideWeekLocationGuides();
+      weekGuideLocs = null;
       showAllBlocks();
       if (ghost) ghost.remove();
       if (opts.sourceEl) opts.sourceEl.style.opacity = '';
@@ -245,14 +375,15 @@
         var color = block.style.backgroundColor || '#0d6efd';
         var startTime = block.dataset.startTime;
         var endTime = block.dataset.endTime;
-        var durationMin = timeToMin(endTime) - timeToMin(startTime);
+        var durationMin = workMinutes(timeToMin(startTime), timeToMin(endTime));
+        var ghostH = (durationMin / GRID_MINUTES) * SLOT_HEIGHT;
 
         startDrag(e, {
           sourceEl: block,
           ghostText: title,
           ghostColor: color,
           ghostWidth: block.offsetWidth,
-          ghostHeight: block.offsetHeight,
+          ghostHeight: ghostH,
           onDrop: function (target) {
             if (target.type === 'queue') {
               api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
@@ -648,6 +779,16 @@
       overlay.innerHTML =
         '<div class="sched-cfg">' +
           '<div class="sched-cfg-title">자동 스케줄링 설정</div>' +
+          '<div class="sched-cfg-desc">' +
+            '등록된 시험 항목들을 절차서 번호 순서대로, ' +
+            '시작일부터 가장 빠른 빈 시간에 자동 배치합니다.<br>' +
+            '<ul>' +
+              '<li>장소가 지정되지 않은 항목은 가장 여유 있는 장소에 자동 배정됩니다.</li>' +
+              '<li>같은 장소·같은 시간에 시험이 겹치지 않도록 배치합니다.</li>' +
+              '<li>점심시간과 휴식시간은 자동으로 건너뜁니다.</li>' +
+              '<li>결과는 <strong>초안</strong>으로 생성되며, 확인 후 확정하거나 폐기할 수 있습니다.</li>' +
+            '</ul>' +
+          '</div>' +
           '<div class="sched-cfg-body">' +
             '<label class="sched-cfg-label">시작일</label>' +
             '<input type="date" class="form-control form-control-sm" id="sched-start" value="' + defStart + '">' +

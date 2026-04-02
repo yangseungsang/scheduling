@@ -434,7 +434,36 @@ def api_update_block_status(block_id):
     if status not in VALID_BLOCK_STATUSES:
         return jsonify({'error': '유효하지 않은 상태입니다.'}), 400
     updated = schedule_block.update(block_id, block_status=status)
+
+    # Sync task status based on all blocks for this task
+    task_id = block.get('task_id')
+    if task_id:
+        _sync_task_status(task_id)
+
     return jsonify(updated)
+
+
+def _sync_task_status(task_id):
+    """Update task status based on its schedule blocks' statuses."""
+    from schedule.models import task as task_model
+    t = task_model.get_by_id(task_id)
+    if not t:
+        return
+    blocks = [b for b in schedule_block.get_all()
+              if b.get('task_id') == task_id and not b.get('is_draft')]
+    if not blocks:
+        return
+    statuses = [b.get('block_status', 'pending') for b in blocks]
+    if all(s == 'completed' for s in statuses):
+        new_status = 'completed'
+    elif any(s == 'in_progress' for s in statuses):
+        new_status = 'in_progress'
+    elif any(s == 'completed' for s in statuses):
+        new_status = 'in_progress'
+    else:
+        new_status = t['status']
+    if new_status != t['status']:
+        task_model.patch(task_id, status=new_status)
 
 
 @schedule_bp.route('/api/blocks/<block_id>/memo', methods=['PUT'])

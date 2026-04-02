@@ -840,6 +840,14 @@ body {
 .week-block .block-priority { font-size: 0.5rem; }
 .week-block .block-time { font-size: 0.55rem; }
 
+/* Week location guide (shown during drag) */
+.week-loc-guide-zone {
+  transition: background 0.1s;
+}
+.week-loc-guide-zone.week-loc-guide-active {
+  background: rgba(59, 130, 246, 0.08);
+}
+
 /* ==================================================================
    Month-specific
    ================================================================== */
@@ -1112,6 +1120,21 @@ body {
   font-weight: 700;
   color: #111827;
   border-bottom: 1px solid #e5e7eb;
+}
+.sched-cfg-desc {
+  padding: 12px 18px;
+  font-size: 0.82rem;
+  color: #4b5563;
+  line-height: 1.6;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+.sched-cfg-desc ul {
+  margin: 6px 0 0 0;
+  padding-left: 18px;
+}
+.sched-cfg-desc li {
+  margin-bottom: 2px;
 }
 .sched-cfg-body {
   padding: 14px 18px;
@@ -1443,6 +1466,14 @@ body {
 .status-waiting { background: #f1f3f5; color: #868e96; }
 .status-progress { background: #dbeafe; color: #2563eb; }
 .status-done { background: #d1fae5; color: #059669; }
+.task-sched-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  padding: 2px 10px; border-radius: 12px;
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.sched-scheduled { background: #dbeafe; color: #2563eb; }
+.sched-queue { background: #f1f3f5; color: #868e96; }
 .task-empty-cell {
   text-align: center; padding: 40px 16px !important; color: #adb5bd; font-size: 0.9rem;
 }

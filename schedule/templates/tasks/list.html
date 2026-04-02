@@ -86,6 +86,7 @@
           <th>장소</th>
           <th>시간</th>
           <th>상태</th>
+          <th>배치</th>
         </tr>
       </thead>
       <tbody>
@@ -110,11 +111,19 @@
             <span class="task-status-chip status-done">완료</span>
             {% endif %}
           </td>
+          <td>
+            {% set sched_status = schedule_status_map.get(task.id, 'queue') %}
+            {% if sched_status == 'scheduled' %}
+            <span class="task-sched-chip sched-scheduled"><i class="bi bi-calendar-check"></i> 배치됨</span>
+            {% else %}
+            <span class="task-sched-chip sched-queue"><i class="bi bi-inbox"></i> 큐</span>
+            {% endif %}
+          </td>
         </tr>
         {% endfor %}
         {% if not tasks %}
         <tr>
-          <td colspan="6" class="task-empty-cell">등록된 시험 항목이 없습니다.</td>
+          <td colspan="7" class="task-empty-cell">등록된 시험 항목이 없습니다.</td>
         </tr>
         {% endif %}
       </tbody>

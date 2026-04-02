@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from schedule.models import task as task_model
 from schedule.models import schedule_block, settings
+from schedule.models import location as location_model
 
 PRIORITY_ORDER = {'high': 0, 'medium': 1, 'low': 2}
 
@@ -67,6 +68,9 @@ def generate_draft_schedule(version_id, start_date=None, end_date=None,
     confirmed_blocks = [b for b in schedule_block.get_all() if not b.get('is_draft')]
     all_blocks = list(confirmed_blocks)
 
+    all_locations = location_model.get_all()
+    all_location_ids = [loc['id'] for loc in all_locations]
+
     placed = []
     unplaced = []
 
@@ -88,16 +92,25 @@ def generate_draft_schedule(version_id, start_date=None, end_date=None,
         if already_scheduled >= hours_needed:
             continue
 
+        # Determine candidate locations
+        if task.get('location_id'):
+            candidate_location_ids = [task['location_id']]
+        elif all_location_ids:
+            candidate_location_ids = all_location_ids
+        else:
+            candidate_location_ids = [None]
+
         task_placed = False
 
         for date_str in workdays:
-            slot = _find_slot_for_task(date_str, task, hours_needed, all_blocks, sttngs)
-            if slot:
-                start_time, end_time = slot
+            best_slot = _find_best_slot(date_str, task, hours_needed,
+                                        candidate_location_ids, all_blocks, sttngs)
+            if best_slot:
+                start_time, end_time, chosen_location_id = best_slot
                 block = schedule_block.create(
                     task_id=task['id'],
                     assignee_ids=task['assignee_ids'],
-                    location_id=task['location_id'],
+                    location_id=chosen_location_id,
                     version_id=version_id,
                     date=date_str,
                     start_time=start_time,
@@ -120,17 +133,42 @@ def generate_draft_schedule(version_id, start_date=None, end_date=None,
     return {'placed': placed, 'unplaced': unplaced, 'workdays': len(workdays)}
 
 
-def _find_slot_for_task(date_str, task, hours_needed, all_blocks, sttngs):
+def _find_best_slot(date_str, task, hours_needed, candidate_location_ids,
+                    all_blocks, sttngs):
+    """Try each candidate location and return the earliest available slot.
+
+    Returns (start_time, end_time, location_id) or None.
+    """
+    best = None  # (start_time_parsed, start_time, end_time, location_id)
+
+    for loc_id in candidate_location_ids:
+        slot = _find_slot_for_task(date_str, task, hours_needed, all_blocks,
+                                   sttngs, location_id=loc_id)
+        if slot:
+            start_time, end_time = slot
+            start_parsed = _parse_time(start_time)
+            if best is None or start_parsed < best[0]:
+                best = (start_parsed, start_time, end_time, loc_id)
+
+    if best:
+        return (best[1], best[2], best[3])
+    return None
+
+
+def _find_slot_for_task(date_str, task, hours_needed, all_blocks, sttngs,
+                        location_id=None):
     actual_start = sttngs.get('actual_work_start', '08:30')
     actual_end = sttngs.get('actual_work_end', '16:30')
 
+    check_loc = location_id if location_id else task.get('location_id')
+
     # Only check location conflicts -- assignee overlap is allowed
     location_occupied = []
-    if task['location_id']:
+    if check_loc:
         for b in all_blocks:
             if b['date'] != date_str:
                 continue
-            if b.get('location_id') == task['location_id']:
+            if b.get('location_id') == check_loc:
                 location_occupied.append((_parse_time(b['start_time']), _parse_time(b['end_time'])))
 
     location_occupied.sort()

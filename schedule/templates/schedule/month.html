@@ -88,5 +88,13 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+  window.SCHEDULE_BREAKS = [
+    {start: '{{ settings.lunch_start }}', end: '{{ settings.lunch_end }}'}
+    {% for brk in settings.breaks %},
+    {start: '{{ brk.start }}', end: '{{ brk.end }}'}
+    {% endfor %}
+  ];
+</script>
 <script src="{{ url_for('static', filename='js/drag_drop.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
