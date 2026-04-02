@@ -321,7 +321,7 @@ data/
 | `/schedule/api/blocks/<id>` | PUT | 200 | 블록 수정 (이동, 리사이즈, 소요시간 변경) |
 | `/schedule/api/blocks/<id>` | DELETE | 200 | 블록 삭제 (항상 remaining_hours 재계산) |
 | `/schedule/api/blocks/<id>/lock` | PUT | 200 | 잠금 토글 |
-| `/schedule/api/blocks/<id>/status` | PUT | 200 | 상태 변경 |
+| `/schedule/api/blocks/<id>/status` | PUT | 200 | 상태 변경 (태스크 상태 자동 연동) |
 | `/schedule/api/blocks/<id>/memo` | PUT | 200 | 메모 수정 |
 
 **블록 수정 (`PUT /schedule/api/blocks/<id>`) 특수 파라미터:**
@@ -360,6 +360,11 @@ data/
 
 4. **겹침 감지:** 같은 장소(location)의 같은 날짜에 시간이 겹치면 `409 Conflict`를 반환한다.
 
+5. **블록 상태 → 태스크 연동:** `PUT /api/blocks/<id>/status`로 블록 상태를 변경하면 `_sync_task_status()`가 호출되어 해당 태스크의 모든 확정 블록 상태를 확인한 뒤 태스크 상태를 자동 갱신한다.
+   - 모든 블록 `completed` → 태스크 `completed`
+   - 일부 `in_progress` 또는 일부만 `completed` → 태스크 `in_progress`
+   - 그 외 → 기존 상태 유지
+
 #### 핵심 헬퍼 함수
 
 | 함수 | 위치 | 설명 |
@@ -392,7 +397,7 @@ data/
 
 | 라우트 | 메서드 | 설명 |
 |--------|--------|------|
-| `/tasks/` | GET | 시험 항목 목록 (필터링: status, version) |
+| `/tasks/` | GET | 시험 항목 목록 (필터링: status, version, location, assignee, procedure) + 배치 상태 표시 |
 | `/tasks/new` | GET/POST | 시험 항목 생성 |
 | `/tasks/<id>` | GET | 시험 항목 상세 |
 | `/tasks/<id>/edit` | GET/POST | 시험 항목 수정 |
@@ -448,14 +453,18 @@ data/
 2. 정렬: 절차서ID 순
 3. 기존 초안 블록 전부 삭제 (clean slate)
 4. 확정 블록 전부 조회 (이미 점유된 시간대 참조)
-5. 각 업무에 대해:
+5. 전체 장소 목록 로드 (장소 자동 배정용)
+6. 각 업무에 대해:
    a. hours_needed = remaining_hours - (이미 확정된 블록의 근무시간 합)
-   b. 오늘부터 max_schedule_days(14일)까지 순회:
-      - 해당 날짜에서 장소의 빈 시간대(slot) 계산
-      - 빈 시간대에 블록 생성 (is_draft=True, origin='auto')
+   b. 장소 후보 결정:
+      - 태스크에 location_id 있음 → 해당 장소만 후보
+      - 태스크에 location_id 없음 → 등록된 모든 장소가 후보
+   c. 오늘부터 max_schedule_days(14일)까지 순회:
+      - _find_best_slot()으로 후보 장소별 가장 빠른 빈 시간대 탐색
+      - 가장 빠른 시간에 배치 가능한 장소를 선택하여 블록 생성 (is_draft=True, origin='auto')
       - hours_needed가 0이 되면 다음 업무로
-   c. 14일 안에 배치 못하면 unplaced 목록에 추가
-6. 반환: { placed: [블록 목록], unplaced: [업무 목록] }
+   d. 14일 안에 배치 못하면 unplaced 목록에 추가
+7. 반환: { placed: [블록 목록], unplaced: [업무 목록] }
 ```
 
 > **왜 clean slate(전부 삭제 후 재생성)?**
@@ -466,7 +475,11 @@ data/
 
 시험은 한번 시작하면 같은 날 끝나야 한다. 하루 가용 시간을 초과하는 시험은 배치하지 않고 unplaced로 보고한다.
 
-### 6.3 겹침 방지
+### 6.3 장소 자동 배정
+
+태스크에 `location_id`가 없으면 등록된 모든 장소를 후보로 하여, 각 날짜에서 가장 빠른 시간에 배치 가능한 장소를 자동 선택한다. `_find_best_slot()`이 후보 장소별로 `_find_slot_for_task()`를 호출하여 가장 이른 시작 시간의 슬롯을 반환한다.
+
+### 6.4 겹침 방지
 
 - **장소 충돌 방지:** 같은 장소+시간에 2개 시험 불가
 - 스케줄러는 장소 기준으로 빈 시간대를 계산
@@ -502,7 +515,8 @@ data/
 |------|------|
 | `_work_hours_in_range(start, end, settings)` | 실제 근무 **시간** (float) 반환 |
 | `_compute_end_for_work_hours(start, hours, settings)` | 지정 근무시간이 되는 종료시각 계산 |
-| `_get_available_work_slots(date, location_id, existing_blocks, settings)` | 해당 날짜+장소의 빈 시간대 계산 |
+| `_find_best_slot(date, task, hours, candidate_locs, blocks, settings)` | 후보 장소별 가장 빠른 빈 슬롯 탐색 → `(start, end, location_id)` 또는 `None` |
+| `_find_slot_for_task(date, task, hours, blocks, settings, location_id=None)` | 특정 장소(또는 태스크 기본 장소)의 빈 슬롯 탐색 |
 
 ---
 
