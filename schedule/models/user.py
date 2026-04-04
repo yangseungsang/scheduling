@@ -1,45 +1,23 @@
-from schedule.store import read_json, write_json, generate_id
-
-FILENAME = 'users.json'
+from schedule.models.base import BaseRepository
 
 
-def get_all():
-    return read_json(FILENAME)
+class UserRepository(BaseRepository):
+    FILENAME = 'users.json'
+    ID_PREFIX = 'u_'
+
+    @classmethod
+    def create(cls, name, role, color):
+        data = {'name': name, 'role': role, 'color': color}
+        return super().create(data)
+
+    @classmethod
+    def update(cls, user_id, name, role, color):
+        return cls.patch(user_id, name=name, role=role, color=color)
 
 
-def get_by_id(user_id):
-    for u in read_json(FILENAME):
-        if u['id'] == user_id:
-            return u
-    return None
-
-
-def create(name, role, color):
-    users = read_json(FILENAME)
-    user = {
-        'id': generate_id('u_'),
-        'name': name,
-        'role': role,
-        'color': color,
-    }
-    users.append(user)
-    write_json(FILENAME, users)
-    return user
-
-
-def update(user_id, name, role, color):
-    users = read_json(FILENAME)
-    for u in users:
-        if u['id'] == user_id:
-            u['name'] = name
-            u['role'] = role
-            u['color'] = color
-            write_json(FILENAME, users)
-            return u
-    return None
-
-
-def delete(user_id):
-    users = read_json(FILENAME)
-    users = [u for u in users if u['id'] != user_id]
-    write_json(FILENAME, users)
+# Backward-compatible module-level aliases
+get_all = UserRepository.get_all
+get_by_id = UserRepository.get_by_id
+create = UserRepository.create
+update = UserRepository.update
+delete = UserRepository.delete
