@@ -4,161 +4,26 @@
 (function () {
   'use strict';
 
-  var GRID_MINUTES = window.GRID_INTERVAL || 15;
-  var SLOT_HEIGHT = 24;
+  var App = window.ScheduleApp || {};
 
-  // =====================================================================
-  // Toast
-  // =====================================================================
-  function showToast(msg, type) {
-    var c = document.getElementById('toast-container');
-    if (!c) {
-      c = document.createElement('div');
-      c.id = 'toast-container';
-      c.className = 'position-fixed bottom-0 end-0 p-3';
-      c.style.zIndex = '1100';
-      document.body.appendChild(c);
-    }
-    var t = document.createElement('div');
-    t.className = 'toast align-items-center text-bg-' + (type || 'info') + ' border-0 show';
-    t.innerHTML = '<div class="d-flex"><div class="toast-body">' + msg +
-      '</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>';
-    c.appendChild(t);
-    setTimeout(function () { t.remove(); }, 4000);
-  }
+  // Aliases from utils.js
+  var GRID_MINUTES = App.GRID_MINUTES;
+  var SLOT_HEIGHT = App.SLOT_HEIGHT;
+  var showToast = App.showToast;
+  var api = App.api;
+  var getTaskRemaining = App.getTaskRemaining;
+  var checkRemainingAfterPlace = App.checkRemainingAfterPlace;
+  var showRemainingAlert = App.showRemainingAlert;
+  var pad = App.pad;
+  var timeToMin = App.timeToMin;
+  var minToTime = App.minToTime;
+  var snapMin = App.snapMin;
+  var workMinutes = App.workMinutes;
+  var isReadonly = App.isReadonly;
 
-  // =====================================================================
-  // API
-  // =====================================================================
-  function api(method, url, data) {
-    return fetch(url, {
-      method: method,
-      headers: { 'Content-Type': 'application/json' },
-      body: data ? JSON.stringify(data) : undefined,
-    }).then(function (r) {
-      return r.json().then(function (j) {
-        if (!r.ok) throw new Error(j.error || '오류가 발생했습니다.');
-        return j;
-      });
-    });
-  }
-
-  // =====================================================================
-  // Remaining-hours check after placing a block
-  // =====================================================================
-  function getTaskRemaining(taskId) {
-    return api('GET', '/tasks/api/' + taskId).then(function (res) {
-      return res.task ? res.task.remaining_hours : 0;
-    }).catch(function () { return 0; });
-  }
-
-  function checkRemainingAfterPlace(taskId, procedureId, prevRemaining) {
-    return api('GET', '/tasks/api/' + taskId).then(function (res) {
-      var task = res.task;
-      if (!task) return false;
-      var remaining = task.remaining_hours;
-      // Only alert when remaining hours INCREASED (time was cut)
-      if (remaining > 0 && remaining > (prevRemaining || 0)) {
-        return showRemainingAlert(procedureId || task.procedure_id, remaining);
-      }
-      return false;
-    }).catch(function () { return false; });
-  }
-
-  function showRemainingAlert(procedureId, remaining) {
-    return new Promise(function (resolve) {
-      var old = document.getElementById('remaining-alert');
-      if (old) old.remove();
-
-      var overlay = document.createElement('div');
-      overlay.id = 'remaining-alert';
-      overlay.className = 'remaining-alert-overlay';
-      overlay.innerHTML =
-        '<div class="remaining-alert-box">' +
-          '<div class="remaining-alert-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>' +
-          '<div class="remaining-alert-title">시험이 당일에 완료되지 않습니다</div>' +
-          '<div class="remaining-alert-body">' +
-            '<strong>' + procedureId + '</strong> 항목의 잔여 시간 <strong>' + Math.round(remaining * 60) + '분</strong>이 ' +
-            '시험 큐에 남아있습니다.<br>추가 일정 배치가 필요합니다.' +
-          '</div>' +
-          '<button class="remaining-alert-btn" id="remaining-alert-close">확인</button>' +
-        '</div>';
-
-      document.body.appendChild(overlay);
-
-      function close() {
-        overlay.remove();
-        resolve(true);
-      }
-      document.getElementById('remaining-alert-close').addEventListener('click', close);
-      overlay.addEventListener('click', function (e) {
-        if (e.target === overlay) close();
-      });
-    });
-  }
-
-  // =====================================================================
-  // Custom confirm modal (replaces browser confirm)
-  // =====================================================================
-  function showConfirmModal(message, opts) {
-    opts = opts || {};
-    return new Promise(function (resolve) {
-      var old = document.getElementById('confirm-modal');
-      if (old) old.remove();
-
-      var overlay = document.createElement('div');
-      overlay.id = 'confirm-modal';
-      overlay.className = 'remaining-alert-overlay';
-      overlay.innerHTML =
-        '<div class="remaining-alert-box">' +
-          (opts.icon !== false
-            ? '<div class="remaining-alert-icon"><i class="bi bi-' + (opts.icon || 'question-circle-fill') + '"></i></div>'
-            : '') +
-          (opts.title ? '<div class="remaining-alert-title">' + opts.title + '</div>' : '') +
-          '<div class="remaining-alert-body">' + message + '</div>' +
-          '<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">' +
-            '<button class="remaining-alert-btn" id="confirm-modal-cancel" style="background:#94a3b8">' + (opts.cancelText || '취소') + '</button>' +
-            '<button class="remaining-alert-btn" id="confirm-modal-ok">' + (opts.okText || '확인') + '</button>' +
-          '</div>' +
-        '</div>';
-
-      document.body.appendChild(overlay);
-
-      document.getElementById('confirm-modal-ok').addEventListener('click', function () {
-        overlay.remove();
-        resolve(true);
-      });
-      document.getElementById('confirm-modal-cancel').addEventListener('click', function () {
-        overlay.remove();
-        resolve(false);
-      });
-      overlay.addEventListener('click', function (e) {
-        if (e.target === overlay) { overlay.remove(); resolve(false); }
-      });
-    });
-  }
-
-  // =====================================================================
-  // Time helpers
-  // =====================================================================
-  function pad(n) { return String(n).padStart(2, '0'); }
-  function timeToMin(t) { var p = t.split(':'); return +p[0] * 60 + +p[1]; }
-  function minToTime(m) { return pad(Math.floor(m / 60)) + ':' + pad(m % 60); }
-  function snapMin(m) { return Math.round(m / GRID_MINUTES) * GRID_MINUTES; }
-
-  /** Calculate work minutes between start and end, excluding break periods. */
-  function workMinutes(startMin, endMin) {
-    var breaks = window.SCHEDULE_BREAKS || [];
-    var breakMin = 0;
-    for (var i = 0; i < breaks.length; i++) {
-      var bs = timeToMin(breaks[i].start);
-      var be = timeToMin(breaks[i].end);
-      var ovStart = Math.max(startMin, bs);
-      var ovEnd = Math.min(endMin, be);
-      if (ovStart < ovEnd) breakMin += ovEnd - ovStart;
-    }
-    return Math.max(0, endMin - startMin - breakMin);
-  }
+  // Aliases from modals.js
+  var showConfirmModal = App.showConfirmModal;
+  var openMemoModal = App.openMemoModal;
 
   // =====================================================================
   // Block visibility toggle — hide all blocks so elementFromPoint hits time-slots
@@ -738,49 +603,6 @@
         document.addEventListener('mouseup', onUp);
       });
     });
-  }
-
-  // =====================================================================
-  // 4. Memo modal
-  // =====================================================================
-  function openMemoModal(blockId, currentMemo) {
-    var existing = document.getElementById('memo-modal-backdrop');
-    if (existing) existing.remove();
-
-    var backdrop = document.createElement('div');
-    backdrop.id = 'memo-modal-backdrop';
-    backdrop.className = 'memo-modal-backdrop';
-    backdrop.innerHTML =
-      '<div class="memo-modal">' +
-        '<div class="memo-modal-header">메모</div>' +
-        '<textarea class="memo-modal-input" id="memo-textarea" rows="4" placeholder="메모를 입력하세요...">' +
-          (currentMemo || '').replace(/</g, '&lt;') +
-        '</textarea>' +
-        '<div class="memo-modal-actions">' +
-          '<button class="btn btn-sm btn-secondary" id="memo-cancel">취소</button>' +
-          '<button class="btn btn-sm btn-primary" id="memo-save">저장</button>' +
-        '</div>' +
-      '</div>';
-    document.body.appendChild(backdrop);
-
-    var textarea = document.getElementById('memo-textarea');
-    textarea.focus();
-
-    document.getElementById('memo-cancel').onclick = function () { backdrop.remove(); };
-    backdrop.addEventListener('click', function (ev) {
-      if (ev.target === backdrop) backdrop.remove();
-    });
-    document.getElementById('memo-save').onclick = function () {
-      var memo = textarea.value.trim();
-      api('PUT', '/schedule/api/blocks/' + blockId + '/memo', { memo: memo })
-        .then(function () {
-          backdrop.remove();
-          location.reload();
-        })
-        .catch(function (err) {
-          showToast(err.message, 'danger');
-        });
-    };
   }
 
   // =====================================================================
@@ -1459,13 +1281,12 @@
   // =====================================================================
   // Init
   // =====================================================================
-  function isReadonly() {
-    return document.body.classList.contains('readonly-mode');
-  }
-
   document.addEventListener('DOMContentLoaded', function () {
     // Sync grid interval from server settings
-    if (window.GRID_INTERVAL) GRID_MINUTES = window.GRID_INTERVAL;
+    if (window.GRID_INTERVAL) {
+      GRID_MINUTES = window.GRID_INTERVAL;
+      App.GRID_MINUTES = GRID_MINUTES;
+    }
     initBlockMove();
     initMonthBlockMove();
     initQueueDrag();
