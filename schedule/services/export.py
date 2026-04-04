@@ -9,7 +9,7 @@ HEADERS = ['날짜', '시작시간', '종료시간', '업무명', '담당자', '
 
 
 def _block_to_row(b):
-    status = '초안' if b.get('is_draft') else '확정'
+    status = '확정'
     locked = 'Y' if b.get('is_locked') else 'N'
     return [
         b.get('date', ''),

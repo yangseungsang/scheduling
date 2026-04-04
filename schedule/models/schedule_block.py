@@ -6,9 +6,9 @@ class ScheduleBlockRepository(BaseRepository):
     FILENAME = 'schedule_blocks.json'
     ID_PREFIX = 'sb_'
     ALLOWED_FIELDS = {
-        'date', 'start_time', 'end_time', 'is_draft', 'is_locked',
+        'date', 'start_time', 'end_time', 'is_locked',
         'block_status', 'task_id', 'assignee_ids', 'location_id',
-        'version_id', 'origin', 'memo', 'identifier_ids', 'title', 'is_simple',
+        'version_id', 'memo', 'identifier_ids', 'title', 'is_simple',
     }
 
     @classmethod
@@ -41,7 +41,7 @@ class ScheduleBlockRepository(BaseRepository):
     @classmethod
     def create(cls, task_id, assignee_ids, location_id, version_id,
                date, start_time, end_time,
-               is_draft=False, is_locked=False, origin='manual',
+               is_locked=False,
                block_status='pending', identifier_ids=None,
                title='', is_simple=False):
         data = {
@@ -52,9 +52,7 @@ class ScheduleBlockRepository(BaseRepository):
             'date': date,
             'start_time': start_time,
             'end_time': end_time,
-            'is_draft': is_draft,
             'is_locked': is_locked,
-            'origin': origin,
             'block_status': block_status,
             'memo': '',
             'identifier_ids': identifier_ids,
@@ -67,19 +65,6 @@ class ScheduleBlockRepository(BaseRepository):
     def update(cls, block_id, **kwargs):
         return cls.patch(block_id, **kwargs)
 
-    @classmethod
-    def delete_drafts(cls):
-        blocks = read_json(cls.FILENAME)
-        blocks = [b for b in blocks if not b.get('is_draft')]
-        write_json(cls.FILENAME, blocks)
-
-    @classmethod
-    def approve_drafts(cls):
-        blocks = read_json(cls.FILENAME)
-        for b in blocks:
-            if b.get('is_draft'):
-                b['is_draft'] = False
-        write_json(cls.FILENAME, blocks)
 
 
 # Backward-compatible module-level aliases
@@ -93,5 +78,3 @@ get_by_location_and_date = ScheduleBlockRepository.get_by_location_and_date
 create = ScheduleBlockRepository.create
 update = ScheduleBlockRepository.update
 delete = ScheduleBlockRepository.delete
-delete_drafts = ScheduleBlockRepository.delete_drafts
-approve_drafts = ScheduleBlockRepository.approve_drafts

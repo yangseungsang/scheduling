@@ -112,7 +112,7 @@ def sync_task_status(task_id):
     if not t:
         return
     blocks = [b for b in schedule_block.get_all()
-              if b.get('task_id') == task_id and not b.get('is_draft')]
+              if b.get('task_id') == task_id]
     if not blocks:
         return
     statuses = [b.get('block_status', 'pending') for b in blocks]

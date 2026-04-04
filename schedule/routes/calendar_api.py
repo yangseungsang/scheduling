@@ -41,7 +41,6 @@ def api_create_block():
             date=data['date'],
             start_time=data['start_time'],
             end_time=data['end_time'],
-            origin=data.get('origin', 'manual'),
             title=data.get('title', ''),
             is_simple=True,
         )
@@ -81,9 +80,7 @@ def api_create_block():
         date=data['date'],
         start_time=data['start_time'],
         end_time=adjusted_end,
-        is_draft=data.get('is_draft', False),
         is_locked=data.get('is_locked', False),
-        origin=data.get('origin', 'manual'),
         identifier_ids=new_identifier_ids,
     )
 
@@ -107,7 +104,7 @@ def api_update_block(block_id):
     if not data:
         return jsonify({'error': '요청 데이터가 없습니다.'}), 400
 
-    allowed = {'date', 'start_time', 'end_time', 'is_draft', 'is_locked', 'block_status', 'location_id'}
+    allowed = {'date', 'start_time', 'end_time', 'is_locked', 'block_status', 'location_id'}
     updates = {k: v for k, v in data.items() if k in allowed}
     is_resize = data.get('resize', False)
     duration_minutes = data.get('duration_minutes')

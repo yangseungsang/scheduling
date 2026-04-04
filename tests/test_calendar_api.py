@@ -18,7 +18,6 @@ class TestBlockCreate:
         assert status == 201
         assert data['task_id'] == tid
         assert uid in data['assignee_ids']
-        assert data['origin'] == 'manual'
 
     def test_create_simple_block(self, client):
         r = client.post('/schedule/api/simple-blocks', json={

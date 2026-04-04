@@ -76,6 +76,24 @@ def migrate_schedule_blocks():
     print(f'  Added new fields to {changed} blocks')
 
 
+def cleanup_schedule_blocks():
+    """Remove unused origin and is_draft fields from all schedule blocks."""
+    blocks = read('schedule_blocks.json')
+    changed = 0
+    for b in blocks:
+        removed = False
+        if 'origin' in b:
+            del b['origin']
+            removed = True
+        if 'is_draft' in b:
+            del b['is_draft']
+            removed = True
+        if removed:
+            changed += 1
+    write('schedule_blocks.json', blocks)
+    print(f'  Cleaned up {changed} blocks (removed origin, is_draft)')
+
+
 if __name__ == '__main__':
     print('=== Data Migration ===')
     print('Migrating tasks...')

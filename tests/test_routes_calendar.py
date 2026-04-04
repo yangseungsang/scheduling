@@ -50,7 +50,6 @@ class TestScheduleBlockAPI:
         assert data['task_id'] == tid
         assert uid in data['assignee_ids']
         assert data['start_time'] == '09:00'
-        assert data['origin'] == 'manual'
 
     def test_create_block_missing_fields(self, client):
         r = client.post('/schedule/api/blocks', json={'task_id': 'xxx'})
