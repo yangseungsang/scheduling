@@ -1,5 +1,6 @@
 /**
  * Calendar drag-drop & resize — mouse-event based.
+ * (block-move, block-resize, queue-drag extracted to separate files)
  */
 (function () {
   'use strict';
@@ -8,360 +9,13 @@
 
   // Aliases from utils.js
   var GRID_MINUTES = App.GRID_MINUTES;
-  var SLOT_HEIGHT = App.SLOT_HEIGHT;
   var showToast = App.showToast;
   var api = App.api;
-  var getTaskRemaining = App.getTaskRemaining;
-  var checkRemainingAfterPlace = App.checkRemainingAfterPlace;
-  var showRemainingAlert = App.showRemainingAlert;
-  var pad = App.pad;
-  var timeToMin = App.timeToMin;
-  var minToTime = App.minToTime;
-  var snapMin = App.snapMin;
-  var workMinutes = App.workMinutes;
   var isReadonly = App.isReadonly;
 
   // Aliases from modals.js
   var showConfirmModal = App.showConfirmModal;
   var openMemoModal = App.openMemoModal;
-
-  // Aliases from drag-core.js
-  var startDrag = App.startDrag;
-  var findTarget = App.findTarget;
-  var hideAllBlocks = App.hideAllBlocks;
-  var showAllBlocks = App.showAllBlocks;
-  var createGhost = App.createGhost;
-  var resolveWeekLocation = App.resolveWeekLocation;
-
-  // =====================================================================
-  // 1. Block move
-  // =====================================================================
-  function initBlockMove() {
-    document.querySelectorAll('.schedule-block[data-block-id]').forEach(function (block) {
-      block.addEventListener('mousedown', function (e) {
-        if (e.target.closest('.resize-handle')) return;
-
-        var blockId = block.dataset.blockId;
-        var taskId = block.dataset.taskId;
-        var title = (block.querySelector('.block-title') || {}).textContent || '';
-        var color = block.style.backgroundColor || '#0d6efd';
-        var startTime = block.dataset.startTime;
-        var endTime = block.dataset.endTime;
-        var durationMin = workMinutes(timeToMin(startTime), timeToMin(endTime));
-        var ghostH = (durationMin / GRID_MINUTES) * SLOT_HEIGHT;
-
-        startDrag(e, {
-          sourceEl: block,
-          ghostText: title,
-          ghostColor: color,
-          ghostWidth: block.offsetWidth,
-          ghostHeight: ghostH,
-          onDrop: function (target) {
-            if (target.type === 'queue') {
-              api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
-                .then(function () { location.reload(); })
-                .catch(function (err) { showToast(err.message, 'danger'); });
-            } else if (target.type === 'slot') {
-              var t = snapMin(timeToMin(target.time));
-              var moveUpdate = {
-                date: target.date,
-                start_time: minToTime(t),
-                end_time: minToTime(t + durationMin),
-              };
-              if (target.locationId) moveUpdate.location_id = target.locationId;
-              var prevRem;
-              (taskId ? getTaskRemaining(taskId) : Promise.resolve(0)).then(function (r) {
-                prevRem = r;
-                return api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate);
-              }).then(function () {
-                if (taskId) return checkRemainingAfterPlace(taskId, title.trim(), prevRem);
-              }).then(function () {
-                location.reload();
-              }).catch(function (err) {
-                showToast(err.message, 'danger');
-              });
-            } else if (target.type === 'month') {
-              var prevRem2;
-              (taskId ? getTaskRemaining(taskId) : Promise.resolve(0)).then(function (r) {
-                prevRem2 = r;
-                return api('PUT', '/schedule/api/blocks/' + blockId, {
-                  date: target.date,
-                });
-              }).then(function () {
-                if (taskId) return checkRemainingAfterPlace(taskId, title.trim(), prevRem2);
-              }).then(function () {
-                location.reload();
-              }).catch(function (err) {
-                showToast(err.message, 'danger');
-              });
-            }
-          },
-        });
-      });
-    });
-  }
-
-  // =====================================================================
-  // 2. Queue drag
-  // =====================================================================
-  function initQueueDrag() {
-    document.querySelectorAll('.queue-task-item[data-task-id]').forEach(function (item) {
-      item.addEventListener('mousedown', function (e) {
-        var taskId = item.dataset.taskId;
-        var assigneeIds = item.dataset.assigneeIds ? item.dataset.assigneeIds.split(',').filter(Boolean) : [];
-        var locationId = item.dataset.locationId || '';
-        var versionId = item.dataset.versionId || '';
-        var remaining = parseFloat(item.dataset.remainingHours) || 1;
-        var title = (item.querySelector('.queue-card-section-title') || item.querySelector('.queue-card-id') || {}).textContent || '';
-
-        var testListRaw = item.dataset.testList || '[]';
-        var testList = [];
-        try { testList = JSON.parse(testListRaw); } catch(e2) {}
-
-        var blockMin = Math.round(remaining * 60);
-        blockMin = Math.max(blockMin, GRID_MINUTES);
-        blockMin = Math.round(blockMin / GRID_MINUTES) * GRID_MINUTES;
-        var expectedHeight = (blockMin / GRID_MINUTES) * SLOT_HEIGHT;
-
-        startDrag(e, {
-          sourceEl: item,
-          ghostText: title,
-          ghostColor: '#0d6efd',
-          ghostWidth: 150,
-          ghostHeight: expectedHeight,
-          onDrop: function (target) {
-            if (target.type === 'queue') return; // dropped back into queue — do nothing
-            function createBlock(selectedIds, overrideMin) {
-              var bMin = overrideMin || blockMin;
-              var identifierIds = selectedIds || null;
-              if (target.type === 'slot') {
-                var t = snapMin(timeToMin(target.time));
-                var dropLocationId = target.locationId || locationId;
-                var prevRem;
-                getTaskRemaining(taskId).then(function (r) {
-                  prevRem = r;
-                  return api('POST', '/schedule/api/blocks', {
-                    task_id: taskId, assignee_ids: assigneeIds,
-                    location_id: dropLocationId, version_id: versionId,
-                    date: target.date,
-                    start_time: minToTime(t),
-                    end_time: minToTime(t + bMin),
-                    origin: 'manual',
-                    identifier_ids: identifierIds,
-                  });
-                }).then(function () {
-                  return checkRemainingAfterPlace(taskId, title.trim(), prevRem);
-                }).then(function () { location.reload(); })
-                  .catch(function (err) { showToast(err.message, 'danger'); });
-              } else if (target.type === 'month') {
-                var prevRem2;
-                getTaskRemaining(taskId).then(function (r) {
-                  prevRem2 = r;
-                  return api('POST', '/schedule/api/blocks', {
-                    task_id: taskId, assignee_ids: assigneeIds,
-                    location_id: locationId, version_id: versionId,
-                    date: target.date,
-                    start_time: '08:30',
-                    end_time: minToTime(510 + bMin),
-                    origin: 'manual',
-                    identifier_ids: identifierIds,
-                  });
-                }).then(function () {
-                  return checkRemainingAfterPlace(taskId, title.trim(), prevRem2);
-                }).then(function () { location.reload(); })
-                  .catch(function (err) { showToast(err.message, 'danger'); });
-              }
-            }
-
-            // If multiple identifiers, show picker with scheduled status
-            if (testList.length > 1) {
-              // Fetch existing blocks for this task to find already-placed identifiers
-              api('GET', '/schedule/api/blocks/by-task/' + taskId).then(function (res) {
-                var existingBlocks = (res && res.blocks) || [];
-                var scheduledIds = [];
-                existingBlocks.forEach(function (b) {
-                  var ids = b.identifier_ids;
-                  if (ids && ids.length) {
-                    // Only explicitly assigned identifiers count as scheduled
-                    ids.forEach(function (id) { scheduledIds.push(id); });
-                  }
-                  // identifier_ids=null means not split — don't mark all as scheduled
-                });
-
-                showIdentifierPicker(testList, { scheduledIds: scheduledIds }, function (selected) {
-                  if (!selected) return;
-                  var allIds = testList.map(function (s) { return typeof s === 'object' ? s.id : s; });
-                  var selectedIds = selected.map(function (s) { return typeof s === 'object' ? s.id : s; });
-                  var isAll = selectedIds.length === allIds.length;
-                  if (isAll) {
-                    createBlock(null, null);
-                  } else {
-                    var totalMin = 0;
-                    selected.forEach(function (s) { totalMin += typeof s === 'object' ? Math.round((s.estimated_hours || 0) * 60) : 0; });
-                    totalMin = Math.max(totalMin, GRID_MINUTES);
-                    totalMin = Math.round(totalMin / GRID_MINUTES) * GRID_MINUTES;
-                    createBlock(selectedIds, totalMin);
-                  }
-                });
-              }).catch(function () {
-                // Fallback: show picker without scheduled info
-                showIdentifierPicker(testList, function (selected) {
-                  if (!selected) return;
-                  createBlock(null, null);
-                });
-              });
-            } else {
-              createBlock(null, null);
-            }
-          },
-        });
-      });
-    });
-  }
-
-  // =====================================================================
-  // 2b. Month block move
-  // =====================================================================
-  function initMonthBlockMove() {
-    document.querySelectorAll('.month-block-item[data-block-id]').forEach(function (item) {
-      item.addEventListener('mousedown', function (e) {
-        var blockId = item.dataset.blockId;
-        var taskId = item.dataset.taskId;
-        var title = item.textContent.trim();
-        var color = item.style.backgroundColor || '#0d6efd';
-
-        startDrag(e, {
-          sourceEl: item,
-          ghostText: title,
-          ghostColor: color,
-          ghostWidth: 120,
-          onDrop: function (target) {
-            if (target.type === 'queue') {
-              api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
-                .then(function () { location.reload(); })
-                .catch(function (err) { showToast(err.message, 'danger'); });
-            } else if (target.type === 'month') {
-              var prevRem;
-              (taskId ? getTaskRemaining(taskId) : Promise.resolve(0)).then(function (r) {
-                prevRem = r;
-                return api('PUT', '/schedule/api/blocks/' + blockId, {
-                  date: target.date,
-                });
-              }).then(function () {
-                if (taskId) return checkRemainingAfterPlace(taskId, title, prevRem);
-              }).then(function () { location.reload(); })
-                .catch(function (err) { showToast(err.message, 'danger'); });
-            }
-          },
-        });
-      });
-    });
-  }
-
-  // =====================================================================
-  // 3. Block resize
-  // =====================================================================
-  function initResize() {
-    document.querySelectorAll('.resize-handle').forEach(function (handle) {
-      handle.addEventListener('mousedown', function (e) {
-        if (isReadonly()) return;
-        e.preventDefault();
-        e.stopPropagation();
-
-        var block = handle.closest('.schedule-block');
-        if (!block) return;
-
-        var isTop = handle.classList.contains('resize-handle-top');
-        var blockId = block.dataset.blockId;
-        var origTop = parseInt(block.style.top, 10);
-        var origHeight = parseInt(block.style.height, 10);
-        var startY = e.clientY;
-
-        block.classList.add('resizing');
-
-        function onMove(ev) {
-          ev.preventDefault();
-          var delta = ev.clientY - startY;
-          var snapped = Math.round(delta / SLOT_HEIGHT) * SLOT_HEIGHT;
-
-          if (isTop) {
-            var newTop = origTop + snapped;
-            var newH = origHeight - snapped;
-            if (newH >= SLOT_HEIGHT && newTop >= 0) {
-              block.style.top = newTop + 'px';
-              block.style.height = newH + 'px';
-            }
-          } else {
-            var newH2 = origHeight + snapped;
-            if (newH2 >= SLOT_HEIGHT) {
-              block.style.height = newH2 + 'px';
-            }
-          }
-        }
-
-        function onUp() {
-          document.removeEventListener('mousemove', onMove);
-          document.removeEventListener('mouseup', onUp);
-          block.classList.remove('resizing');
-
-          var finalTop = parseInt(block.style.top, 10);
-          var finalH = parseInt(block.style.height, 10);
-
-          var firstSlot = document.querySelector('.time-slot[data-time]');
-          var wsMin = firstSlot ? timeToMin(firstSlot.dataset.time) : 540;
-          var slotFromTop = Math.round(finalTop / SLOT_HEIGHT);
-          var slotCount = Math.round(finalH / SLOT_HEIGHT);
-          var newStartMin = wsMin + slotFromTop * GRID_MINUTES;
-          var durMin = slotCount * GRID_MINUTES;
-
-          var newStart = minToTime(newStartMin);
-          var newEnd = minToTime(newStartMin + durMin);
-
-          if (newStart !== block.dataset.startTime || newEnd !== block.dataset.endTime) {
-            var taskId = block.dataset.taskId;
-            var blockTitle = (block.querySelector('.block-title') || {}).textContent || '';
-            var origStartMin = timeToMin(block.dataset.startTime);
-            var origEndMin = timeToMin(block.dataset.endTime);
-            var prevWorkMin = workMinutes(origStartMin, origEndMin);
-            var newWorkMin = workMinutes(newStartMin, newStartMin + durMin);
-
-            function doResize() {
-              api('PUT', '/schedule/api/blocks/' + blockId, {
-                start_time: newStart,
-                end_time: newEnd,
-                resize: true,
-              }).then(function () { location.reload(); })
-                .catch(function (err) {
-                  showToast(err.message, 'danger');
-                  block.style.top = origTop + 'px';
-                  block.style.height = origHeight + 'px';
-                });
-            }
-
-            // Warn if shrinking from current size
-            if (newWorkMin < prevWorkMin) {
-              showConfirmModal(
-                '현재 시간(<strong>' + prevWorkMin + '분</strong>)에서 <strong>' + newWorkMin + '분</strong>으로 줄입니다.<br>계속하시겠습니까?',
-                { title: '시간 축소 경고', icon: 'exclamation-triangle-fill', okText: '줄이기', cancelText: '취소' }
-              ).then(function (ok) {
-                if (ok) {
-                  doResize();
-                } else {
-                  block.style.top = origTop + 'px';
-                  block.style.height = origHeight + 'px';
-                }
-              });
-              return;
-            }
-            doResize();
-          }
-        }
-
-        document.addEventListener('mousemove', onMove);
-        document.addEventListener('mouseup', onUp);
-      });
-    });
-  }
 
   // =====================================================================
   // 5. Context menu
@@ -620,8 +274,8 @@
       });
 
       var testListHtml = '-';
+      var idTotalMin = 0;
       if (displayTestList.length) {
-        var idTotalMin = 0;
         testListHtml = '<table style="width:100%;font-size:0.78rem;border-collapse:collapse;border-spacing:0">' +
           '<colgroup><col style="width:20%"><col style="width:12%"><col style="width:33%"><col style="width:35%"></colgroup>' +
           '<tr style="color:#9ca3af;font-size:0.68rem;border-bottom:1px solid #f3f4f6">' +
@@ -864,7 +518,6 @@
   }
 
   // =====================================================================
-  // =====================================================================
   // 14b. Split picker — check = keep in block, uncheck = send to queue
   // =====================================================================
   function showSplitPicker(testList, callback) {
@@ -971,72 +624,6 @@
   }
 
   // =====================================================================
-  // 14. Identifier selection on queue drag (section split)
-  // =====================================================================
-  /**
-   * @param {Array} testList - all identifiers from the task
-   * @param {Object} opts - { scheduledIds: Set or Array of already-placed identifier IDs }
-   * @param {Function} callback - called with selected items array, or null if cancelled
-   */
-  function showIdentifierPicker(testList, opts, callback) {
-    // Support old 2-arg call: showIdentifierPicker(list, cb)
-    if (typeof opts === 'function') { callback = opts; opts = {}; }
-    opts = opts || {};
-    var scheduledSet = {};
-    (opts.scheduledIds || []).forEach(function (id) { scheduledSet[id] = true; });
-
-    var old = document.getElementById('identifier-picker');
-    if (old) old.remove();
-
-    var overlay = document.createElement('div');
-    overlay.id = 'identifier-picker';
-    overlay.className = 'block-detail-overlay';
-    var rows = '';
-    testList.forEach(function (item, i) {
-      var id = typeof item === 'object' ? item.id : item;
-      var owners = (typeof item === 'object' && item.owners) ? item.owners : [];
-      var mins = typeof item === 'object' ? Math.round((item.estimated_hours || 0) * 60) : 0;
-      var isScheduled = !!scheduledSet[id];
-      var checked = isScheduled ? '' : ' checked';
-      var badge = isScheduled
-        ? ' <span class="badge bg-secondary" style="font-size:0.65rem;vertical-align:middle">배치됨</span>'
-        : '';
-      var ownerStr = owners.length ? ' <span class="text-muted">작성: ' + owners.join(', ') + '</span>' : '';
-      rows += '<label class="d-flex align-items-center gap-2 mb-1" style="font-size:0.85rem' + (isScheduled ? ';opacity:0.55' : '') + '">' +
-        '<input type="checkbox" class="form-check-input" value="' + i + '"' + checked + '> ' +
-        '<span>' + id + '</span>' + ownerStr +
-        (mins > 0 ? ' <span class="text-muted">(' + mins + '분)</span>' : '') +
-        badge +
-        '</label>';
-    });
-    overlay.innerHTML =
-      '<div class="bd-box" style="max-width:340px">' +
-        '<div class="bd-header"><div class="bd-header-left"><span class="bd-id">식별자 선택</span></div>' +
-          '<button class="bd-x" id="picker-close">&times;</button></div>' +
-        '<div class="bd-divider"></div>' +
-        '<div style="padding:12px">' +
-          '<div class="form-text mb-2">배치할 식별자를 선택하세요</div>' +
-          '<div id="picker-list">' + rows + '</div>' +
-          '<button class="btn btn-sm btn-primary w-100 mt-2" id="picker-ok">확인</button>' +
-        '</div>' +
-      '</div>';
-    document.body.appendChild(overlay);
-
-    overlay.addEventListener('click', function (ev) { if (ev.target === overlay) { overlay.remove(); callback(null); } });
-    document.getElementById('picker-close').addEventListener('click', function () { overlay.remove(); callback(null); });
-    document.getElementById('picker-ok').addEventListener('click', function () {
-      var checked = [];
-      overlay.querySelectorAll('#picker-list input:checked').forEach(function (cb) {
-        checked.push(parseInt(cb.value));
-      });
-      overlay.remove();
-      if (checked.length === 0) { callback(null); return; }
-      var selected = checked.map(function (i) { return testList[i]; });
-      callback(selected);
-    });
-  }
-
-  // =====================================================================
   // Init
   // =====================================================================
   document.addEventListener('DOMContentLoaded', function () {
@@ -1045,10 +632,10 @@
       GRID_MINUTES = window.GRID_INTERVAL;
       App.GRID_MINUTES = GRID_MINUTES;
     }
-    initBlockMove();
-    initMonthBlockMove();
-    initQueueDrag();
-    initResize();
+    App.initBlockMove();
+    App.initMonthBlockMove();
+    App.initQueueDrag();
+    App.initResize();
     initContextMenu();
     initReturnToQueue();
     initQueueSearch();
