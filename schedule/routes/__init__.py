@@ -1,6 +1,9 @@
-from schedule.routes.calendar import schedule_bp
+from schedule.routes.calendar_views import schedule_bp
 from schedule.routes.tasks import tasks_bp
 from schedule.routes.admin import admin_bp
+
+# Register API routes on the same blueprint
+import schedule.routes.calendar_api  # noqa: F401
 
 
 def register_routes(app):
