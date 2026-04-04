@@ -26,6 +26,12 @@
       <h5 class="mb-0 ms-2">
         {{ week_start.strftime('%Y년 %m월 %d일') }} — {{ week_end.strftime('%m월 %d일') }}
       </h5>
+      <button class="btn btn-sm btn-outline-secondary ms-2" id="btn-toggle-weekends" title="주말 표시/숨기기">
+        <i class="bi bi-calendar-x"></i> 주말
+      </button>
+      <button class="btn btn-sm btn-outline-secondary ms-2" id="btn-shift-schedule" title="일정 이동">
+        <i class="bi bi-arrow-left-right"></i> 일정 이동
+      </button>
     </div>
 
     {% include "schedule/_location_filter.html" %}
@@ -45,7 +51,7 @@
         {# Day columns #}
         <div class="week-columns">
           {% for day in week_days %}
-          <div class="week-day-col">
+          <div class="week-day-col" data-weekday="{{ day.weekday() }}">
             <div class="week-day-header{% if day == today %} today{% endif %}">
               <a href="{{ url_for('schedule.day_view', date=day.isoformat()) }}">
                 {{ day_names[loop.index0] }} {{ day.strftime('%d') }}
@@ -73,7 +79,7 @@
               {% set end_min = end_parts[0]|int * 60 + end_parts[1]|int %}
               {% set top_px = ((start_min - work_start_min) / interval * slot_height)|int %}
               {% set height_px = ((end_min - start_min) / interval * slot_height)|int %}
-              <div class="week-block schedule-block{% if block.is_draft %} draft{% endif %} block-status-{{ block.block_status }}"
+              <div class="week-block schedule-block block-status-{{ block.block_status }}"
                    data-block-id="{{ block.id }}"
                    data-task-id="{{ block.task_id }}"
                    data-block-status="{{ block.block_status }}"
@@ -85,10 +91,15 @@
                    data-section-name="{{ block.section_name }}"
                    data-assignee-name="{{ block.assignee_name }}"
                    data-location-name="{{ block.location_name }}"
+                   data-estimated-hours="{{ block.estimated_hours }}"
+                   data-identifier-ids='{{ block.identifier_ids|tojson if block.identifier_ids else "" }}'
                    style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }};">
                 <div class="resize-handle resize-handle-top"></div>
                 <div class="block-title">
-                  {{ block.task_title }}
+                  {{ block.section_name or block.task_title }}
+                  {% if block.is_split %}
+                  <span class="block-split-badge" title="분할 배치: {{ block.block_identifier_count }}/{{ block.total_identifier_count }}개 식별자">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>
+                  {% endif %}
                   <span class="block-status-badge badge-status-{{ block.block_status }}">
                     {% if block.block_status == 'in_progress' %}진행
                     {% elif block.block_status == 'completed' %}완료
@@ -96,18 +107,7 @@
                     {% endif %}
                   </span>
                 </div>
-                <div class="block-meta">
-                  <span class="block-assignee">{{ block.assignee_name }}</span>
-                  {% if block.category_name %}
-                  <span class="block-category">{{ block.category_name }}</span>
-                  {% endif %}
-                </div>
                 <div class="block-info">
-                  {% if block.priority %}
-                  <span class="block-priority block-priority-{{ block.priority }}">
-                    {{ '높음' if block.priority == 'high' else ('중간' if block.priority == 'medium' else '낮음') }}
-                  </span>
-                  {% endif %}
                   <span class="block-time">{{ block.start_time }}–{{ block.end_time }}</span>
                 </div>
                 {% if block.memo %}
@@ -173,6 +173,7 @@
     {start: '{{ brk.start }}', end: '{{ brk.end }}'}
     {% endfor %}
   ];
+  window.GRID_INTERVAL = {{ settings.grid_interval_minutes }};
 </script>
 <script src="{{ url_for('static', filename='js/drag_drop.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}

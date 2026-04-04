@@ -88,6 +88,11 @@ def _create_task(client, uid_list, loc_id='', version_id='',
     """Helper: create a task via form and return the task_id."""
     if isinstance(uid_list, str):
         uid_list = [uid_list]
+    hours_float = float(hours)
+    test_list = [
+        {'id': 'TC-001', 'estimated_hours': hours_float / 2, 'owners': []},
+        {'id': 'TC-002', 'estimated_hours': hours_float / 2, 'owners': []},
+    ]
     data = {
         'procedure_id': procedure_id,
         'version_id': version_id,
@@ -95,8 +100,8 @@ def _create_task(client, uid_list, loc_id='', version_id='',
         'location_id': loc_id,
         'section_name': '3.1 시스템',
         'procedure_owner': '담당자',
-        'test_list': 'TC-001, TC-002',
-        'estimated_hours': hours,
+        'test_list_json': json.dumps(test_list),
+        'estimated_hours': str(hours),
         'memo': '',
     }
     client.post('/tasks/new', data=data)

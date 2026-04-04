@@ -37,20 +37,88 @@ def _get_current_version_id():
     return active[0]['id'] if active else None
 
 
+def _remove_identifiers_from_other_blocks(task_id, exclude_block_id,
+                                          moved_ids, sttngs):
+    """Remove moved_ids from other blocks of the same task.
+
+    If a block loses all its identifiers, delete it.
+    If it loses some, shrink its duration proportionally.
+    """
+    t = task.get_by_id(task_id)
+    if not t:
+        return
+    test_list = t.get('test_list', [])
+    # Build hours lookup: identifier_id → estimated_hours
+    id_hours = {}
+    for item in test_list:
+        if isinstance(item, dict):
+            id_hours[item['id']] = item.get('estimated_hours', 0)
+
+    moved_set = set(moved_ids)
+    all_blocks = schedule_block.get_all()
+    for b in all_blocks:
+        if b.get('task_id') != task_id:
+            continue
+        if b['id'] == exclude_block_id:
+            continue
+        block_ids = b.get('identifier_ids')
+        if not block_ids:
+            # Block covers all identifiers — remove the moved ones
+            all_task_ids = [item['id'] if isinstance(item, dict) else item
+                           for item in test_list]
+            block_ids = all_task_ids
+
+        overlap = [i for i in block_ids if i in moved_set]
+        if not overlap:
+            continue
+
+        remaining_ids = [i for i in block_ids if i not in moved_set]
+        if not remaining_ids:
+            # Block lost all identifiers → delete it
+            schedule_block.delete(b['id'])
+        else:
+            # Shrink block duration to match remaining identifiers
+            remaining_hours = sum(id_hours.get(i, 0) for i in remaining_ids)
+            remaining_min = max(int(remaining_hours * 60), 15)
+            new_end_min = time_to_minutes(b['start_time']) + remaining_min
+            new_end = minutes_to_time(new_end_min)
+            adjusted_end = adjust_end_for_breaks(b['start_time'], new_end, sttngs)
+            schedule_block.update(b['id'],
+                                 identifier_ids=remaining_ids,
+                                 end_time=adjusted_end)
+
+
 def _sync_task_remaining_hours(task_id):
+    if not task_id:
+        return
+    t = task.get_by_id(task_id)
+    if not t:
+        return
+
+    # estimated_hours = sum of test_list identifier hours, or task value for simple blocks
+    test_list = t.get('test_list', [])
+    tl_sum = round(sum(
+        item.get('estimated_hours', 0) for item in test_list
+        if isinstance(item, dict)
+    ), 2)
+    est = tl_sum if tl_sum > 0 else t.get('estimated_hours', 0)
+
     sttngs = settings.get()
     total_min = sum(
         work_minutes_in_range(b['start_time'], b['end_time'], sttngs)
         for b in schedule_block.get_all()
-        if b['task_id'] == task_id
+        if b.get('task_id') == task_id
     )
     scheduled_hours = round(total_min / 60.0, 2)
-    t = task.get_by_id(task_id)
-    if t:
-        est = t.get('estimated_hours', 0)
-        new_remaining = round(max(est - scheduled_hours, 0), 2)
-        if t.get('remaining_hours', 0) != new_remaining:
-            task.patch(task_id, remaining_hours=new_remaining)
+    new_remaining = round(max(est - scheduled_hours, 0), 2)
+
+    patches = {}
+    if t.get('estimated_hours', 0) != est:
+        patches['estimated_hours'] = est
+    if t.get('remaining_hours', 0) != new_remaining:
+        patches['remaining_hours'] = new_remaining
+    if patches:
+        task.patch(task_id, **patches)
 
 
 @schedule_bp.route('/')
@@ -302,6 +370,28 @@ def api_create_block():
     if not data:
         return jsonify({'error': '요청 데이터가 없습니다.'}), 400
 
+    is_simple = data.get('is_simple', False)
+
+    # Simple block: no task_id required
+    if is_simple:
+        for field in ('date', 'start_time', 'end_time'):
+            if not data.get(field):
+                return jsonify({'error': f'{field}은(는) 필수 항목입니다.'}), 400
+        block = schedule_block.create(
+            task_id=None,
+            assignee_ids=[],
+            location_id=data.get('location_id', ''),
+            version_id=data.get('version_id', ''),
+            date=data['date'],
+            start_time=data['start_time'],
+            end_time=data['end_time'],
+            origin=data.get('origin', 'manual'),
+            title=data.get('title', ''),
+            is_simple=True,
+        )
+        return jsonify(block), 201
+
+    # Normal block: task_id required
     for field in ('task_id', 'date', 'start_time', 'end_time'):
         if not data.get(field):
             return jsonify({'error': f'{field}은(는) 필수 항목입니다.'}), 400
@@ -325,6 +415,8 @@ def api_create_block():
     if overlap:
         return jsonify({'error': '해당 시간에 이미 다른 시험이 배치되어 있습니다.'}), 409
 
+    new_identifier_ids = data.get('identifier_ids')
+
     block = schedule_block.create(
         task_id=data['task_id'],
         assignee_ids=assignee_ids,
@@ -336,7 +428,15 @@ def api_create_block():
         is_draft=data.get('is_draft', False),
         is_locked=data.get('is_locked', False),
         origin=data.get('origin', 'manual'),
+        identifier_ids=new_identifier_ids,
     )
+
+    # If specific identifiers selected, remove them from other blocks of same task
+    if new_identifier_ids and data['task_id']:
+        _remove_identifiers_from_other_blocks(
+            data['task_id'], block['id'], new_identifier_ids, sttngs,
+        )
+
     _sync_task_remaining_hours(data['task_id'])
     return jsonify(block), 201
 
@@ -384,16 +484,10 @@ def api_update_block(block_id):
 
     updated = schedule_block.update(block_id, **updates)
 
-    if is_resize and block.get('task_id'):
-        # Resize changes the test duration — update estimated_hours to match total scheduled
-        sttngs = settings.get()
-        total_min = sum(
-            work_minutes_in_range(b['start_time'], b['end_time'], sttngs)
-            for b in schedule_block.get_all()
-            if b['task_id'] == block['task_id']
-        )
-        new_est = round(total_min / 60.0, 2)
-        task.patch(block['task_id'], estimated_hours=new_est, remaining_hours=0)
+    # Resize = real time change, don't recalculate remaining
+    # Move = position change, sync remaining
+    if block.get('task_id') and not is_resize:
+        _sync_task_remaining_hours(block['task_id'])
 
     return jsonify(updated)
 
@@ -404,9 +498,12 @@ def api_delete_block(block_id):
     if not block:
         return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
     task_id = block.get('task_id')
+    is_restore = request.args.get('restore') == '1'
     schedule_block.delete(block_id)
     if task_id:
         _sync_task_remaining_hours(task_id)
+        if is_restore:
+            task.patch(task_id, location_id='')
     return jsonify({'success': True})
 
 
@@ -464,6 +561,32 @@ def _sync_task_status(task_id):
         new_status = t['status']
     if new_status != t['status']:
         task_model.patch(task_id, status=new_status)
+
+
+@schedule_bp.route('/api/simple-blocks', methods=['POST'])
+def api_create_simple_block():
+    """Create a simple block (non-test) that appears in the queue."""
+    data = request.get_json()
+    if not data or not data.get('title', '').strip():
+        return jsonify({'error': '제목을 입력해주세요.'}), 400
+    title = data['title'].strip()
+    minutes = int(data.get('estimated_minutes', 60))
+    hours = round(minutes / 60.0, 4)
+    version_id = data.get('version_id', '')
+    t = task.create(
+        procedure_id='BLK-' + str(int(__import__('time').time()))[-6:],
+        version_id=version_id,
+        assignee_ids=[],
+        location_id='',
+        section_name=title,
+        procedure_owner='',
+        test_list=[],
+        estimated_hours=hours,
+        memo='',
+    )
+    # Mark as simple block
+    task.patch(t['id'], is_simple=True)
+    return jsonify(t), 201
 
 
 @schedule_bp.route('/api/blocks/<block_id>/memo', methods=['PUT'])
@@ -526,43 +649,88 @@ def api_export():
     )
 
 
-@schedule_bp.route('/api/draft/generate', methods=['POST'])
-def api_draft_generate():
-    from schedule.services.scheduler import generate_draft_schedule
-    version_id = _get_current_version_id()
-    if not version_id:
-        return jsonify({'error': '버전을 선택해주세요.'}), 400
-    data = request.get_json() or {}
-    result = generate_draft_schedule(
-        version_id=version_id,
-        start_date=data.get('start_date'),
-        end_date=data.get('end_date'),
-        include_existing=data.get('include_existing', False),
+@schedule_bp.route('/api/blocks/by-task/<task_id>')
+def api_blocks_by_task(task_id):
+    """Return all blocks for a task, with their identifier_ids."""
+    blocks = [b for b in schedule_block.get_all() if b.get('task_id') == task_id]
+    return jsonify({'blocks': blocks})
+
+
+@schedule_bp.route('/api/blocks/shift', methods=['POST'])
+def api_shift_blocks():
+    """Shift all blocks on or after from_date by +1 or -1 day, skipping weekends."""
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '요청 데이터가 없습니다.'}), 400
+    from_date = data.get('from_date', '')
+    direction = data.get('direction', 1)
+    version_id = data.get('version_id', '')
+
+    if not from_date:
+        return jsonify({'error': 'from_date는 필수입니다.'}), 400
+
+    all_blocks = schedule_block.get_all()
+    shifted = 0
+    for b in all_blocks:
+        if b['date'] < from_date:
+            continue
+        if version_id and b.get('version_id') != version_id:
+            continue
+        if b.get('is_locked'):
+            continue
+
+        d = date.fromisoformat(b['date'])
+        d += timedelta(days=direction)
+        # Skip weekends
+        if direction > 0:
+            while d.weekday() >= 5:  # 5=Sat, 6=Sun
+                d += timedelta(days=1)
+        else:
+            while d.weekday() >= 5:
+                d -= timedelta(days=1)
+
+        schedule_block.update(b['id'], date=d.isoformat())
+        shifted += 1
+
+    return jsonify({'success': True, 'shifted_count': shifted})
+
+
+@schedule_bp.route('/api/blocks/<block_id>/split', methods=['POST'])
+def api_split_block(block_id):
+    """Split a block: keep selected identifiers in this block,
+    the rest go back to queue (unscheduled)."""
+    block = schedule_block.get_by_id(block_id)
+    if not block:
+        return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
+
+    data = request.get_json()
+    keep_ids = data.get('keep_identifier_ids', [])
+    if not keep_ids:
+        return jsonify({'error': '유지할 식별자를 선택해주세요.'}), 400
+
+    task_id = block.get('task_id')
+    if not task_id:
+        return jsonify({'error': '간단 블록은 분리할 수 없습니다.'}), 400
+
+    t = task.get_by_id(task_id)
+    if not t:
+        return jsonify({'error': '연결된 시험 항목을 찾을 수 없습니다.'}), 404
+
+    # Calculate new duration based on kept identifiers
+    sttngs = settings.get()
+    test_list = t.get('test_list', [])
+    keep_set = set(keep_ids)
+    keep_hours = sum(
+        item.get('estimated_hours', 0)
+        for item in test_list
+        if isinstance(item, dict) and item.get('id') in keep_set
     )
-    return jsonify({
-        'placed_count': len(result['placed']),
-        'workdays': result.get('workdays', 0),
-        'unplaced': [
-            {
-                'task_id': u['task']['id'],
-                'procedure_id': u['task'].get('procedure_id', ''),
-                'remaining_hours': u['remaining_unscheduled_hours'],
-                'reason': u.get('reason', ''),
-            }
-            for u in result['unplaced']
-        ],
-    })
 
+    # Update block: set identifier_ids and adjust time
+    keep_min = max(int(keep_hours * 60), 15) if keep_hours > 0 else 15
+    new_end_min = time_to_minutes(block['start_time']) + keep_min
+    new_end = minutes_to_time(new_end_min)
+    adjusted_end = adjust_end_for_breaks(block['start_time'], new_end, sttngs)
+    schedule_block.update(block_id, identifier_ids=keep_ids, end_time=adjusted_end)
 
-@schedule_bp.route('/api/draft/approve', methods=['POST'])
-def api_draft_approve():
-    from schedule.services.scheduler import approve_drafts
-    approve_drafts()
-    return jsonify({'success': True})
-
-
-@schedule_bp.route('/api/draft/discard', methods=['POST'])
-def api_draft_discard():
-    from schedule.services.scheduler import discard_drafts
-    discard_drafts()
     return jsonify({'success': True})

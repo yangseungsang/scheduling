@@ -1,4 +1,5 @@
 import calendar as cal_module
+import hashlib
 from datetime import date
 
 from schedule.helpers.time_utils import (
@@ -13,6 +14,15 @@ from schedule.models import (
     task,
     user,
 )
+
+
+def _section_color(section_name):
+    """Generate a consistent HSL color from section_name for visual grouping."""
+    if not section_name:
+        return '#94a3b8'
+    h = int(hashlib.md5(section_name.encode()).hexdigest()[:8], 16)
+    hue = h % 360
+    return f'hsl({hue}, 55%, 45%)'
 
 
 def build_maps():
@@ -42,9 +52,15 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
                 assignee_names.append(u['name'])
                 assignee_colors.append(u['color'])
 
+        is_simple = b.get('is_simple', False)
         block['procedure_id'] = t.get('procedure_id', '') if t else ''
         block['section_name'] = t.get('section_name', '') if t else ''
-        block['task_title'] = t.get('procedure_id', '(삭제됨)') if t else '(삭제됨)'
+        if is_simple:
+            block['task_title'] = b.get('title', '(블록)')
+            block['section_name'] = b.get('title', '')
+            block['procedure_id'] = ''
+        else:
+            block['task_title'] = t.get('section_name') or t.get('procedure_id', '(삭제됨)') if t else '(삭제됨)'
         block['assignee_names'] = assignee_names
         block['assignee_name'] = ', '.join(assignee_names) if assignee_names else '(미배정)'
         block['assignee_color'] = assignee_colors[0] if assignee_colors else '#6c757d'
@@ -53,6 +69,26 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         block['color'] = block['location_color'] if color_by == 'location' else block['assignee_color']
         block['block_status'] = b.get('block_status', 'pending')
         block['memo'] = t.get('memo', '') if t else b.get('memo', '')
+        block['identifier_ids'] = b.get('identifier_ids')
+        block['is_simple'] = b.get('is_simple', False)
+        block['title'] = b.get('title', '')
+        block['section_color'] = _section_color(block['section_name'])
+        total_ids = len(t.get('test_list', [])) if t else 0
+        block_ids = b.get('identifier_ids')
+        block['total_identifier_count'] = total_ids
+        block['block_identifier_count'] = len(block_ids) if block_ids else total_ids
+        block['is_split'] = block_ids is not None and total_ids > 0 and len(block_ids) < total_ids
+
+        # estimated_hours for this block: if split, sum only assigned identifiers
+        if block_ids and t:
+            id_set = set(block_ids)
+            block['estimated_hours'] = round(sum(
+                item.get('estimated_hours', 0)
+                for item in t.get('test_list', [])
+                if isinstance(item, dict) and item.get('id') in id_set
+            ), 2)
+        else:
+            block['estimated_hours'] = t.get('estimated_hours', 0) if t else 0
 
         enriched.append(block)
     return enriched
@@ -67,7 +103,9 @@ def get_queue_tasks(users_map, locations_map, version_id):
 
     scheduled_hours = {}
     for b in all_blocks:
-        tid = b['task_id']
+        tid = b.get('task_id')
+        if not tid:
+            continue
         work_min = work_minutes_in_range(b['start_time'], b['end_time'], sttngs)
         scheduled_hours[tid] = scheduled_hours.get(tid, 0) + work_min / 60.0
 
@@ -84,6 +122,7 @@ def get_queue_tasks(users_map, locations_map, version_id):
 
         task_item = dict(t)
         task_item['remaining_unscheduled_hours'] = round(remaining, 2)
+        task_item['section_color'] = _section_color(t.get('section_name', ''))
 
         assignee_ids = t.get('assignee_ids', [])
         assignee_names = [users_map[uid]['name'] for uid in assignee_ids if uid in users_map]
@@ -98,7 +137,7 @@ def get_queue_tasks(users_map, locations_map, version_id):
 
         queue.append(task_item)
 
-    queue.sort(key=lambda t: t.get('procedure_id', ''))
+    queue.sort(key=lambda t: t.get('section_name', '') or t.get('procedure_id', ''))
     return queue
 
 

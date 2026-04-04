@@ -77,7 +77,7 @@
             {% set col_total = block.col_total|default(1) %}
             {% set col_width = 100.0 / col_total %}
             {% set col_left = col_width * col_index %}
-            <div class="schedule-block{% if block.is_draft %} draft{% endif %} block-status-{{ block.block_status }}"
+            <div class="schedule-block block-status-{{ block.block_status }}"
                  data-block-id="{{ block.id }}"
                  data-task-id="{{ block.task_id }}"
                  data-block-status="{{ block.block_status }}"
@@ -88,20 +88,21 @@
                  data-section-name="{{ block.section_name }}"
                  data-assignee-name="{{ block.assignee_name }}"
                  data-location-name="{{ block.location_name }}"
-                   style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }}; left: {{ col_left }}%; width: {{ col_width }}%; right: auto;">
+                 data-estimated-hours="{{ block.get('estimated_hours', 0) if block.get('task_id') else 0 }}"
+                 data-identifier-ids='{{ block.identifier_ids|tojson if block.identifier_ids else "" }}'
+                   style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }}; left: {{ col_left }}%; width: {{ col_width }}%; right: auto; ">
               <div class="resize-handle resize-handle-top"></div>
               <div class="block-title">
-                {{ block.procedure_id }}
-                {% if block.section_name %}<span class="block-section">{{ block.section_name }}</span>{% endif %}
+                {{ block.section_name or block.procedure_id }}
+                {% if block.is_split %}
+                <span class="block-split-badge" title="분할 배치: {{ block.block_identifier_count }}/{{ block.total_identifier_count }}개 식별자">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>
+                {% endif %}
                 <span class="block-status-badge badge-status-{{ block.block_status }}">
                   {% if block.block_status == 'in_progress' %}진행
                   {% elif block.block_status == 'completed' %}완료
                   {% elif block.block_status == 'cancelled' %}불가
                   {% endif %}
                 </span>
-              </div>
-              <div class="block-meta">
-                <span class="block-assignee">{{ block.assignee_name }}</span>
               </div>
               <div class="block-info">
                 <span class="block-time">{{ block.start_time }}–{{ block.end_time }}</span>
@@ -158,6 +159,7 @@
     {start: '{{ brk.start }}', end: '{{ brk.end }}'}
     {% endfor %}
   ];
+  window.GRID_INTERVAL = {{ settings.grid_interval_minutes }};
 </script>
 <script src="{{ url_for('static', filename='js/drag_drop.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}

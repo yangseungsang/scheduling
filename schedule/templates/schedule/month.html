@@ -24,9 +24,10 @@
         <i class="bi bi-chevron-right"></i>
       </a>
       <h5 class="mb-0 ms-2">{{ year }}년 {{ month }}월</h5>
+      <button class="btn btn-sm btn-outline-secondary ms-2" id="btn-toggle-weekends" title="주말 표시/숨기기">
+        <i class="bi bi-calendar-x"></i> 주말
+      </button>
     </div>
-
-    {% include "schedule/_location_filter.html" %}
 
     {# Calendar grid #}
     <div class="schedule-body month-body">
@@ -34,7 +35,7 @@
         <thead>
           <tr>
             {% for name in day_names %}
-            <th>{{ name }}</th>
+            <th data-weekday="{{ loop.index0 }}">{{ name }}</th>
             {% endfor %}
           </tr>
         </thead>
@@ -53,7 +54,7 @@
                 </a>
               </div>
               {% for block in day_data.blocks[:3] %}
-              <div class="month-block-item{% if block.is_draft %} draft{% endif %} block-status-{{ block.block_status }}"
+              <div class="month-block-item block-status-{{ block.block_status }}"
                    data-block-id="{{ block.id }}"
                    data-task-id="{{ block.task_id }}"
                    data-block-status="{{ block.block_status }}"
@@ -64,12 +65,13 @@
                    data-location-name="{{ block.location_name }}"
                    data-start-time="{{ block.start_time }}"
                    data-end-time="{{ block.end_time }}"
+                   data-identifier-ids='{{ block.identifier_ids|tojson if block.identifier_ids else "" }}'
                    style="background-color: {{ block.color }};"
                    title="{{ block.task_title }} ({{ block.assignee_name }}) {{ block.start_time }}–{{ block.end_time }}">
                 {% if block.block_status == 'in_progress' %}<i class="bi bi-play-circle-fill month-status-icon"></i>
                 {% elif block.block_status == 'completed' %}<i class="bi bi-check-circle-fill month-status-icon"></i>
                 {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-circle-fill month-status-icon"></i>
-                {% endif %}{{ block.task_title }} <span class="month-block-time">{{ block.start_time }}–{{ block.end_time }}</span>
+                {% endif %}{{ block.section_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %} <span class="month-block-time">{{ block.start_time }}–{{ block.end_time }}</span>
               </div>
               {% endfor %}
               {% if day_data.blocks|length > 3 %}
@@ -95,6 +97,7 @@
     {start: '{{ brk.start }}', end: '{{ brk.end }}'}
     {% endfor %}
   ];
+  window.GRID_INTERVAL = {{ settings.grid_interval_minutes }};
 </script>
 <script src="{{ url_for('static', filename='js/drag_drop.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}

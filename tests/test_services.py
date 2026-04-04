@@ -1,4 +1,4 @@
-"""Tests for schedule.services (scheduler + procedure)."""
+"""Tests for schedule.services (procedure lookup)."""
 import json
 import os
 import pytest
@@ -12,6 +12,18 @@ def app(tmp_path):
     for name in ('users', 'locations', 'tasks', 'schedule_blocks', 'versions'):
         with open(os.path.join(data_dir, f'{name}.json'), 'w') as f:
             json.dump([], f)
+    with open(os.path.join(data_dir, 'procedures.json'), 'w') as f:
+        json.dump([
+            {
+                'procedure_id': 'SYS-001',
+                'section_name': '3.1 시스템 초기화',
+                'procedure_owner': '김민수',
+                'test_list': [
+                    {'id': 'TC-001', 'estimated_hours': 0},
+                    {'id': 'TC-002', 'estimated_hours': 0},
+                ],
+            }
+        ], f)
     with open(os.path.join(data_dir, 'settings.json'), 'w') as f:
         json.dump({
             'work_start': '08:00', 'work_end': '17:00',
@@ -28,66 +40,16 @@ def app(tmp_path):
     yield application
 
 
-def _make_task(app, procedure_id='ABC-001', version_id='v_1',
-               assignee_ids=None, location_id='loc_1',
-               hours=3.0):
-    with app.app_context():
-        from schedule.models import task
-        return task.create(
-            procedure_id=procedure_id, version_id=version_id,
-            assignee_ids=assignee_ids or ['u_a'],
-            location_id=location_id,
-            section_name='test', procedure_owner='owner',
-            test_list=[], estimated_hours=hours,
-            memo='',
-        )
-
-
-class TestScheduler:
-    def test_same_day_completion(self, app):
-        t = _make_task(app, hours=3.0)
+class TestProcedureLookup:
+    def test_lookup_existing(self, app):
         with app.app_context():
-            from schedule.services.scheduler import generate_draft_schedule
-            result = generate_draft_schedule(version_id='v_1')
-            assert len(result['placed']) >= 1
-            dates = set(b['date'] for b in result['placed'] if b['task_id'] == t['id'])
-            assert len(dates) == 1
+            from schedule.services.procedure import lookup
+            result = lookup('SYS-001')
+            assert result is not None
+            assert result['section_name'] == '3.1 시스템 초기화'
 
-    def test_task_exceeding_daily_hours_unplaced(self, app):
-        _make_task(app, hours=20.0)
+    def test_lookup_missing(self, app):
         with app.app_context():
-            from schedule.services.scheduler import generate_draft_schedule
-            result = generate_draft_schedule(version_id='v_1')
-            assert len(result['unplaced']) == 1
-
-    def test_version_filter(self, app):
-        _make_task(app, procedure_id='ABC-001', version_id='v_1', hours=2.0)
-        _make_task(app, procedure_id='DEF-001', version_id='v_2', hours=2.0)
-        with app.app_context():
-            from schedule.services.scheduler import generate_draft_schedule
-            result = generate_draft_schedule(version_id='v_1')
-            task_ids_placed = set(b['task_id'] for b in result['placed'])
-            from schedule.models import task
-            for tid in task_ids_placed:
-                t = task.get_by_id(tid)
-                assert t['version_id'] == 'v_1'
-
-    def test_location_conflict_prevention(self, app):
-        _make_task(app, procedure_id='ABC-001', version_id='v_1',
-                   assignee_ids=['u_a'], location_id='loc_1', hours=3.0)
-        _make_task(app, procedure_id='ABC-002', version_id='v_1',
-                   assignee_ids=['u_b'], location_id='loc_1', hours=3.0)
-        with app.app_context():
-            from schedule.services.scheduler import generate_draft_schedule
-            from schedule.helpers.time_utils import time_to_minutes
-            result = generate_draft_schedule(version_id='v_1')
-            blocks_by_date_loc = {}
-            for b in result['placed']:
-                key = (b['date'], b['location_id'])
-                blocks_by_date_loc.setdefault(key, []).append(b)
-            for key, blist in blocks_by_date_loc.items():
-                for i, b1 in enumerate(blist):
-                    for b2 in blist[i+1:]:
-                        s1, e1 = time_to_minutes(b1['start_time']), time_to_minutes(b1['end_time'])
-                        s2, e2 = time_to_minutes(b2['start_time']), time_to_minutes(b2['end_time'])
-                        assert not (s1 < e2 and s2 < e1), f"Location overlap: {b1} vs {b2}"
+            from schedule.services.procedure import lookup
+            result = lookup('NONEXIST-001')
+            assert result is None

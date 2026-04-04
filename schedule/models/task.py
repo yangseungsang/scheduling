@@ -9,6 +9,36 @@ def get_all():
     return read_json(FILENAME)
 
 
+def validate_unique_identifiers(test_list, exclude_task_id=None):
+    """Check that identifier IDs in test_list are globally unique across all tasks.
+
+    Returns list of duplicate IDs, or empty list if all unique.
+    """
+    new_ids = [item['id'] for item in test_list if isinstance(item, dict)]
+    if not new_ids:
+        return []
+
+    existing_ids = set()
+    for t in read_json(FILENAME):
+        if exclude_task_id and t['id'] == exclude_task_id:
+            continue
+        for item in t.get('test_list', []):
+            if isinstance(item, dict):
+                existing_ids.add(item['id'])
+            else:
+                existing_ids.add(item)
+    return [i for i in new_ids if i in existing_ids]
+
+
+def compute_estimated_hours(test_list):
+    """Sum estimated_hours from test_list identifiers."""
+    total = 0
+    for item in (test_list or []):
+        if isinstance(item, dict):
+            total += item.get('estimated_hours', 0)
+    return round(total, 2)
+
+
 def get_by_id(task_id):
     for t in read_json(FILENAME):
         if t['id'] == task_id:

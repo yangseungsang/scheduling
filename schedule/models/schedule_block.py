@@ -43,7 +43,8 @@ def get_by_location_and_date(location_id, date_str):
 def create(task_id, assignee_ids, location_id, version_id,
            date, start_time, end_time,
            is_draft=False, is_locked=False, origin='manual',
-           block_status='pending'):
+           block_status='pending', identifier_ids=None,
+           title='', is_simple=False):
     blocks = read_json(FILENAME)
     block = {
         'id': generate_id('sb_'),
@@ -59,6 +60,9 @@ def create(task_id, assignee_ids, location_id, version_id,
         'origin': origin,
         'block_status': block_status,
         'memo': '',
+        'identifier_ids': identifier_ids,
+        'title': title,
+        'is_simple': is_simple,
     }
     blocks.append(block)
     write_json(FILENAME, blocks)
@@ -68,7 +72,7 @@ def create(task_id, assignee_ids, location_id, version_id,
 ALLOWED_FIELDS = {
     'date', 'start_time', 'end_time', 'is_draft', 'is_locked',
     'block_status', 'task_id', 'assignee_ids', 'location_id',
-    'version_id', 'origin', 'memo',
+    'version_id', 'origin', 'memo', 'identifier_ids', 'title', 'is_simple',
 }
 
 

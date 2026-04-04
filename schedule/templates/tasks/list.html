@@ -50,8 +50,11 @@
       <input type="text" name="procedure" class="form-control form-control-sm tl-sel"
              placeholder="절차서 검색" value="{{ filters.procedure }}"
              onchange="this.form.submit()">
+      <input type="date" name="date" class="form-control form-control-sm tl-sel"
+             value="{{ filters.date }}" title="날짜 필터"
+             onchange="this.form.submit()">
     </div>
-    {% set has_filter = filters.status or filters.assignees or filters.location or filters.procedure or filters.version %}
+    {% set has_filter = filters.status or filters.assignees or filters.location or filters.procedure or filters.version or filters.date %}
     {% if has_filter %}
     <div class="tl-filter-chips">
       {% if filters.version %}
@@ -78,9 +81,16 @@
 
   <div class="task-table-wrap">
     <table class="task-table">
+      <colgroup>
+        <col style="width:30%">
+        <col style="width:15%">
+        <col style="width:10%">
+        <col style="width:15%">
+        <col style="width:8%">
+        <col style="width:22%">
+      </colgroup>
       <thead>
         <tr>
-          <th>절차서 ID</th>
           <th>장절명</th>
           <th>담당자</th>
           <th>장소</th>
@@ -92,8 +102,7 @@
       <tbody>
         {% for task in tasks %}
         <tr class="task-row" onclick="location.href='{{ url_for('tasks.task_detail', task_id=task.id) }}'">
-          <td class="text-nowrap fw-bold">{{ task.procedure_id }}</td>
-          <td class="task-cell-title">{{ task.section_name or '-' }}</td>
+          <td class="task-cell-title fw-bold">{{ task.section_name or '-' }}</td>
           <td>
             {% for uid in task.assignee_ids %}
               {{ user_map.get(uid, uid) }}{% if not loop.last %}, {% endif %}
@@ -113,8 +122,26 @@
           </td>
           <td>
             {% set sched_status = schedule_status_map.get(task.id, 'queue') %}
+            {% set split = split_info_map.get(task.id, {}) %}
             {% if sched_status == 'scheduled' %}
-            <span class="task-sched-chip sched-scheduled"><i class="bi bi-calendar-check"></i> 배치됨</span>
+              {% if split.get('has_split') %}
+              <span class="task-sched-chip sched-split" data-toggle-blocks="{{ task.id }}" onclick="event.stopPropagation()"><i class="bi bi-scissors"></i> 분할 ({{ split.get('block_count', 0) }}건)</span>
+              {% elif split.get('block_count', 0) > 1 %}
+              <span class="task-sched-chip sched-scheduled" data-toggle-blocks="{{ task.id }}" onclick="event.stopPropagation()"><i class="bi bi-calendar-check"></i> 배치 ({{ split.get('block_count', 0) }}건)</span>
+              {% else %}
+              <span class="task-sched-chip sched-scheduled" data-toggle-blocks="{{ task.id }}" onclick="event.stopPropagation()"><i class="bi bi-calendar-check"></i> 배치됨</span>
+              {% endif %}
+              {% if split.get('blocks') %}
+              <div class="task-block-dropdown" id="blocks-{{ task.id }}" style="display:none">
+                {% for blk in split.get('blocks', []) %}
+                <a href="{{ url_for('schedule.day_view', date=blk.date) }}" class="task-block-link" onclick="event.stopPropagation()">
+                  {{ blk.date }} {{ blk.start_time }}–{{ blk.end_time }}
+                  {% if blk.location_name %}<span class="text-muted">@ {{ blk.location_name }}</span>{% endif %}
+                  {% if blk.identifier_ids %}<span class="task-block-ids">{{ blk.identifier_ids|join(', ') }}</span>{% endif %}
+                </a>
+                {% endfor %}
+              </div>
+              {% endif %}
             {% else %}
             <span class="task-sched-chip sched-queue"><i class="bi bi-inbox"></i> 큐</span>
             {% endif %}
@@ -123,11 +150,24 @@
         {% endfor %}
         {% if not tasks %}
         <tr>
-          <td colspan="7" class="task-empty-cell">등록된 시험 항목이 없습니다.</td>
+          <td colspan="6" class="task-empty-cell">등록된 시험 항목이 없습니다.</td>
         </tr>
         {% endif %}
       </tbody>
     </table>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll('[data-toggle-blocks]').forEach(function(el) {
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var dd = document.getElementById('blocks-' + el.dataset.toggleBlocks);
+    if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+  });
+});
+</script>
 {% endblock %}

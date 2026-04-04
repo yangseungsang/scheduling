@@ -3,28 +3,63 @@
 
 {% block content %}
 <h2>{{ '시험 항목 수정' if task else '시험 항목 추가' }}</h2>
-<form method="POST" class="mt-3" style="max-width: 600px;">
+<form method="POST" class="mt-3" style="max-width: 700px;" id="task-form">
+
+  {# ── 장절 정보 (최상단) ── #}
   <div class="mb-3">
-    <label class="form-label">절차서 식별자</label>
-    <input type="text" class="form-control" name="procedure_id" id="procedure_id"
-           value="{{ task.procedure_id if task else '' }}"
-           placeholder="예: ABC-001" pattern="[A-Za-z]{3}-\d+"
-           required>
-    <div class="form-text">영문 3자리-숫자 형식 (예: SYS-001, NAV-042)</div>
+    <label class="form-label fw-bold">장절명</label>
+    <input type="text" class="form-control" name="section_name" id="section_name"
+           value="{{ task.section_name if task else '' }}" placeholder="예: 3.1 시스템 초기화" required>
   </div>
-  <div id="procedure-info" style="display:none" class="alert alert-info mb-3">
-    <div><strong>장절명:</strong> <span id="pi-section"></span></div>
-    <div><strong>절차서 담당자:</strong> <span id="pi-owner"></span></div>
-    <div><strong>시험목록:</strong> <span id="pi-tests"></span></div>
-  </div>
+  <input type="hidden" name="procedure_id" id="procedure_id" value="{{ task.procedure_id if task else 'AUTO' }}">
+  <input type="hidden" name="procedure_owner" value="{{ task.procedure_owner if task else '' }}">
+
+  {# ── 시험 식별자 목록 ── #}
   <div class="mb-3">
-    <label class="form-label">소프트웨어 버전</label>
-    <select name="version_id" class="form-select" required>
-      <option value="">선택</option>
-      {% for v in versions %}
-      <option value="{{ v.id }}" {{ 'selected' if task and task.version_id == v.id }}>{{ v.name }}{% if not v.is_active %} (비활성){% endif %}</option>
-      {% endfor %}
-    </select>
+    <label class="form-label fw-bold">시험 식별자 (시험항목)</label>
+    <table class="table table-sm table-bordered" id="identifier-table">
+      <thead>
+        <tr>
+          <th style="width:25%">식별자 ID</th>
+          <th style="width:30%">작성자 (쉼표 구분)</th>
+          <th style="width:20%">예상시간 (분)</th>
+          <th style="width:25%"></th>
+        </tr>
+      </thead>
+      <tbody id="identifier-body">
+      </tbody>
+    </table>
+    <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-identifier">
+      <i class="bi bi-plus-lg"></i> 식별자 추가
+    </button>
+    <div class="mt-2">
+      <strong>합계 예상시간: <span id="total-est-display">0</span>분</strong>
+    </div>
+    <div id="identifier-error" class="text-danger mt-1" style="display:none"></div>
+  </div>
+  <input type="hidden" name="test_list_json" id="test_list_json">
+  <input type="hidden" name="estimated_hours" id="estimated_hours_hidden" value="{{ task.estimated_hours if task else 0 }}">
+
+  {# ── 배정 정보 ── #}
+  <div class="row mb-3">
+    <div class="col">
+      <label class="form-label">소프트웨어 버전</label>
+      <select name="version_id" class="form-select" required>
+        <option value="">선택</option>
+        {% for v in versions %}
+        <option value="{{ v.id }}" {{ 'selected' if task and task.version_id == v.id }}>{{ v.name }}{% if not v.is_active %} (비활성){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col">
+      <label class="form-label">시험장소</label>
+      <select name="location_id" class="form-select">
+        <option value="">선택 안 함</option>
+        {% for loc in locations %}
+        <option value="{{ loc.id }}" {{ 'selected' if task and task.location_id == loc.id }}>{{ loc.name }}{% if loc.description %} ({{ loc.description }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
   </div>
   <div class="mb-3">
     <label class="form-label">시험 담당자 (복수 선택 가능)</label>
@@ -35,50 +70,23 @@
     </select>
     <div id="assignee-chips" class="mt-1"></div>
   </div>
-  <div class="mb-3">
-    <label class="form-label">시험장소</label>
-    <select name="location_id" class="form-select">
-      <option value="">선택 안 함</option>
-      {% for loc in locations %}
-      <option value="{{ loc.id }}" {{ 'selected' if task and task.location_id == loc.id }}>{{ loc.name }}{% if loc.description %} ({{ loc.description }}){% endif %}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="mb-3">
-    <label class="form-label">장절명</label>
-    <input type="text" class="form-control" name="section_name" id="section_name"
-           value="{{ task.section_name if task else '' }}">
-  </div>
-  <div class="mb-3">
-    <label class="form-label">절차서 담당자</label>
-    <input type="text" class="form-control" name="procedure_owner" id="procedure_owner"
-           value="{{ task.procedure_owner if task else '' }}">
-  </div>
-  <div class="mb-3">
-    <label class="form-label">시험목록</label>
-    <input type="text" class="form-control" name="test_list" id="test_list"
-           value="{{ task.test_list|join(', ') if task and task.test_list else '' }}"
-           placeholder="TC-001, TC-002, TC-003">
-    <div class="form-text">쉼표로 구분</div>
-  </div>
-  <div class="mb-3">
-    <label class="form-label">예상 시간</label>
-    <input type="number" class="form-control" name="estimated_hours" min="0" step="0.5"
-           value="{{ task.estimated_hours if task else '' }}">
-  </div>
+
+  {# ── 상태/메모 ── #}
   {% if task %}
-  <div class="mb-3">
-    <label class="form-label">잔여 시간</label>
-    <input type="number" class="form-control" name="remaining_hours" min="0" step="0.5"
-           value="{{ task.remaining_hours }}">
-  </div>
-  <div class="mb-3">
-    <label class="form-label">상태</label>
-    <select name="status" class="form-select">
-      <option value="waiting" {{ 'selected' if task.status == 'waiting' }}>대기</option>
-      <option value="in_progress" {{ 'selected' if task.status == 'in_progress' }}>진행 중</option>
-      <option value="completed" {{ 'selected' if task.status == 'completed' }}>완료</option>
-    </select>
+  <div class="row mb-3">
+    <div class="col">
+      <label class="form-label">잔여 시간 (분)</label>
+      <input type="number" class="form-control" name="remaining_hours_min" min="0" step="1"
+             value="{{ (task.remaining_hours * 60)|int }}">
+    </div>
+    <div class="col">
+      <label class="form-label">상태</label>
+      <select name="status" class="form-select">
+        <option value="waiting" {{ 'selected' if task.status == 'waiting' }}>대기</option>
+        <option value="in_progress" {{ 'selected' if task.status == 'in_progress' }}>진행 중</option>
+        <option value="completed" {{ 'selected' if task.status == 'completed' }}>완료</option>
+      </select>
+    </div>
   </div>
   {% endif %}
   <div class="mb-3">
@@ -96,39 +104,115 @@
 
 {% block scripts %}
 <script>
-document.getElementById('procedure_id').addEventListener('blur', function() {
-  var pid = this.value.trim();
-  if (!pid) return;
-  fetch('/tasks/api/procedure/' + encodeURIComponent(pid))
-    .then(function(r) { return r.ok ? r.json() : null; })
-    .then(function(data) {
-      if (!data) { document.getElementById('procedure-info').style.display = 'none'; return; }
-      document.getElementById('pi-section').textContent = data.section_name || '';
-      document.getElementById('pi-owner').textContent = data.procedure_owner || '';
-      document.getElementById('pi-tests').textContent = (data.test_list || []).join(', ');
-      document.getElementById('procedure-info').style.display = 'block';
-      if (!document.getElementById('section_name').value) document.getElementById('section_name').value = data.section_name || '';
-      if (!document.getElementById('procedure_owner').value) document.getElementById('procedure_owner').value = data.procedure_owner || '';
-      if (!document.getElementById('test_list').value) document.getElementById('test_list').value = (data.test_list || []).join(', ');
-    });
-});
-
 (function() {
+  var tbody = document.getElementById('identifier-body');
+  var totalDisplay = document.getElementById('total-est-display');
+  var hiddenJson = document.getElementById('test_list_json');
+  var hiddenEst = document.getElementById('estimated_hours_hidden');
+  var errDiv = document.getElementById('identifier-error');
+
+  // Load existing test_list
+  var initialList = {{ (task.test_list if task else [])|tojson }};
+  if (initialList && initialList.length) {
+    initialList.forEach(function(item) {
+      if (typeof item === 'string') {
+        addRow(item, [], 0);
+      } else {
+        addRow(item.id, item.owners || [], Math.round((item.estimated_hours || 0) * 60));
+      }
+    });
+  }
+  updateTotal();
+
+  function addRow(id, owners, minutes) {
+    owners = owners || [];
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><input type="text" class="form-control form-control-sm id-input" value="' + (id || '') + '" placeholder="TC-001" required></td>' +
+      '<td><input type="text" class="form-control form-control-sm owners-input" value="' + owners.join(', ') + '" placeholder="작성자 (쉼표 구분)"></td>' +
+      '<td><input type="number" class="form-control form-control-sm min-input" value="' + (minutes || 0) + '" min="0" step="5"></td>' +
+      '<td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-id">&times;</button></td>';
+    tbody.appendChild(tr);
+    tr.querySelector('.min-input').addEventListener('input', updateTotal);
+    tr.querySelector('.btn-remove-id').addEventListener('click', function() {
+      tr.remove();
+      updateTotal();
+    });
+  }
+
+  function updateTotal() {
+    var rows = tbody.querySelectorAll('tr');
+    var total = 0;
+    rows.forEach(function(row) {
+      total += parseInt(row.querySelector('.min-input').value) || 0;
+    });
+    totalDisplay.textContent = total;
+    hiddenEst.value = (total / 60.0).toFixed(4);
+  }
+
+  document.getElementById('btn-add-identifier').addEventListener('click', function() {
+    addRow('', [], 0);
+  });
+
+  // Before submit: serialize test_list and validate
+  document.getElementById('task-form').addEventListener('submit', function(e) {
+    var rows = tbody.querySelectorAll('tr');
+    var list = [];
+    var ids = [];
+    var hasEmpty = false;
+    rows.forEach(function(row) {
+      var idVal = row.querySelector('.id-input').value.trim();
+      var ownersRaw = row.querySelector('.owners-input').value.trim();
+      var ownersArr = ownersRaw ? ownersRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+      var minVal = parseInt(row.querySelector('.min-input').value) || 0;
+      if (!idVal) { hasEmpty = true; return; }
+      ids.push(idVal);
+      list.push({id: idVal, owners: ownersArr, estimated_hours: minVal / 60.0});
+    });
+    if (hasEmpty) {
+      e.preventDefault();
+      errDiv.textContent = '식별자 ID를 입력해주세요.';
+      errDiv.style.display = 'block';
+      return;
+    }
+    var seen = {};
+    for (var i = 0; i < ids.length; i++) {
+      if (seen[ids[i]]) {
+        e.preventDefault();
+        errDiv.textContent = '중복 식별자: ' + ids[i];
+        errDiv.style.display = 'block';
+        return;
+      }
+      seen[ids[i]] = true;
+    }
+    errDiv.style.display = 'none';
+    hiddenJson.value = JSON.stringify(list);
+  });
+
+  // Auto-generate procedure_id if hidden
+  document.getElementById('task-form').addEventListener('submit', function() {
+    var pidEl = document.getElementById('procedure_id');
+    if (!pidEl.value || pidEl.value === 'AUTO') {
+      pidEl.value = 'SEC-' + Date.now().toString(36).toUpperCase().slice(-4);
+    }
+  });
+
+  // Assignee chips
   var sel = document.getElementById('assignee-select');
   var chips = document.getElementById('assignee-chips');
-  function render() {
+  function renderChips() {
     chips.innerHTML = '';
     Array.from(sel.selectedOptions).forEach(function(opt) {
       var chip = document.createElement('span');
       chip.className = 'badge bg-primary me-1 mb-1';
       chip.style.cursor = 'pointer';
       chip.textContent = opt.text + ' \u00d7';
-      chip.addEventListener('click', function() { opt.selected = false; render(); });
+      chip.addEventListener('click', function() { opt.selected = false; renderChips(); });
       chips.appendChild(chip);
     });
   }
-  sel.addEventListener('change', render);
-  render();
+  sel.addEventListener('change', renderChips);
+  renderChips();
 })();
 </script>
 {% endblock %}

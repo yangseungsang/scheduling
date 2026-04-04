@@ -35,6 +35,6 @@ def create_app():
 
     @app.route('/')
     def index():
-        return redirect(url_for('schedule.day_view'))
+        return redirect(url_for('schedule.week_view'))
 
     return app

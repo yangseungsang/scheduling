@@ -4,7 +4,7 @@
 (function () {
   'use strict';
 
-  var GRID_MINUTES = 15;
+  var GRID_MINUTES = window.GRID_INTERVAL || 15;
   var SLOT_HEIGHT = 24;
 
   // =====================================================================
@@ -98,6 +98,47 @@
   }
 
   // =====================================================================
+  // Custom confirm modal (replaces browser confirm)
+  // =====================================================================
+  function showConfirmModal(message, opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var old = document.getElementById('confirm-modal');
+      if (old) old.remove();
+
+      var overlay = document.createElement('div');
+      overlay.id = 'confirm-modal';
+      overlay.className = 'remaining-alert-overlay';
+      overlay.innerHTML =
+        '<div class="remaining-alert-box">' +
+          (opts.icon !== false
+            ? '<div class="remaining-alert-icon"><i class="bi bi-' + (opts.icon || 'question-circle-fill') + '"></i></div>'
+            : '') +
+          (opts.title ? '<div class="remaining-alert-title">' + opts.title + '</div>' : '') +
+          '<div class="remaining-alert-body">' + message + '</div>' +
+          '<div style="display:flex;gap:8px;justify-content:center;margin-top:12px;">' +
+            '<button class="remaining-alert-btn" id="confirm-modal-cancel" style="background:#94a3b8">' + (opts.cancelText || '취소') + '</button>' +
+            '<button class="remaining-alert-btn" id="confirm-modal-ok">' + (opts.okText || '확인') + '</button>' +
+          '</div>' +
+        '</div>';
+
+      document.body.appendChild(overlay);
+
+      document.getElementById('confirm-modal-ok').addEventListener('click', function () {
+        overlay.remove();
+        resolve(true);
+      });
+      document.getElementById('confirm-modal-cancel').addEventListener('click', function () {
+        overlay.remove();
+        resolve(false);
+      });
+      overlay.addEventListener('click', function (e) {
+        if (e.target === overlay) { overlay.remove(); resolve(false); }
+      });
+    });
+  }
+
+  // =====================================================================
   // Time helpers
   // =====================================================================
   function pad(n) { return String(n).padStart(2, '0'); }
@@ -165,9 +206,17 @@
     if (weekGuideLocs) return weekGuideLocs;
     var locs = getLocations();
     if (locs.length === 0) return locs;
-    var activeBtn = document.querySelector('.loc-filter-btn.active');
-    if (activeBtn && activeBtn.dataset.locId) {
-      locs = locs.filter(function (l) { return l.id === activeBtn.dataset.locId; });
+    // Check if "전체" is active
+    var allBtn = document.querySelector('.loc-filter-btn.active[data-loc-id=""]');
+    if (!allBtn) {
+      // Filter to only active locations
+      var activeIds = {};
+      document.querySelectorAll('.loc-filter-btn.active[data-loc-id]').forEach(function (b) {
+        if (b.dataset.locId) activeIds[b.dataset.locId] = true;
+      });
+      if (Object.keys(activeIds).length > 0) {
+        locs = locs.filter(function (l) { return activeIds[l.id]; });
+      }
     }
     weekGuideLocs = locs;
     return locs;
@@ -440,10 +489,12 @@
         var locationId = item.dataset.locationId || '';
         var versionId = item.dataset.versionId || '';
         var remaining = parseFloat(item.dataset.remainingHours) || 1;
-        var procedureId = (item.querySelector('.queue-card-id') || item.querySelector('.queue-task-title') || {}).textContent || '';
-        var title = procedureId;
+        var title = (item.querySelector('.queue-card-section-title') || item.querySelector('.queue-card-id') || {}).textContent || '';
 
-        // Calculate expected block height: remaining hours * 60 / grid * slot_height
+        var testListRaw = item.dataset.testList || '[]';
+        var testList = [];
+        try { testList = JSON.parse(testListRaw); } catch(e2) {}
+
         var blockMin = Math.round(remaining * 60);
         blockMin = Math.max(blockMin, GRID_MINUTES);
         blockMin = Math.round(blockMin / GRID_MINUTES) * GRID_MINUTES;
@@ -456,41 +507,88 @@
           ghostWidth: 150,
           ghostHeight: expectedHeight,
           onDrop: function (target) {
-            if (target.type === 'slot') {
-              var t = snapMin(timeToMin(target.time));
-              var dropLocationId = target.locationId || locationId;
-              var prevRem;
-              getTaskRemaining(taskId).then(function (r) {
-                prevRem = r;
-                return api('POST', '/schedule/api/blocks', {
-                  task_id: taskId, assignee_ids: assigneeIds,
-                  location_id: dropLocationId, version_id: versionId,
-                  date: target.date,
-                  start_time: minToTime(t),
-                  end_time: minToTime(t + blockMin),
-                  origin: 'manual',
-                });
-              }).then(function () {
-                return checkRemainingAfterPlace(taskId, procedureId, prevRem);
-              }).then(function () { location.reload(); })
-                .catch(function (err) { showToast(err.message, 'danger'); });
+            if (target.type === 'queue') return; // dropped back into queue — do nothing
+            function createBlock(selectedIds, overrideMin) {
+              var bMin = overrideMin || blockMin;
+              var identifierIds = selectedIds || null;
+              if (target.type === 'slot') {
+                var t = snapMin(timeToMin(target.time));
+                var dropLocationId = target.locationId || locationId;
+                var prevRem;
+                getTaskRemaining(taskId).then(function (r) {
+                  prevRem = r;
+                  return api('POST', '/schedule/api/blocks', {
+                    task_id: taskId, assignee_ids: assigneeIds,
+                    location_id: dropLocationId, version_id: versionId,
+                    date: target.date,
+                    start_time: minToTime(t),
+                    end_time: minToTime(t + bMin),
+                    origin: 'manual',
+                    identifier_ids: identifierIds,
+                  });
+                }).then(function () {
+                  return checkRemainingAfterPlace(taskId, title.trim(), prevRem);
+                }).then(function () { location.reload(); })
+                  .catch(function (err) { showToast(err.message, 'danger'); });
+              } else if (target.type === 'month') {
+                var prevRem2;
+                getTaskRemaining(taskId).then(function (r) {
+                  prevRem2 = r;
+                  return api('POST', '/schedule/api/blocks', {
+                    task_id: taskId, assignee_ids: assigneeIds,
+                    location_id: locationId, version_id: versionId,
+                    date: target.date,
+                    start_time: '08:30',
+                    end_time: minToTime(510 + bMin),
+                    origin: 'manual',
+                    identifier_ids: identifierIds,
+                  });
+                }).then(function () {
+                  return checkRemainingAfterPlace(taskId, title.trim(), prevRem2);
+                }).then(function () { location.reload(); })
+                  .catch(function (err) { showToast(err.message, 'danger'); });
+              }
+            }
 
-            } else if (target.type === 'month') {
-              var prevRem2;
-              getTaskRemaining(taskId).then(function (r) {
-                prevRem2 = r;
-                return api('POST', '/schedule/api/blocks', {
-                  task_id: taskId, assignee_ids: assigneeIds,
-                  location_id: locationId, version_id: versionId,
-                  date: target.date,
-                  start_time: '08:30',
-                  end_time: minToTime(510 + blockMin),
-                  origin: 'manual',
+            // If multiple identifiers, show picker with scheduled status
+            if (testList.length > 1) {
+              // Fetch existing blocks for this task to find already-placed identifiers
+              api('GET', '/schedule/api/blocks/by-task/' + taskId).then(function (res) {
+                var existingBlocks = (res && res.blocks) || [];
+                var scheduledIds = [];
+                existingBlocks.forEach(function (b) {
+                  var ids = b.identifier_ids;
+                  if (ids && ids.length) {
+                    // Only explicitly assigned identifiers count as scheduled
+                    ids.forEach(function (id) { scheduledIds.push(id); });
+                  }
+                  // identifier_ids=null means not split — don't mark all as scheduled
                 });
-              }).then(function () {
-                return checkRemainingAfterPlace(taskId, procedureId, prevRem2);
-              }).then(function () { location.reload(); })
-                .catch(function (err) { showToast(err.message, 'danger'); });
+
+                showIdentifierPicker(testList, { scheduledIds: scheduledIds }, function (selected) {
+                  if (!selected) return;
+                  var allIds = testList.map(function (s) { return typeof s === 'object' ? s.id : s; });
+                  var selectedIds = selected.map(function (s) { return typeof s === 'object' ? s.id : s; });
+                  var isAll = selectedIds.length === allIds.length;
+                  if (isAll) {
+                    createBlock(null, null);
+                  } else {
+                    var totalMin = 0;
+                    selected.forEach(function (s) { totalMin += typeof s === 'object' ? Math.round((s.estimated_hours || 0) * 60) : 0; });
+                    totalMin = Math.max(totalMin, GRID_MINUTES);
+                    totalMin = Math.round(totalMin / GRID_MINUTES) * GRID_MINUTES;
+                    createBlock(selectedIds, totalMin);
+                  }
+                });
+              }).catch(function () {
+                // Fallback: show picker without scheduled info
+                showIdentifierPicker(testList, function (selected) {
+                  if (!selected) return;
+                  createBlock(null, null);
+                });
+              });
+            } else {
+              createBlock(null, null);
             }
           },
         });
@@ -588,8 +686,10 @@
 
           var firstSlot = document.querySelector('.time-slot[data-time]');
           var wsMin = firstSlot ? timeToMin(firstSlot.dataset.time) : 540;
-          var newStartMin = wsMin + Math.round(finalTop / SLOT_HEIGHT) * GRID_MINUTES;
-          var durMin = Math.round(finalH / SLOT_HEIGHT) * GRID_MINUTES;
+          var slotFromTop = Math.round(finalTop / SLOT_HEIGHT);
+          var slotCount = Math.round(finalH / SLOT_HEIGHT);
+          var newStartMin = wsMin + slotFromTop * GRID_MINUTES;
+          var durMin = slotCount * GRID_MINUTES;
 
           var newStart = minToTime(newStartMin);
           var newEnd = minToTime(newStartMin + durMin);
@@ -597,22 +697,40 @@
           if (newStart !== block.dataset.startTime || newEnd !== block.dataset.endTime) {
             var taskId = block.dataset.taskId;
             var blockTitle = (block.querySelector('.block-title') || {}).textContent || '';
-            var prevRem;
-            (taskId ? getTaskRemaining(taskId) : Promise.resolve(0)).then(function (r) {
-              prevRem = r;
-              return api('PUT', '/schedule/api/blocks/' + blockId, {
+            var origStartMin = timeToMin(block.dataset.startTime);
+            var origEndMin = timeToMin(block.dataset.endTime);
+            var prevWorkMin = workMinutes(origStartMin, origEndMin);
+            var newWorkMin = workMinutes(newStartMin, newStartMin + durMin);
+
+            function doResize() {
+              api('PUT', '/schedule/api/blocks/' + blockId, {
                 start_time: newStart,
                 end_time: newEnd,
                 resize: true,
+              }).then(function () { location.reload(); })
+                .catch(function (err) {
+                  showToast(err.message, 'danger');
+                  block.style.top = origTop + 'px';
+                  block.style.height = origHeight + 'px';
+                });
+            }
+
+            // Warn if shrinking from current size
+            if (newWorkMin < prevWorkMin) {
+              showConfirmModal(
+                '현재 시간(<strong>' + prevWorkMin + '분</strong>)에서 <strong>' + newWorkMin + '분</strong>으로 줄입니다.<br>계속하시겠습니까?',
+                { title: '시간 축소 경고', icon: 'exclamation-triangle-fill', okText: '줄이기', cancelText: '취소' }
+              ).then(function (ok) {
+                if (ok) {
+                  doResize();
+                } else {
+                  block.style.top = origTop + 'px';
+                  block.style.height = origHeight + 'px';
+                }
               });
-            }).then(function () {
-              if (taskId) return checkRemainingAfterPlace(taskId, blockTitle.trim(), prevRem);
-            }).then(function () { location.reload(); })
-              .catch(function (err) {
-                showToast(err.message, 'danger');
-                block.style.top = origTop + 'px';
-                block.style.height = origHeight + 'px';
-              });
+              return;
+            }
+            doResize();
           }
         }
 
@@ -701,6 +819,7 @@
         statusHtml +
         '<div class="dropdown-divider"></div>' +
         '<button class="dropdown-item" data-action="memo"><i class="bi bi-sticky"></i> 메모</button>' +
+        '<button class="dropdown-item" data-action="split"><i class="bi bi-scissors"></i> 분리</button>' +
         '<button class="dropdown-item" data-action="to-queue"><i class="bi bi-arrow-left-square"></i> 큐로 보내기</button>' +
         '<button class="dropdown-item" data-action="lock"><i class="bi bi-lock"></i> 잠금 토글</button>' +
         '<button class="dropdown-item text-danger" data-action="delete"><i class="bi bi-trash"></i> 삭제</button>';
@@ -723,16 +842,56 @@
               location.reload();
             })
             .catch(function (err) { showToast(err.message, 'danger'); });
+        } else if (btn.dataset.action === 'split') {
+          var taskId = block.dataset.taskId;
+          if (!taskId) { showToast('분리할 수 없는 블록입니다.', 'danger'); return; }
+          api('GET', '/tasks/api/' + taskId).then(function (res) {
+            var tsk = res.task;
+            if (!tsk || !tsk.test_list || tsk.test_list.length < 2) {
+              showToast('식별자가 2개 이상이어야 분리할 수 있습니다.', 'danger');
+              return;
+            }
+            // Figure out which identifiers this block currently covers
+            var blockIdIds = null;
+            try { if (block.dataset.identifierIds) blockIdIds = JSON.parse(block.dataset.identifierIds); } catch(ex) {}
+            var currentIds = blockIdIds || tsk.test_list.map(function(it) { return typeof it === 'object' ? it.id : it; });
+
+            // Filter test_list to only this block's identifiers
+            var blockTestList = tsk.test_list.filter(function(it) {
+              var iid = typeof it === 'object' ? it.id : it;
+              return currentIds.indexOf(iid) !== -1;
+            });
+            if (blockTestList.length < 2) {
+              showToast('이 블록의 식별자가 2개 이상이어야 분리할 수 있습니다.', 'danger');
+              return;
+            }
+
+            // Show picker: checked = keep in this block, unchecked = send to queue
+            showSplitPicker(blockTestList, function (keepItems) {
+              if (!keepItems || keepItems.length === 0 || keepItems.length === blockTestList.length) return;
+              var keepIds = keepItems.map(function (s) { return typeof s === 'object' ? s.id : s; });
+              api('POST', '/schedule/api/blocks/' + blockId + '/split', {
+                keep_identifier_ids: keepIds
+              }).then(function () {
+                showToast('블록이 분리되었습니다.', 'success');
+                setTimeout(function () { location.reload(); }, 300);
+              }).catch(function (err) { showToast(err.message, 'danger'); });
+            });
+          });
         } else if (btn.dataset.action === 'lock') {
           api('PUT', '/schedule/api/blocks/' + blockId + '/lock')
             .then(function () { location.reload(); })
             .catch(function (err) { showToast(err.message, 'danger'); });
         } else if (btn.dataset.action === 'delete') {
-          if (confirm('이 블록을 삭제하시겠습니까?')) {
-            api('DELETE', '/schedule/api/blocks/' + blockId)
-              .then(function () { location.reload(); })
-              .catch(function (err) { showToast(err.message, 'danger'); });
-          }
+          showConfirmModal('이 블록을 삭제하시겠습니까?', {
+            title: '블록 삭제', icon: 'trash', okText: '삭제', cancelText: '취소'
+          }).then(function (ok) {
+            if (ok) {
+              api('DELETE', '/schedule/api/blocks/' + blockId)
+                .then(function () { location.reload(); })
+                .catch(function (err) { showToast(err.message, 'danger'); });
+            }
+          });
         }
       });
       setTimeout(function () {
@@ -743,105 +902,6 @@
     });
   }
 
-  // =====================================================================
-  // 5. Draft controls
-  // =====================================================================
-  function initDraftControls() {
-    var toolbar = document.querySelector('.schedule-nav');
-    if (!toolbar) return;
-
-    var hasDrafts = !!document.querySelector('.schedule-block.draft, .month-block-item.draft');
-
-    var g = document.createElement('div');
-    g.className = 'ms-auto d-flex gap-1';
-    g.innerHTML =
-      '<button class="btn btn-sm btn-outline-success" id="btn-generate">자동 스케줄링</button>' +
-      '<button class="btn btn-sm btn-success" id="btn-approve"' + (hasDrafts ? '' : ' style="display:none"') + '>초안 확정</button>' +
-      '<button class="btn btn-sm btn-outline-danger" id="btn-discard"' + (hasDrafts ? '' : ' style="display:none"') + '>초안 폐기</button>';
-    toolbar.appendChild(g);
-
-    // Generate button → show settings popup
-    document.getElementById('btn-generate').onclick = function () {
-      var old = document.getElementById('schedule-config-popup');
-      if (old) old.remove();
-
-      var today = new Date();
-      var mon = new Date(today);
-      mon.setDate(today.getDate() - (today.getDay() || 7) + 1);
-      var fri = new Date(mon);
-      fri.setDate(mon.getDate() + 4);
-      var defStart = mon.toISOString().slice(0, 10);
-      var defEnd = fri.toISOString().slice(0, 10);
-
-      var overlay = document.createElement('div');
-      overlay.id = 'schedule-config-popup';
-      overlay.className = 'block-detail-overlay';
-      overlay.innerHTML =
-        '<div class="sched-cfg">' +
-          '<div class="sched-cfg-title">자동 스케줄링 설정</div>' +
-          '<div class="sched-cfg-desc">' +
-            '등록된 시험 항목들을 절차서 번호 순서대로, ' +
-            '시작일부터 가장 빠른 빈 시간에 자동 배치합니다.<br>' +
-            '<ul>' +
-              '<li>장소가 지정되지 않은 항목은 가장 여유 있는 장소에 자동 배정됩니다.</li>' +
-              '<li>같은 장소·같은 시간에 시험이 겹치지 않도록 배치합니다.</li>' +
-              '<li>점심시간과 휴식시간은 자동으로 건너뜁니다.</li>' +
-              '<li>결과는 <strong>초안</strong>으로 생성되며, 확인 후 확정하거나 폐기할 수 있습니다.</li>' +
-            '</ul>' +
-          '</div>' +
-          '<div class="sched-cfg-body">' +
-            '<label class="sched-cfg-label">시작일</label>' +
-            '<input type="date" class="form-control form-control-sm" id="sched-start" value="' + defStart + '">' +
-            '<label class="sched-cfg-label">종료일</label>' +
-            '<input type="date" class="form-control form-control-sm" id="sched-end" value="' + defEnd + '">' +
-            '<div class="sched-cfg-note">주말은 자동으로 제외됩니다.</div>' +
-            '<label class="sched-cfg-check">' +
-              '<input type="checkbox" id="sched-include-existing"> 기존 배치 항목도 재정렬 <span class="sched-cfg-hint">(잠금 제외)</span>' +
-            '</label>' +
-          '</div>' +
-          '<div class="sched-cfg-actions">' +
-            '<button class="sched-cfg-btn-cancel" id="sched-cancel">취소</button>' +
-            '<button class="sched-cfg-btn-ok" id="sched-ok">스케줄링 실행</button>' +
-          '</div>' +
-        '</div>';
-      document.body.appendChild(overlay);
-
-      overlay.addEventListener('click', function (ev) { if (ev.target === overlay) overlay.remove(); });
-      document.getElementById('sched-cancel').onclick = function () { overlay.remove(); };
-      document.getElementById('sched-ok').onclick = function () {
-        var startDate = document.getElementById('sched-start').value;
-        var endDate = document.getElementById('sched-end').value;
-        var includeExisting = document.getElementById('sched-include-existing').checked;
-        if (!startDate || !endDate) { showToast('날짜를 입력하세요.', 'danger'); return; }
-        if (startDate > endDate) { showToast('시작일이 종료일보다 큽니다.', 'danger'); return; }
-        overlay.remove();
-        api('POST', '/schedule/api/draft/generate', {
-          start_date: startDate,
-          end_date: endDate,
-          include_existing: includeExisting,
-        }).then(function (r) {
-          var msg = r.placed_count + '개 블록 배치 (' + r.workdays + '일)';
-          if (r.unplaced && r.unplaced.length) msg += ' / 미배치 ' + r.unplaced.length + '개';
-          showToast(msg, 'success');
-          setTimeout(function () { location.reload(); }, 500);
-        }).catch(function (err) { showToast(err.message, 'danger'); });
-      };
-    };
-
-    document.getElementById('btn-approve').onclick = function () {
-      api('POST', '/schedule/api/draft/approve').then(function () {
-        showToast('초안 확정', 'success');
-        setTimeout(function () { location.reload(); }, 500);
-      }).catch(function (err) { showToast(err.message, 'danger'); });
-    };
-    document.getElementById('btn-discard').onclick = function () {
-      if (!confirm('초안을 모두 폐기하시겠습니까?')) return;
-      api('POST', '/schedule/api/draft/discard').then(function () {
-        showToast('초안 폐기', 'info');
-        setTimeout(function () { location.reload(); }, 500);
-      }).catch(function (err) { showToast(err.message, 'danger'); });
-    };
-  }
 
   // =====================================================================
   // 6. Return-to-queue buttons
@@ -937,8 +997,12 @@
   function showTaskDetailPopup(taskId, opts) {
     opts = opts || {};
     var blockId = opts.blockId || null;
-    api('GET', '/tasks/api/' + taskId).then(function (res) {
-      var task = res.task;
+    Promise.all([
+      api('GET', '/tasks/api/' + taskId),
+      api('GET', '/schedule/api/blocks/by-task/' + taskId),
+    ]).then(function (results) {
+      var task = results[0].task;
+      var allBlocks = (results[1] && results[1].blocks) || [];
       if (!task) return;
 
       var startTime = opts.startTime || '';
@@ -953,7 +1017,64 @@
       var blockColor = opts.color || '#64748b';
       var isQueued = opts.isQueued || false;
 
-      var testListStr = (task.test_list && task.test_list.length) ? task.test_list.join(', ') : '-';
+      var blockIdentifierIds = opts.identifierIds || null;
+      var displayTestList = task.test_list || [];
+      if (blockIdentifierIds && blockIdentifierIds.length && displayTestList.length) {
+        displayTestList = displayTestList.filter(function(item) {
+          var itemId = (typeof item === 'object') ? item.id : item;
+          return blockIdentifierIds.indexOf(itemId) !== -1;
+        });
+      }
+
+      // Build identifier → schedule mapping from allBlocks
+      var allTaskIds = (task.test_list || []).map(function(it) { return typeof it === 'object' ? it.id : it; });
+      var idScheduleMap = {};
+      allBlocks.sort(function(a,b) { return (a.date + a.start_time).localeCompare(b.date + b.start_time); });
+      allBlocks.forEach(function(blk) {
+        var bids = blk.identifier_ids || allTaskIds;
+        bids.forEach(function(iid) {
+          if (!idScheduleMap[iid]) {
+            idScheduleMap[iid] = blk.date + ' ' + blk.start_time + '–' + blk.end_time;
+          }
+        });
+      });
+
+      var testListHtml = '-';
+      if (displayTestList.length) {
+        var idTotalMin = 0;
+        testListHtml = '<table style="width:100%;font-size:0.78rem;border-collapse:collapse;border-spacing:0">' +
+          '<colgroup><col style="width:20%"><col style="width:12%"><col style="width:33%"><col style="width:35%"></colgroup>' +
+          '<tr style="color:#9ca3af;font-size:0.68rem;border-bottom:1px solid #f3f4f6">' +
+            '<td style="padding:3px 4px">식별자</td><td style="padding:3px 4px">시간</td>' +
+            '<td style="padding:3px 4px">작성자</td><td style="padding:3px 4px">배치</td></tr>' +
+          displayTestList.map(function(item) {
+            if (typeof item === 'object' && item.id) {
+              var mins = Math.round((item.estimated_hours || 0) * 60);
+              idTotalMin += mins;
+              var ow = (item.owners || []).join(', ') || '-';
+              var sched = idScheduleMap[item.id];
+              var schedHtml = sched
+                ? '<a href="/schedule/?date=' + sched.split(' ')[0] + '" style="color:#2563eb;text-decoration:none;font-size:0.72rem;white-space:nowrap">' + sched + '</a>'
+                : '<span style="color:#adb5bd">미배치</span>';
+              return '<tr style="border-bottom:1px solid #f9fafb">' +
+                '<td style="padding:3px 4px;font-weight:600;white-space:nowrap">' + item.id + '</td>' +
+                '<td style="padding:3px 4px;white-space:nowrap">' + mins + '분</td>' +
+                '<td style="padding:3px 4px;color:#6c757d">' + ow + '</td>' +
+                '<td style="padding:3px 4px">' + schedHtml + '</td></tr>';
+            }
+            return '<tr><td colspan="4" style="padding:3px 4px">' + item + '</td></tr>';
+          }).join('') +
+          '<tr style="border-top:1px solid #e5e7eb">' +
+            '<td style="padding:4px;font-weight:700">합계</td>' +
+            '<td style="padding:4px;font-weight:700">' + idTotalMin + '분</td>' +
+            '<td colspan="2"></td></tr>' +
+          '</table>';
+      }
+      var splitInfo = '';
+      var totalIdCount = (task.test_list || []).length;
+      if (blockIdentifierIds && blockIdentifierIds.length < totalIdCount) {
+        splitInfo = ' <span style="font-size:0.75rem;color:#6c757d">(분할 ' + displayTestList.length + '/' + totalIdCount + ')</span>';
+      }
 
       var old = document.getElementById('block-detail-popup');
       if (old) old.remove();
@@ -975,26 +1096,23 @@
         '<div class="bd-box">' +
           '<div class="bd-header">' +
             '<div class="bd-header-left">' +
-              '<span class="bd-id">' + (task.procedure_id || '') + '</span>' +
+              '<span class="bd-id">' + (task.section_name || '') + '</span>' +
               statusBadge +
             '</div>' +
             '<button class="bd-x" id="block-detail-close">&times;</button>' +
           '</div>' +
-          (task.section_name ? '<div class="bd-subtitle">' + task.section_name + '</div>' : '') +
           '<div class="bd-divider"></div>' +
           '<table class="bd-tbl">' +
-            '<tr><td class="bd-k">장소</td><td class="bd-v">' + (locationName || '-') + '</td></tr>' +
-            (startTime ? '<tr><td class="bd-k">시간</td><td class="bd-v">' + startTime + ' – ' + endTime + '</td></tr>' : '') +
-            '<tr><td class="bd-k">소요</td><td class="bd-v bd-v-edit">' +
+            '<tr><td class="bd-k">시험 식별자' + splitInfo + '</td><td class="bd-v">' + testListHtml + '</td></tr>' +
+            '<tr><td class="bd-k">예상 시간</td><td class="bd-v bd-v-edit">' +
               '<input type="number" class="bd-input" id="bd-est-min" value="' + hrsToMin(task.estimated_hours) + '" min="0" step="15">분' +
-              ' <span class="bd-sub">(잔여 ' + hrsToMin(task.remaining_hours) + '분)</span>' +
+              ' <span class="bd-sub">(기준 ' + idTotalMin + '분 / 잔여 ' + hrsToMin(task.remaining_hours) + '분)</span>' +
             '</td></tr>' +
-            '<tr><td class="bd-k">시험 담당</td><td class="bd-v">' + (assigneeName || '-') + '</td></tr>' +
-            '<tr><td class="bd-k">절차서 담당</td><td class="bd-v">' + (task.procedure_owner || '-') + '</td></tr>' +
+            '<tr><td class="bd-k">시험장소</td><td class="bd-v">' + (locationName || '-') + '</td></tr>' +
+            (startTime ? '<tr><td class="bd-k">배치 시간</td><td class="bd-v">' + startTime + ' – ' + endTime + '</td></tr>' : '') +
+            '<tr><td class="bd-k">시험 담당자</td><td class="bd-v">' + (assigneeName || '-') + '</td></tr>' +
             '<tr><td class="bd-k">버전</td><td class="bd-v">' + (task.version_name || '-') + '</td></tr>' +
             '<tr><td class="bd-k">상태</td><td class="bd-v">' + taskStatusLabel + '</td></tr>' +
-            '<tr><td class="bd-k">시험목록</td><td class="bd-v">' + testListStr + '</td></tr>' +
-            '<tr><td class="bd-k">생성일</td><td class="bd-v">' + (task.created_at || '-') + '</td></tr>' +
             '<tr><td class="bd-k">메모</td><td class="bd-v">' +
               '<textarea class="bd-textarea" id="bd-memo" rows="2" placeholder="메모 입력...">' + escapedMemo + '</textarea>' +
             '</td></tr>' +
@@ -1025,16 +1143,8 @@
           updates.estimated_hours = newEstHours;
           updates.remaining_hours = Math.max(0, newEstHours - (task.estimated_hours - task.remaining_hours));
         }
-        // Update task
+        // Update task only — block position/size is unchanged
         api('PUT', '/tasks/api/' + taskId + '/update', Object.assign({}, task, updates))
-          .then(function () {
-            // If duration changed and block exists, update block end_time
-            if (durationChanged && blockId) {
-              return api('PUT', '/schedule/api/blocks/' + blockId, {
-                duration_minutes: newEstMin,
-              });
-            }
-          })
           .then(function () {
             showToast('저장되었습니다.', 'success');
             overlay.remove();
@@ -1054,6 +1164,8 @@
 
         var taskId = block.dataset.taskId;
         if (!taskId) return;
+        var idIds = null;
+        try { if (block.dataset.identifierIds) idIds = JSON.parse(block.dataset.identifierIds); } catch(ex) {}
         showTaskDetailPopup(taskId, {
           blockId: block.dataset.blockId || null,
           startTime: block.dataset.startTime || '',
@@ -1063,6 +1175,7 @@
           memo: block.dataset.memo || '',
           blockStatus: block.dataset.blockStatus || 'pending',
           color: block.style.backgroundColor || '#64748b',
+          identifierIds: idIds,
         });
       });
     });
@@ -1085,6 +1198,265 @@
   }
 
   // =====================================================================
+  // 11. Weekend toggle
+  // =====================================================================
+  function initWeekendToggle() {
+    var btn = document.getElementById('btn-toggle-weekends');
+    if (!btn) return;
+    var hidden = localStorage.getItem('hideWeekends') === '1';
+    function applyWeekendVisibility() {
+      // Week view
+      document.querySelectorAll('.week-day-col[data-weekday="5"], .week-day-col[data-weekday="6"]').forEach(function (col) {
+        col.style.display = hidden ? 'none' : '';
+      });
+      // Month view
+      document.querySelectorAll('th[data-weekday="5"], th[data-weekday="6"]').forEach(function (th) {
+        th.style.display = hidden ? 'none' : '';
+      });
+      document.querySelectorAll('.month-table tbody tr').forEach(function (row) {
+        var cells = row.querySelectorAll('td');
+        if (cells.length >= 7) {
+          cells[5].style.display = hidden ? 'none' : '';
+          cells[6].style.display = hidden ? 'none' : '';
+        }
+      });
+      btn.classList.toggle('active', hidden);
+    }
+    applyWeekendVisibility();
+    btn.addEventListener('click', function () {
+      hidden = !hidden;
+      localStorage.setItem('hideWeekends', hidden ? '1' : '0');
+      applyWeekendVisibility();
+    });
+  }
+
+  // =====================================================================
+  // 12. Schedule shift (bulk date move)
+  // =====================================================================
+  function initShiftSchedule() {
+    var btn = document.getElementById('btn-shift-schedule');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+      if (isReadonly()) return;
+      var old = document.getElementById('shift-schedule-popup');
+      if (old) old.remove();
+
+      var today = new Date().toISOString().slice(0, 10);
+      var overlay = document.createElement('div');
+      overlay.id = 'shift-schedule-popup';
+      overlay.className = 'block-detail-overlay';
+      overlay.innerHTML =
+        '<div class="bd-box" style="max-width:360px">' +
+          '<div class="bd-header"><div class="bd-header-left"><span class="bd-id">일정 이동</span></div>' +
+            '<button class="bd-x" id="shift-close">&times;</button></div>' +
+          '<div class="bd-divider"></div>' +
+          '<div style="padding:12px">' +
+            '<label class="form-label">기준 날짜 (이 날짜 이후 전체 이동)</label>' +
+            '<input type="date" class="form-control form-control-sm mb-2" id="shift-from-date" value="' + today + '">' +
+            '<label class="form-label">방향</label>' +
+            '<select class="form-select form-select-sm mb-2" id="shift-direction">' +
+              '<option value="1">+1일 (뒤로 밀기)</option>' +
+              '<option value="-1">-1일 (앞으로 당기기)</option>' +
+            '</select>' +
+            '<div class="form-text mb-2">주말은 자동으로 건너뜁니다.</div>' +
+            '<button class="btn btn-sm btn-primary w-100" id="shift-ok">이동 실행</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+
+      overlay.addEventListener('click', function (ev) { if (ev.target === overlay) overlay.remove(); });
+      document.getElementById('shift-close').addEventListener('click', function () { overlay.remove(); });
+      document.getElementById('shift-ok').addEventListener('click', function () {
+        var fromDate = document.getElementById('shift-from-date').value;
+        var direction = parseInt(document.getElementById('shift-direction').value);
+        if (!fromDate) { showToast('날짜를 입력하세요.', 'danger'); return; }
+        var params = new URLSearchParams(window.location.search);
+        var versionId = params.get('version') || '';
+        overlay.remove();
+        api('POST', '/schedule/api/blocks/shift', {
+          from_date: fromDate, direction: direction, version_id: versionId
+        }).then(function (r) {
+          showToast(r.shifted_count + '개 블록 이동 완료', 'success');
+          setTimeout(function () { location.reload(); }, 500);
+        }).catch(function (err) { showToast(err.message, 'danger'); });
+      });
+    });
+  }
+
+  // =====================================================================
+  // =====================================================================
+  // 14b. Split picker — check = keep in block, uncheck = send to queue
+  // =====================================================================
+  function showSplitPicker(testList, callback) {
+    var old = document.getElementById('identifier-picker');
+    if (old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'identifier-picker';
+    overlay.className = 'block-detail-overlay';
+    var rows = '';
+    testList.forEach(function (item, i) {
+      var id = typeof item === 'object' ? item.id : item;
+      var owners = (typeof item === 'object' && item.owners) ? item.owners : [];
+      var mins = typeof item === 'object' ? Math.round((item.estimated_hours || 0) * 60) : 0;
+      var ownerStr = owners.length ? ' <span class="text-muted">작성: ' + owners.join(', ') + '</span>' : '';
+      rows += '<label class="d-flex align-items-center gap-2 mb-1" style="font-size:0.85rem">' +
+        '<input type="checkbox" class="form-check-input" value="' + i + '" checked> ' +
+        '<span>' + id + '</span>' + ownerStr +
+        (mins > 0 ? ' <span class="text-muted">(' + mins + '분)</span>' : '') +
+        '</label>';
+    });
+    overlay.innerHTML =
+      '<div class="bd-box" style="max-width:380px">' +
+        '<div class="bd-header"><div class="bd-header-left"><span class="bd-id">블록 분리</span></div>' +
+          '<button class="bd-x" id="picker-close">&times;</button></div>' +
+        '<div class="bd-divider"></div>' +
+        '<div style="padding:12px">' +
+          '<div class="form-text mb-2"><strong>체크 유지</strong> = 이 블록에 남김<br><strong>체크 해제</strong> = 큐로 보냄</div>' +
+          '<div id="picker-list">' + rows + '</div>' +
+          '<button class="btn btn-sm btn-primary w-100 mt-2" id="picker-ok">분리</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', function (ev) { if (ev.target === overlay) { overlay.remove(); callback(null); } });
+    document.getElementById('picker-close').addEventListener('click', function () { overlay.remove(); callback(null); });
+    document.getElementById('picker-ok').addEventListener('click', function () {
+      var checked = [];
+      overlay.querySelectorAll('#picker-list input:checked').forEach(function (cb) {
+        checked.push(parseInt(cb.value));
+      });
+      overlay.remove();
+      if (checked.length === 0) { showToast('최소 1개는 남겨야 합니다.', 'danger'); callback(null); return; }
+      if (checked.length === testList.length) { showToast('전체를 남기면 분리되지 않습니다.', 'info'); callback(null); return; }
+      var selected = checked.map(function (i) { return testList[i]; });
+      callback(selected);
+    });
+  }
+
+  // =====================================================================
+  // 13. Add task / Add simple block
+  // =====================================================================
+  function initAddButtons() {
+    var taskBtn = document.getElementById('btn-add-task');
+    if (taskBtn) {
+      taskBtn.addEventListener('click', function () {
+        window.location.href = '/tasks/new';
+      });
+    }
+
+    var blockBtn = document.getElementById('btn-add-simple-block');
+    if (!blockBtn) return;
+    blockBtn.addEventListener('click', function () {
+      if (isReadonly()) return;
+      var old = document.getElementById('simple-block-popup');
+      if (old) old.remove();
+
+      var overlay = document.createElement('div');
+      overlay.id = 'simple-block-popup';
+      overlay.className = 'block-detail-overlay';
+      overlay.innerHTML =
+        '<div class="bd-box" style="max-width:340px">' +
+          '<div class="bd-header"><div class="bd-header-left"><span class="bd-id">블록 추가</span></div>' +
+            '<button class="bd-x" id="simple-close">&times;</button></div>' +
+          '<div class="bd-divider"></div>' +
+          '<div style="padding:12px">' +
+            '<label class="form-label">제목</label>' +
+            '<input type="text" class="form-control form-control-sm mb-2" id="simple-title" placeholder="예: 시험 준비, 장비 점검">' +
+            '<label class="form-label">예상 시간 (분)</label>' +
+            '<input type="number" class="form-control form-control-sm mb-2" id="simple-minutes" value="60" min="10" step="10">' +
+            '<div class="form-text mb-2">큐에 추가 후 드래그하여 배치하세요.</div>' +
+            '<button class="btn btn-sm btn-primary w-100" id="simple-ok">큐에 추가</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+
+      overlay.addEventListener('click', function (ev) { if (ev.target === overlay) overlay.remove(); });
+      document.getElementById('simple-close').addEventListener('click', function () { overlay.remove(); });
+      document.getElementById('simple-ok').addEventListener('click', function () {
+        var title = document.getElementById('simple-title').value.trim();
+        var minutes = parseInt(document.getElementById('simple-minutes').value) || 60;
+        if (!title) { showToast('제목을 입력하세요.', 'danger'); return; }
+        overlay.remove();
+        var params = new URLSearchParams(window.location.search);
+        var versionId = params.get('version') || '';
+        api('POST', '/schedule/api/simple-blocks', {
+          title: title, estimated_minutes: minutes, version_id: versionId,
+        }).then(function () {
+          showToast('큐에 추가되었습니다.', 'success');
+          setTimeout(function () { location.reload(); }, 300);
+        }).catch(function (err) { showToast(err.message, 'danger'); });
+      });
+    });
+  }
+
+  // =====================================================================
+  // 14. Identifier selection on queue drag (section split)
+  // =====================================================================
+  /**
+   * @param {Array} testList - all identifiers from the task
+   * @param {Object} opts - { scheduledIds: Set or Array of already-placed identifier IDs }
+   * @param {Function} callback - called with selected items array, or null if cancelled
+   */
+  function showIdentifierPicker(testList, opts, callback) {
+    // Support old 2-arg call: showIdentifierPicker(list, cb)
+    if (typeof opts === 'function') { callback = opts; opts = {}; }
+    opts = opts || {};
+    var scheduledSet = {};
+    (opts.scheduledIds || []).forEach(function (id) { scheduledSet[id] = true; });
+
+    var old = document.getElementById('identifier-picker');
+    if (old) old.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'identifier-picker';
+    overlay.className = 'block-detail-overlay';
+    var rows = '';
+    testList.forEach(function (item, i) {
+      var id = typeof item === 'object' ? item.id : item;
+      var owners = (typeof item === 'object' && item.owners) ? item.owners : [];
+      var mins = typeof item === 'object' ? Math.round((item.estimated_hours || 0) * 60) : 0;
+      var isScheduled = !!scheduledSet[id];
+      var checked = isScheduled ? '' : ' checked';
+      var badge = isScheduled
+        ? ' <span class="badge bg-secondary" style="font-size:0.65rem;vertical-align:middle">배치됨</span>'
+        : '';
+      var ownerStr = owners.length ? ' <span class="text-muted">작성: ' + owners.join(', ') + '</span>' : '';
+      rows += '<label class="d-flex align-items-center gap-2 mb-1" style="font-size:0.85rem' + (isScheduled ? ';opacity:0.55' : '') + '">' +
+        '<input type="checkbox" class="form-check-input" value="' + i + '"' + checked + '> ' +
+        '<span>' + id + '</span>' + ownerStr +
+        (mins > 0 ? ' <span class="text-muted">(' + mins + '분)</span>' : '') +
+        badge +
+        '</label>';
+    });
+    overlay.innerHTML =
+      '<div class="bd-box" style="max-width:340px">' +
+        '<div class="bd-header"><div class="bd-header-left"><span class="bd-id">식별자 선택</span></div>' +
+          '<button class="bd-x" id="picker-close">&times;</button></div>' +
+        '<div class="bd-divider"></div>' +
+        '<div style="padding:12px">' +
+          '<div class="form-text mb-2">배치할 식별자를 선택하세요</div>' +
+          '<div id="picker-list">' + rows + '</div>' +
+          '<button class="btn btn-sm btn-primary w-100 mt-2" id="picker-ok">확인</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', function (ev) { if (ev.target === overlay) { overlay.remove(); callback(null); } });
+    document.getElementById('picker-close').addEventListener('click', function () { overlay.remove(); callback(null); });
+    document.getElementById('picker-ok').addEventListener('click', function () {
+      var checked = [];
+      overlay.querySelectorAll('#picker-list input:checked').forEach(function (cb) {
+        checked.push(parseInt(cb.value));
+      });
+      overlay.remove();
+      if (checked.length === 0) { callback(null); return; }
+      var selected = checked.map(function (i) { return testList[i]; });
+      callback(selected);
+    });
+  }
+
+  // =====================================================================
   // Init
   // =====================================================================
   function isReadonly() {
@@ -1092,16 +1464,20 @@
   }
 
   document.addEventListener('DOMContentLoaded', function () {
+    // Sync grid interval from server settings
+    if (window.GRID_INTERVAL) GRID_MINUTES = window.GRID_INTERVAL;
     initBlockMove();
     initMonthBlockMove();
     initQueueDrag();
     initResize();
     initContextMenu();
     initReturnToQueue();
-    initDraftControls();
     initQueueSearch();
     initQueueToggle();
     initTaskHoverLink();
     initBlockDetail();
+    initWeekendToggle();
+    initShiftSchedule();
+    initAddButtons();
   });
 })();

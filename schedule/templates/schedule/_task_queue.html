@@ -10,7 +10,15 @@
   </div>
   <div class="queue-search-bar">
     <i class="bi bi-search"></i>
-    <input type="text" id="queue-search" placeholder="절차서 ID, 장절명 검색..." autocomplete="off">
+    <input type="text" id="queue-search" placeholder="장절명, 절차서 ID 검색..." autocomplete="off">
+  </div>
+  <div class="queue-simple-block-add d-flex gap-1">
+    <button class="btn btn-sm btn-outline-secondary flex-fill" id="btn-add-task">
+      <i class="bi bi-list-check"></i> 시험 추가
+    </button>
+    <button class="btn btn-sm btn-outline-secondary flex-fill" id="btn-add-simple-block">
+      <i class="bi bi-plus-square"></i> 블록 추가
+    </button>
   </div>
   <div class="task-queue-body" id="task-queue-body">
     {% if queue_tasks %}
@@ -22,26 +30,20 @@
          data-location-id="{{ task.location_id }}"
          data-version-id="{{ task.version_id }}"
          data-remaining-hours="{{ task.remaining_unscheduled_hours }}"
-         data-title="{{ task.procedure_id }}"
+         data-estimated-hours="{{ task.estimated_hours }}"
+         data-title="{{ task.section_name or task.procedure_id }}"
          data-location-name="{{ task.location_name }}"
          data-assignee-name="{{ task.assignee_name }}"
-         data-queue-color="{{ queue_color }}">
-      <div class="queue-card-color" style="background:{{ queue_color }}"></div>
+         data-queue-color="{{ queue_color }}"
+         data-test-list='{{ task.test_list|tojson }}'>
+      <div class="queue-card-color" style="background:{{ task.location_color if not task.get('is_simple') else '#94a3b8' }}"></div>
       <div class="queue-card-body">
         <div class="queue-card-top">
-          <span class="queue-card-id">{{ task.procedure_id }}</span>
-          <span class="queue-card-hours">{{ (task.remaining_unscheduled_hours * 60)|int }}분</span>
+          <span class="queue-card-section-title">{{ task.section_name }}</span>
+          {% if task.get('is_simple') %}<span class="badge bg-secondary" style="font-size:0.6rem;vertical-align:middle;margin-left:4px">준비</span>{% endif %}
         </div>
-        {% if task.section_name %}
-        <div class="queue-card-section">{{ task.section_name }}</div>
-        {% endif %}
-        <div class="queue-card-bottom">
-          {% if task.location_name %}
-          <span class="queue-card-loc" style="color:{{ task.location_color }}">
-            <i class="bi bi-geo-alt-fill"></i> {{ task.location_name }}
-          </span>
-          {% endif %}
-          <span class="queue-card-assignee">{{ task.assignee_name }}</span>
+        <div class="queue-card-hours">
+          남은: {{ (task.remaining_unscheduled_hours * 60)|int }}분 / 전체: {{ (task.estimated_hours * 60)|int }}분
         </div>
       </div>
     </div>
