@@ -96,16 +96,10 @@
                    style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }};">
                 <div class="resize-handle resize-handle-top"></div>
                 <div class="block-title">
-                  {{ block.section_name or block.task_title }}
-                  {% if block.is_split %}
-                  <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}" title="{% if block.split_status == 'partial' %}부분 배치 (나머지 큐){% else %}분할 배치 (전체 배치됨){% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>
-                  {% endif %}
-                  <span class="block-status-badge badge-status-{{ block.block_status }}">
-                    {% if block.block_status == 'in_progress' %}진행
-                    {% elif block.block_status == 'completed' %}완료
-                    {% elif block.block_status == 'cancelled' %}불가
-                    {% endif %}
-                  </span>
+                  {% if block.block_status == 'in_progress' %}<i class="bi bi-play-fill" style="color:#fff;font-size:0.65rem"></i>
+                  {% elif block.block_status == 'completed' %}<i class="bi bi-check-lg" style="color:#fff;font-size:0.65rem"></i>
+                  {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-lg" style="color:#fff;font-size:0.65rem"></i>
+                  {% endif %}{{ block.section_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %}
                 </div>
                 <div class="block-info">
                   <span class="block-time">{{ block.start_time }}–{{ block.end_time }}</span>

@@ -9,7 +9,8 @@
   <div class="mb-3">
     <label class="form-label fw-bold">장절명</label>
     <input type="text" class="form-control" name="section_name" id="section_name"
-           value="{{ task.section_name if task else '' }}" placeholder="예: 3.1 시스템 초기화" required>
+           value="{{ task.section_name if task else '' }}" placeholder="예: 3.1 시스템 초기화" required
+           {% if task and task.get('source') == 'external' %}readonly{% endif %}>
   </div>
   <input type="hidden" name="procedure_id" id="procedure_id" value="{{ task.procedure_id if task else 'AUTO' }}">
   <input type="hidden" name="procedure_owner" value="{{ task.procedure_owner if task else '' }}">
@@ -105,6 +106,7 @@
 {% block scripts %}
 <script>
 (function() {
+  var isExternal = {{ 'true' if task and task.get('source') == 'external' else 'false' }};
   var tbody = document.getElementById('identifier-body');
   var totalDisplay = document.getElementById('total-est-display');
   var hiddenJson = document.getElementById('test_list_json');
@@ -138,6 +140,12 @@
       tr.remove();
       updateTotal();
     });
+    if (isExternal) {
+      tr.querySelector('.id-input').readOnly = true;
+      tr.querySelector('.owners-input').readOnly = true;
+      tr.querySelector('.min-input').readOnly = true;
+      tr.querySelector('.btn-remove-id').style.display = 'none';
+    }
   }
 
   function updateTotal() {
@@ -153,6 +161,10 @@
   document.getElementById('btn-add-identifier').addEventListener('click', function() {
     addRow('', [], 0);
   });
+
+  if (isExternal) {
+    document.getElementById('btn-add-identifier').style.display = 'none';
+  }
 
   // Before submit: serialize test_list and validate
   document.getElementById('task-form').addEventListener('submit', function(e) {

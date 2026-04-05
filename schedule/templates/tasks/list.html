@@ -102,7 +102,12 @@
       <tbody>
         {% for task in tasks %}
         <tr class="task-row" onclick="location.href='{{ url_for('tasks.task_detail', task_id=task.id) }}'">
-          <td class="task-cell-title fw-bold">{{ task.section_name or '-' }}</td>
+          <td class="task-cell-title fw-bold">
+            {{ task.section_name or '-' }}
+            {% if task.get('source') == 'external' %}
+            <span class="badge bg-info" style="font-size:0.6rem;vertical-align:middle">외부</span>
+            {% endif %}
+          </td>
           <td>
             {% for uid in task.assignee_ids %}
               {{ user_map.get(uid, uid) }}{% if not loop.last %}, {% endif %}
