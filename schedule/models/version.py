@@ -35,4 +35,5 @@ get_active = VersionRepository.get_active
 get_by_id = VersionRepository.get_by_id
 create = VersionRepository.create
 update = VersionRepository.update
+patch = VersionRepository.patch
 delete = VersionRepository.delete
