@@ -354,8 +354,8 @@ class TestExportAPI:
         assert r.status_code == 200
         assert 'text/csv' in r.content_type
         body = r.data.decode('utf-8-sig')
-        assert '3.1' in body  # section_name is the task_title now
-        assert '홍길동' in body
+        assert '3.1' in body  # section_name
+        assert '2026-03-10' in body
 
     def test_export_xlsx(self, client):
         uid = _create_user(client)
@@ -390,4 +390,4 @@ class TestExportAPI:
         )
         body = r.data.decode('utf-8-sig')
         assert '날짜' in body
-        assert '업무명' in body
+        assert '장절명' in body

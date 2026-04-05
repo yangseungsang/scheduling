@@ -68,22 +68,28 @@
                 }).then(function () { location.reload(); })
                   .catch(function (err) { showToast(err.message, 'danger'); });
               } else if (target.type === 'month') {
-                var prevRem2;
-                getTaskRemaining(taskId).then(function (r) {
-                  prevRem2 = r;
-                  return api('POST', '/schedule/api/blocks', {
-                    task_id: taskId, assignee_ids: assigneeIds,
-                    location_id: locationId, version_id: versionId,
-                    date: target.date,
-                    start_time: '08:30',
-                    end_time: minToTime(510 + bMin),
-                    origin: 'manual',
-                    identifier_ids: identifierIds,
-                  });
-                }).then(function () {
-                  return checkRemainingAfterPlace(taskId, title.trim(), prevRem2);
-                }).then(function () { location.reload(); })
-                  .catch(function (err) { showToast(err.message, 'danger'); });
+                function doMonthPlace(locId, startTime) {
+                  var st = timeToMin(startTime);
+                  var prevRem2;
+                  getTaskRemaining(taskId).then(function (r) {
+                    prevRem2 = r;
+                    return api('POST', '/schedule/api/blocks', {
+                      task_id: taskId, assignee_ids: assigneeIds,
+                      location_id: locId, version_id: versionId,
+                      date: target.date,
+                      start_time: startTime,
+                      end_time: minToTime(st + bMin),
+                      identifier_ids: identifierIds,
+                    });
+                  }).then(function () {
+                    return checkRemainingAfterPlace(taskId, title.trim(), prevRem2);
+                  }).then(function () { location.reload(); })
+                    .catch(function (err) { showToast(err.message, 'danger'); });
+                }
+
+                showMonthPlacePicker(locationId, function (result) {
+                  if (result) doMonthPlace(result.locationId, result.startTime);
+                });
               }
             }
 
@@ -199,6 +205,142 @@
     });
   }
 
+  // =====================================================================
+  // Month place picker — location + start time
+  // =====================================================================
+  function showMonthPlacePicker(defaultLocId, callback) {
+    var locs = [];
+    document.querySelectorAll('.loc-filter-btn[data-loc-id]').forEach(function (b) {
+      if (b.dataset.locId) {
+        var dot = b.querySelector('.loc-filter-dot');
+        locs.push({
+          id: b.dataset.locId,
+          name: b.textContent.trim(),
+          color: dot ? (dot.style.background || dot.style.backgroundColor || '#6c757d') : '#6c757d',
+        });
+      }
+    });
+
+    if (locs.length === 0) {
+      api('GET', '/admin/api/locations').then(function (res) {
+        var items = res.locations || res || [];
+        items.forEach(function (loc) {
+          locs.push({ id: loc.id, name: loc.name, color: loc.color || '#6c757d' });
+        });
+        showPicker(locs);
+      }).catch(function () { callback(null); });
+      return;
+    }
+    showPicker(locs);
+
+    function showPicker(locations) {
+      var old = document.getElementById('month-place-picker');
+      if (old) old.remove();
+
+      var locOptions = locations.map(function (loc) {
+        var sel = loc.id === defaultLocId ? ' selected' : '';
+        return '<option value="' + loc.id + '"' + sel + '>' + loc.name + '</option>';
+      }).join('');
+
+      var overlay = document.createElement('div');
+      overlay.id = 'month-place-picker';
+      overlay.className = 'block-detail-overlay';
+      overlay.innerHTML =
+        '<div class="bd-box" style="max-width:300px">' +
+          '<div class="bd-header"><div class="bd-header-left"><span class="bd-id">배치 설정</span></div>' +
+            '<button class="bd-x" id="mpp-close">&times;</button></div>' +
+          '<div class="bd-divider"></div>' +
+          '<div style="padding:12px">' +
+            '<label class="form-label" style="font-size:0.82rem">장소</label>' +
+            '<select class="form-select form-select-sm mb-2" id="mpp-location">' +
+              '<option value="">선택</option>' + locOptions +
+            '</select>' +
+            '<label class="form-label" style="font-size:0.82rem">시작 시간</label>' +
+            '<input type="time" class="form-control form-control-sm mb-2" id="mpp-time" value="08:30">' +
+            '<button class="btn btn-sm btn-primary w-100" id="mpp-ok">배치</button>' +
+          '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+
+      overlay.addEventListener('click', function (ev) {
+        if (ev.target === overlay) { overlay.remove(); callback(null); }
+      });
+      document.getElementById('mpp-close').addEventListener('click', function () {
+        overlay.remove(); callback(null);
+      });
+      document.getElementById('mpp-ok').addEventListener('click', function () {
+        var locId = document.getElementById('mpp-location').value;
+        var time = document.getElementById('mpp-time').value;
+        overlay.remove();
+        if (!locId) { showToast('장소를 선택하세요.', 'danger'); callback(null); return; }
+        if (!time) { showToast('시간을 입력하세요.', 'danger'); callback(null); return; }
+        callback({ locationId: locId, startTime: time });
+      });
+    }
+  }
+
+  // =====================================================================
+  // Location picker (legacy, kept for other uses)
+  // =====================================================================
+  function showLocationPicker(callback) {
+    var locs = [];
+    document.querySelectorAll('.loc-filter-btn[data-loc-id]').forEach(function (b) {
+      if (b.dataset.locId) {
+        var dot = b.querySelector('.loc-filter-dot');
+        locs.push({
+          id: b.dataset.locId,
+          name: b.textContent.trim(),
+          color: dot ? (dot.style.background || dot.style.backgroundColor || '#6c757d') : '#6c757d',
+        });
+      }
+    });
+    // Fallback: fetch from API if no filter buttons on page
+    if (locs.length === 0) {
+      api('GET', '/admin/api/locations').then(function (res) {
+        var items = res.locations || res || [];
+        items.forEach(function (loc) {
+          locs.push({ id: loc.id, name: loc.name, color: loc.color || '#6c757d' });
+        });
+        showPicker(locs);
+      }).catch(function () { callback(null); });
+      return;
+    }
+    showPicker(locs);
+
+    function showPicker(locations) {
+      if (locations.length === 0) { callback(null); return; }
+      var old = document.getElementById('location-picker');
+      if (old) old.remove();
+
+      var overlay = document.createElement('div');
+      overlay.id = 'location-picker';
+      overlay.className = 'block-detail-overlay';
+      var rows = locations.map(function (loc) {
+        return '<button class="btn btn-sm w-100 mb-1 text-start loc-pick-btn" data-loc-id="' + loc.id + '" style="border:2px solid ' + loc.color + ';color:' + loc.color + '">' +
+          '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + loc.color + ';margin-right:6px"></span>' +
+          loc.name + '</button>';
+      }).join('');
+      overlay.innerHTML =
+        '<div class="bd-box" style="max-width:280px">' +
+          '<div class="bd-header"><div class="bd-header-left"><span class="bd-id">장소 선택</span></div>' +
+            '<button class="bd-x" id="loc-pick-close">&times;</button></div>' +
+          '<div class="bd-divider"></div>' +
+          '<div style="padding:12px">' + rows + '</div>' +
+        '</div>';
+      document.body.appendChild(overlay);
+
+      overlay.addEventListener('click', function (ev) {
+        if (ev.target === overlay) { overlay.remove(); callback(null); }
+        var btn = ev.target.closest('.loc-pick-btn');
+        if (btn) { overlay.remove(); callback(btn.dataset.locId); }
+      });
+      document.getElementById('loc-pick-close').addEventListener('click', function () {
+        overlay.remove(); callback(null);
+      });
+    }
+  }
+
   App.initQueueDrag = initQueueDrag;
   App.showIdentifierPicker = showIdentifierPicker;
+  App.showLocationPicker = showLocationPicker;
 })(window.ScheduleApp);

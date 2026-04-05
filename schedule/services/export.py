@@ -3,24 +3,16 @@ import io
 from datetime import date, datetime, timedelta
 
 
-PRIORITY_LABELS = {'high': '높음', 'medium': '보통', 'low': '낮음'}
-PRIORITY_ICONS = {'high': '⬆높음', 'medium': '➡보통', 'low': '⬇낮음'}
-HEADERS = ['날짜', '시작시간', '종료시간', '업무명', '담당자', '카테고리', '우선순위', '상태', '잠금']
+HEADERS = ['날짜', '장소', '장절명', '시작시간', '종료시간']
 
 
 def _block_to_row(b):
-    status = '확정'
-    locked = 'Y' if b.get('is_locked') else 'N'
     return [
         b.get('date', ''),
+        b.get('location_name', ''),
+        b.get('section_name', '') or b.get('task_title', ''),
         b.get('start_time', ''),
         b.get('end_time', ''),
-        b.get('task_title', ''),
-        b.get('assignee_name', ''),
-        b.get('category_name', ''),
-        PRIORITY_LABELS.get(b.get('priority', ''), b.get('priority', '')),
-        status,
-        locked,
     ]
 
 
@@ -132,16 +124,13 @@ def export_xlsx(enriched_blocks, start_date, end_date):
 
                 if r_offset < len(day_blocks):
                     b = day_blocks[r_offset]
-                    pri = PRIORITY_ICONS.get(b.get('priority', ''), '')
-                    lines = [
-                        f"{b.get('start_time', '')}~{b.get('end_time', '')}",
-                        b.get('task_title', ''),
-                        b.get('assignee_name', ''),
-                    ]
-                    if b.get('category_name'):
-                        lines.append(f"[{b['category_name']}]")
-                    if pri:
-                        lines.append(pri)
+                    section = b.get('section_name', '') or b.get('task_title', '')
+                    loc = b.get('location_name', '')
+                    time_range = f"{b.get('start_time', '')}~{b.get('end_time', '')}"
+                    lines = [section]
+                    if loc:
+                        lines.append(f'[{loc}]')
+                    lines.append(time_range)
                     cell.value = '\n'.join(lines)
                     cell.font = block_font
                     # Tint cell with block color
@@ -160,7 +149,7 @@ def export_xlsx(enriched_blocks, start_date, end_date):
         row += 1  # blank separator
         current += timedelta(days=7)
 
-    # Data sheet for raw data
+    # Data sheet
     ws2 = wb.create_sheet(title='데이터')
     ws2.append(HEADERS)
     for b in enriched_blocks:

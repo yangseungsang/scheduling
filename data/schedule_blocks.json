@@ -257,25 +257,6 @@
     "is_simple": true
   },
   {
-    "id": "sb_26108819",
-    "task_id": "t_06431566",
-    "assignee_ids": [],
-    "location_id": "",
-    "version_id": "v_00000001",
-    "date": "2026-04-06",
-    "start_time": "09:00",
-    "end_time": "11:00",
-    "is_locked": false,
-    "block_status": "pending",
-    "memo": "",
-    "identifier_ids": [
-      "ID-A",
-      "ID-B"
-    ],
-    "title": "",
-    "is_simple": false
-  },
-  {
     "id": "sb_fbbde3b8",
     "task_id": null,
     "assignee_ids": [],
@@ -437,5 +418,79 @@
     "title": "",
     "is_simple": false,
     "id": "sb_fa0526d3"
+  },
+  {
+    "task_id": "t_06431566",
+    "assignee_ids": [],
+    "location_id": "",
+    "version_id": "v_00000001",
+    "date": "2026-04-07",
+    "start_time": "08:30",
+    "end_time": "09:30",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": [
+      "ID-C"
+    ],
+    "title": "",
+    "is_simple": false,
+    "id": "sb_7a9c4fc0"
+  },
+  {
+    "task_id": "t_06431566",
+    "assignee_ids": [],
+    "location_id": "",
+    "version_id": "v_00000001",
+    "date": "2026-04-06",
+    "start_time": "08:30",
+    "end_time": "10:30",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": [
+      "ID-A",
+      "ID-B"
+    ],
+    "title": "",
+    "is_simple": false,
+    "id": "sb_ef2178a3"
+  },
+  {
+    "task_id": "t_00000018",
+    "assignee_ids": [
+      "u_002",
+      "u_003"
+    ],
+    "location_id": "loc_00000003",
+    "version_id": "v_00000001",
+    "date": "2026-04-02",
+    "start_time": "08:30",
+    "end_time": "10:30",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": null,
+    "title": "",
+    "is_simple": false,
+    "id": "sb_66c04cd3"
+  },
+  {
+    "task_id": "t_00000012",
+    "assignee_ids": [
+      "u_001"
+    ],
+    "location_id": "loc_00000002",
+    "version_id": "v_00000001",
+    "date": "2026-04-02",
+    "start_time": "08:30",
+    "end_time": "11:00",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": null,
+    "title": "",
+    "is_simple": false,
+    "id": "sb_06e34c1a"
   }
 ]
