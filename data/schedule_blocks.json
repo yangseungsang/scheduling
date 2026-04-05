@@ -199,26 +199,6 @@
     "is_simple": true
   },
   {
-    "id": "sb_eeee913b",
-    "task_id": "t_00000016",
-    "assignee_ids": [
-      "u_004"
-    ],
-    "location_id": "loc_00000002",
-    "version_id": "v_00000001",
-    "date": "2026-03-31",
-    "start_time": "10:40",
-    "end_time": "11:40",
-    "is_locked": false,
-    "block_status": "pending",
-    "memo": "",
-    "identifier_ids": [
-      "TC-071"
-    ],
-    "title": "",
-    "is_simple": false
-  },
-  {
     "id": "sb_7a5d0d4e",
     "task_id": "t_00000016",
     "assignee_ids": [
@@ -312,24 +292,6 @@
     "is_simple": true
   },
   {
-    "id": "sb_900127e7",
-    "task_id": "t_00000012",
-    "assignee_ids": [
-      "u_001"
-    ],
-    "location_id": "loc_00000002",
-    "version_id": "v_00000001",
-    "date": "2026-03-30",
-    "start_time": "09:20",
-    "end_time": "11:50",
-    "is_locked": false,
-    "block_status": "pending",
-    "memo": "",
-    "identifier_ids": null,
-    "title": "",
-    "is_simple": false
-  },
-  {
     "id": "sb_f5a9c122",
     "task_id": null,
     "assignee_ids": [],
@@ -362,22 +324,6 @@
     "is_simple": false
   },
   {
-    "id": "sb_1dbeeb74",
-    "task_id": "t_d0a520aa",
-    "assignee_ids": [],
-    "location_id": "loc_00000001",
-    "version_id": "v_00000001",
-    "date": "2026-03-30",
-    "start_time": "09:00",
-    "end_time": "09:40",
-    "is_locked": false,
-    "block_status": "pending",
-    "memo": "",
-    "identifier_ids": null,
-    "title": "",
-    "is_simple": false
-  },
-  {
     "id": "sb_8a0ac10a",
     "task_id": "t_85e03a36",
     "assignee_ids": [],
@@ -388,25 +334,6 @@
     "end_time": "09:50",
     "is_locked": false,
     "block_status": "completed",
-    "memo": "",
-    "identifier_ids": null,
-    "title": "",
-    "is_simple": false
-  },
-  {
-    "id": "sb_6f055ec0",
-    "task_id": "t_00000018",
-    "assignee_ids": [
-      "u_002",
-      "u_003"
-    ],
-    "location_id": "loc_381b0148",
-    "version_id": "v_00000001",
-    "date": "2026-03-30",
-    "start_time": "13:00",
-    "end_time": "13:40",
-    "is_locked": false,
-    "block_status": "pending",
     "memo": "",
     "identifier_ids": null,
     "title": "",
@@ -434,100 +361,6 @@
     "is_simple": false
   },
   {
-    "id": "sb_49e38ad0",
-    "task_id": "t_00000018",
-    "assignee_ids": [
-      "u_002",
-      "u_003"
-    ],
-    "location_id": "loc_381b0148",
-    "version_id": "v_00000001",
-    "date": "2026-03-30",
-    "start_time": "10:00",
-    "end_time": "11:20",
-    "is_locked": false,
-    "block_status": "completed",
-    "memo": "",
-    "identifier_ids": null,
-    "title": "",
-    "is_simple": false
-  },
-  {
-    "id": "sb_6b809329",
-    "task_id": "t_a94eda3c",
-    "assignee_ids": [],
-    "location_id": "loc_00000003",
-    "version_id": "v_00000001",
-    "date": "2026-03-30",
-    "start_time": "10:00",
-    "end_time": "11:30",
-    "is_locked": false,
-    "block_status": "pending",
-    "memo": "",
-    "identifier_ids": null,
-    "title": "",
-    "is_simple": false
-  },
-  {
-    "id": "sb_161b25e2",
-    "task_id": "t_06431566",
-    "assignee_ids": [],
-    "location_id": "loc_00000003",
-    "version_id": "v_00000001",
-    "date": "2026-03-31",
-    "start_time": "10:00",
-    "end_time": "12:00",
-    "is_locked": false,
-    "block_status": "pending",
-    "memo": "",
-    "identifier_ids": [
-      "ID-B",
-      "ID-C"
-    ],
-    "title": "",
-    "is_simple": false
-  },
-  {
-    "task_id": "t_00000010",
-    "assignee_ids": [
-      "u_004"
-    ],
-    "location_id": "loc_00000003",
-    "version_id": "v_00000001",
-    "date": "2026-03-31",
-    "start_time": "08:50",
-    "end_time": "09:30",
-    "is_locked": false,
-    "block_status": "pending",
-    "memo": "",
-    "identifier_ids": [
-      "TC-016"
-    ],
-    "title": "",
-    "is_simple": false,
-    "id": "sb_53dcb2bb"
-  },
-  {
-    "task_id": "t_00000010",
-    "assignee_ids": [
-      "u_004"
-    ],
-    "location_id": "loc_00000002",
-    "version_id": "v_00000001",
-    "date": "2026-03-31",
-    "start_time": "08:50",
-    "end_time": "09:30",
-    "is_locked": false,
-    "block_status": "completed",
-    "memo": "",
-    "identifier_ids": [
-      "TC-015"
-    ],
-    "title": "",
-    "is_simple": false,
-    "id": "sb_35e05d2e"
-  },
-  {
     "task_id": "t_00000010",
     "assignee_ids": [
       "u_004"
@@ -548,21 +381,61 @@
     "id": "sb_694f28ad"
   },
   {
+    "task_id": "t_00000010",
+    "assignee_ids": [
+      "u_004"
+    ],
+    "location_id": "loc_00000002",
+    "version_id": "v_00000001",
+    "date": "2026-03-31",
+    "start_time": "08:50",
+    "end_time": "09:30",
+    "is_locked": false,
+    "block_status": "completed",
+    "memo": "",
+    "identifier_ids": [
+      "TC-015"
+    ],
+    "title": "",
+    "is_simple": false,
+    "id": "sb_a1c080c2"
+  },
+  {
     "task_id": "t_00000013",
     "assignee_ids": [
       "u_003"
     ],
-    "location_id": "loc_00000002",
+    "location_id": "loc_00000003",
     "version_id": "v_00000001",
     "date": "2026-04-01",
-    "start_time": "08:30",
-    "end_time": "13:30",
+    "start_time": "09:20",
+    "end_time": "14:20",
     "is_locked": false,
-    "block_status": "pending",
+    "block_status": "completed",
     "memo": "",
     "identifier_ids": null,
     "title": "",
     "is_simple": false,
-    "id": "sb_c28d44f9"
+    "id": "sb_1f5e296d"
+  },
+  {
+    "task_id": "t_00000016",
+    "assignee_ids": [
+      "u_004"
+    ],
+    "location_id": "loc_00000002",
+    "version_id": "v_00000001",
+    "date": "2026-03-31",
+    "start_time": "10:20",
+    "end_time": "11:20",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": [
+      "TC-071"
+    ],
+    "title": "",
+    "is_simple": false,
+    "id": "sb_fa0526d3"
   }
 ]

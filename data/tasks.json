@@ -364,7 +364,7 @@
       }
     ],
     "estimated_hours": 2.0,
-    "remaining_hours": 0.0,
+    "remaining_hours": 0.67,
     "status": "in_progress",
     "memo": "정밀 측정 장비 필요",
     "created_at": "2026-04-01T09:10:00",
@@ -409,7 +409,7 @@
     "assignee_ids": [
       "u_001"
     ],
-    "location_id": "loc_00000002",
+    "location_id": "",
     "section_name": "3.6 전원 관리",
     "procedure_owner": "김민수",
     "test_list": [
@@ -430,7 +430,7 @@
       }
     ],
     "estimated_hours": 2.5,
-    "remaining_hours": 0.0,
+    "remaining_hours": 2.5,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T09:30:00",
@@ -471,7 +471,7 @@
     ],
     "estimated_hours": 4,
     "remaining_hours": 0.0,
-    "status": "in_progress",
+    "status": "completed",
     "memo": "IMU 센서 교정 필요",
     "created_at": "2026-04-01T09:40:00",
     "source": "local",
@@ -633,7 +633,7 @@
       }
     ],
     "estimated_hours": 2.0,
-    "remaining_hours": 0.0,
+    "remaining_hours": 2.0,
     "status": "in_progress",
     "memo": "",
     "created_at": "2026-04-01T10:30:00",
@@ -809,7 +809,7 @@
       }
     ],
     "estimated_hours": 3,
-    "remaining_hours": 0.0,
+    "remaining_hours": 1.0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-04T18:12:27",
@@ -849,7 +849,7 @@
     "procedure_owner": "",
     "test_list": [],
     "estimated_hours": 1.5,
-    "remaining_hours": 0.0,
+    "remaining_hours": 1.5,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-04T20:48:20",
@@ -874,5 +874,99 @@
     "is_simple": true,
     "source": "local",
     "external_key": ""
+  },
+  {
+    "procedure_id": "EXT-027",
+    "version_id": "",
+    "assignee_ids": [],
+    "location_id": "",
+    "section_name": "3.1 시스템 초기화",
+    "procedure_owner": "",
+    "test_list": [
+      {
+        "id": "TC-001",
+        "estimated_hours": 0,
+        "owners": []
+      },
+      {
+        "id": "TC-002",
+        "estimated_hours": 0,
+        "owners": []
+      },
+      {
+        "id": "TC-003",
+        "estimated_hours": 0,
+        "owners": []
+      }
+    ],
+    "estimated_hours": 0,
+    "remaining_hours": 0,
+    "status": "waiting",
+    "memo": "",
+    "source": "external",
+    "external_key": "3.1 시스템 초기화::",
+    "created_at": "2026-04-05T22:26:17",
+    "id": "t_13d81378"
+  },
+  {
+    "procedure_id": "EXT-028",
+    "version_id": "",
+    "assignee_ids": [],
+    "location_id": "",
+    "section_name": "3.2 통신 기능",
+    "procedure_owner": "",
+    "test_list": [
+      {
+        "id": "TC-004",
+        "estimated_hours": 0,
+        "owners": []
+      },
+      {
+        "id": "TC-005",
+        "estimated_hours": 0,
+        "owners": []
+      }
+    ],
+    "estimated_hours": 0,
+    "remaining_hours": 0,
+    "status": "waiting",
+    "memo": "",
+    "source": "external",
+    "external_key": "3.2 통신 기능::",
+    "created_at": "2026-04-05T22:26:17",
+    "id": "t_e415353e"
+  },
+  {
+    "procedure_id": "EXT-029",
+    "version_id": "",
+    "assignee_ids": [],
+    "location_id": "",
+    "section_name": "4.1 항법 연산",
+    "procedure_owner": "",
+    "test_list": [
+      {
+        "id": "TC-010",
+        "estimated_hours": 0,
+        "owners": []
+      },
+      {
+        "id": "TC-011",
+        "estimated_hours": 0,
+        "owners": []
+      },
+      {
+        "id": "TC-012",
+        "estimated_hours": 0,
+        "owners": []
+      }
+    ],
+    "estimated_hours": 0,
+    "remaining_hours": 0,
+    "status": "waiting",
+    "memo": "",
+    "source": "external",
+    "external_key": "4.1 항법 연산::",
+    "created_at": "2026-04-05T22:26:17",
+    "id": "t_c8d0a27a"
   }
 ]

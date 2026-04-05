@@ -1276,8 +1276,8 @@ body {
 .badge-status-cancelled { background: rgba(255,255,255,0.85); color: #dc3545; }
 
 /* Block-level visual cues */
-.block-status-completed { opacity: 0.6; }
-.block-status-cancelled { opacity: 0.4; }
+.schedule-block.block-status-completed { opacity: 0.6; }
+.schedule-block.block-status-cancelled { opacity: 0.4; }
 
 /* Month view status icon */
 .month-status-icon { font-size: 0.6rem; margin-right: 2px; vertical-align: middle; }
