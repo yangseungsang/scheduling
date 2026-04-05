@@ -12,13 +12,15 @@ class VersionRepository(BaseRepository):
         return [v for v in cls.get_all() if v.get('is_active', True)]
 
     @classmethod
-    def create(cls, name, description=''):
+    def create(cls, name, description='', id=None):
         data = {
             'name': name,
             'description': description,
             'is_active': True,
             'created_at': datetime.now().isoformat(timespec='seconds'),
         }
+        if id:
+            data['id'] = id
         return super().create(data)
 
     @classmethod

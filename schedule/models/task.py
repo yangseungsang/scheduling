@@ -45,7 +45,7 @@ class TaskRepository(BaseRepository):
     @classmethod
     def create(cls, procedure_id, version_id, assignee_ids, location_id,
                section_name, procedure_owner, test_list,
-               estimated_hours, memo=''):
+               estimated_hours, memo='', source='local', external_key=''):
         data = {
             'procedure_id': procedure_id,
             'version_id': version_id,
@@ -58,6 +58,8 @@ class TaskRepository(BaseRepository):
             'remaining_hours': estimated_hours,
             'status': 'waiting',
             'memo': memo,
+            'source': source,
+            'external_key': external_key,
             'created_at': datetime.now().isoformat(timespec='seconds'),
         }
         return super().create(data)
@@ -82,6 +84,14 @@ class TaskRepository(BaseRepository):
         )
 
 
+    @classmethod
+    def get_by_external_key(cls, key):
+        for t in cls.get_all():
+            if t.get('external_key') == key:
+                return t
+        return None
+
+
 # Backward-compatible module-level aliases
 get_all = TaskRepository.get_all
 get_by_id = TaskRepository.get_by_id
@@ -92,3 +102,4 @@ patch = TaskRepository.patch
 delete = TaskRepository.delete
 validate_unique_identifiers = TaskRepository.validate_unique_identifiers
 compute_estimated_hours = TaskRepository.compute_estimated_hours
+get_by_external_key = TaskRepository.get_by_external_key

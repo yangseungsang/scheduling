@@ -21,9 +21,10 @@ class BaseRepository:
 
     @classmethod
     def create(cls, data):
-        """Create a new item. *data* is a dict; 'id' is added automatically."""
+        """Create a new item. *data* is a dict; 'id' is added automatically unless already present."""
         items = read_json(cls.FILENAME)
-        data['id'] = generate_id(cls.ID_PREFIX)
+        if 'id' not in data or not data['id']:
+            data['id'] = generate_id(cls.ID_PREFIX)
         items.append(data)
         write_json(cls.FILENAME, items)
         return data
