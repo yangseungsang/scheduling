@@ -930,7 +930,13 @@ body {
 .day-number a { text-decoration: none; color: inherit; }
 .day-number a:hover { color: #0d6efd; }
 .month-block-time { opacity: 0.8; font-size: 0.65rem; }
-.month-more-count { font-size: 0.7rem; color: #6c757d; padding-left: 4px; }
+.month-block-hidden { display: none; }
+.month-day-cell.expanded .month-block-hidden { display: block; }
+.month-more-toggle {
+  font-size: 0.7rem; color: var(--color-primary); padding-left: 4px;
+  cursor: pointer; user-select: none;
+}
+.month-more-toggle:hover { text-decoration: underline; }
 
 /* ==================================================================
    Remaining-hours alert
@@ -1006,7 +1012,7 @@ body {
   border: 1px solid #d1d5db;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  width: 520px;
+  width: 560px;
   max-width: 92vw;
   max-height: 85vh;
   overflow-y: auto;
@@ -1251,6 +1257,9 @@ body {
   vertical-align: middle;
   letter-spacing: 0.02em;
 }
+.block-split-badge.split-partial {
+  background: rgba(220, 38, 38, 0.7);
+}
 .block-status-badge {
   display: inline-block;
   font-size: 0.6rem;
@@ -1338,20 +1347,17 @@ body {
    ================================================================== */
 .schedule-block.task-linked-hover,
 .week-block.task-linked-hover {
-  outline: 2px solid rgba(255, 255, 255, 0.6);
-  outline-offset: -1px;
-  filter: brightness(1.1);
-  z-index: 5;
+  box-shadow: inset 0 0 0 3px #dc2626;
+  filter: brightness(0.9);
+  z-index: 10;
 }
 .month-block-item.task-linked-hover {
-  outline: 2px solid rgba(255, 255, 255, 0.6);
-  outline-offset: -1px;
-  filter: brightness(1.1);
+  box-shadow: inset 0 0 0 3px #dc2626;
+  filter: brightness(0.9);
 }
 .queue-task-item.task-linked-hover {
-  outline: 2px solid #6ea8fe;
-  outline-offset: -1px;
-  background-color: #f0f4fa !important;
+  box-shadow: inset 0 0 0 3px #dc2626;
+  background-color: #fef2f2 !important;
 }
 
 /* ==================================================================

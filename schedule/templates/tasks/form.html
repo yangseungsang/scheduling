@@ -130,7 +130,7 @@
     tr.innerHTML =
       '<td><input type="text" class="form-control form-control-sm id-input" value="' + (id || '') + '" placeholder="TC-001" required></td>' +
       '<td><input type="text" class="form-control form-control-sm owners-input" value="' + owners.join(', ') + '" placeholder="작성자 (쉼표 구분)"></td>' +
-      '<td><input type="number" class="form-control form-control-sm min-input" value="' + (minutes || 0) + '" min="0" step="5"></td>' +
+      '<td><input type="number" class="form-control form-control-sm min-input" value="' + (minutes || 0) + '" min="0" step="1"></td>' +
       '<td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-id">&times;</button></td>';
     tbody.appendChild(tr);
     tr.querySelector('.min-input').addEventListener('input', updateTotal);

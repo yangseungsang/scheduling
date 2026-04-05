@@ -37,6 +37,14 @@ def build_maps():
 
 
 def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
+    # Pre-compute: all blocks per task (across entire schedule, not just current view)
+    all_blocks = schedule_block.get_all()
+    all_blocks_by_task = {}
+    for ab in all_blocks:
+        tid = ab.get('task_id')
+        if tid:
+            all_blocks_by_task.setdefault(tid, []).append(ab)
+
     enriched = []
     for b in blocks:
         block = dict(b)
@@ -79,6 +87,19 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         block['block_identifier_count'] = len(block_ids) if block_ids else total_ids
         block['is_split'] = block_ids is not None and total_ids > 0 and len(block_ids) < total_ids
 
+        # Determine split status: are the remaining identifiers placed elsewhere?
+        if block['is_split'] and t:
+            all_task_ids = set(item['id'] if isinstance(item, dict) else item
+                              for item in t.get('test_list', []))
+            placed_ids = set()
+            for tb in all_blocks_by_task.get(b.get('task_id'), []):
+                for iid in (tb.get('identifier_ids') or all_task_ids):
+                    placed_ids.add(iid)
+            unplaced = all_task_ids - placed_ids
+            block['split_status'] = 'partial' if unplaced else 'split'
+        else:
+            block['split_status'] = ''
+
         # estimated_hours for this block: if split, sum only assigned identifiers
         if block_ids and t:
             id_set = set(block_ids)
@@ -101,13 +122,13 @@ def get_queue_tasks(users_map, locations_map, version_id):
     all_blocks = schedule_block.get_all()
     sttngs = settings.get()
 
-    scheduled_hours = {}
+    # Build per-task block info
+    task_blocks = {}  # tid → list of blocks
     for b in all_blocks:
         tid = b.get('task_id')
         if not tid:
             continue
-        work_min = work_minutes_in_range(b['start_time'], b['end_time'], sttngs)
-        scheduled_hours[tid] = scheduled_hours.get(tid, 0) + work_min / 60.0
+        task_blocks.setdefault(tid, []).append(b)
 
     queue = []
     for t in tasks:
@@ -116,7 +137,33 @@ def get_queue_tasks(users_map, locations_map, version_id):
         est = t.get('estimated_hours', 0)
         if est <= 0:
             continue
-        remaining = est - scheduled_hours.get(t['id'], 0)
+
+        blocks = task_blocks.get(t['id'], [])
+
+        # If any block covers the whole task (not split), it's fully placed
+        has_full_block = any(b.get('identifier_ids') is None for b in blocks)
+        if has_full_block:
+            continue
+
+        # For split blocks, check which identifiers are still unscheduled
+        all_ids = [item['id'] if isinstance(item, dict) else item
+                   for item in t.get('test_list', [])]
+        scheduled_ids = set()
+        for b in blocks:
+            bids = b.get('identifier_ids') or []
+            for bid in bids:
+                scheduled_ids.add(bid)
+
+        unscheduled_ids = [i for i in all_ids if i not in scheduled_ids]
+        if not unscheduled_ids:
+            continue
+
+        # Calculate remaining from unscheduled identifiers
+        remaining = round(sum(
+            item.get('estimated_hours', 0)
+            for item in t.get('test_list', [])
+            if isinstance(item, dict) and item.get('id') in set(unscheduled_ids)
+        ), 2)
         if remaining <= 0:
             continue
 

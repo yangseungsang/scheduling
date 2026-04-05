@@ -53,8 +53,8 @@
                   {{ day_data.day }}
                 </a>
               </div>
-              {% for block in day_data.blocks[:3] %}
-              <div class="month-block-item block-status-{{ block.block_status }}"
+              {% for block in day_data.blocks %}
+              <div class="month-block-item block-status-{{ block.block_status }}{% if loop.index > 3 %} month-block-hidden{% endif %}"
                    data-block-id="{{ block.id }}"
                    data-task-id="{{ block.task_id }}"
                    data-block-status="{{ block.block_status }}"
@@ -71,11 +71,11 @@
                 {% if block.block_status == 'in_progress' %}<i class="bi bi-play-circle-fill month-status-icon"></i>
                 {% elif block.block_status == 'completed' %}<i class="bi bi-check-circle-fill month-status-icon"></i>
                 {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-circle-fill month-status-icon"></i>
-                {% endif %}{{ block.section_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %} <span class="month-block-time">{{ block.start_time }}–{{ block.end_time }}</span>
+                {% endif %}{{ block.section_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %} <span class="month-block-time">{{ block.start_time }}–{{ block.end_time }}</span>
               </div>
               {% endfor %}
               {% if day_data.blocks|length > 3 %}
-              <div class="month-more-count">+{{ day_data.blocks|length - 3 }}개 더</div>
+              <div class="month-more-toggle" data-date="{{ day_data.date.isoformat() }}">+{{ day_data.blocks|length - 3 }}개 더</div>
               {% endif %}
             </td>
             {% endif %}

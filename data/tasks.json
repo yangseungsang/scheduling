@@ -13,7 +13,7 @@
     "test_list": [
       {
         "id": "TC-001",
-        "estimated_hours": 1.0,
+        "estimated_hours": 0.7833,
         "owners": [
           "김민수",
           "이지은"
@@ -21,21 +21,21 @@
       },
       {
         "id": "TC-002",
-        "estimated_hours": 1.0,
+        "estimated_hours": 0.8833,
         "owners": [
           "박준혁"
         ]
       },
       {
         "id": "TC-003",
-        "estimated_hours": 1.0,
+        "estimated_hours": 0.6333,
         "owners": [
           "최수연",
           "김민수"
         ]
       }
     ],
-    "estimated_hours": 3.0,
+    "estimated_hours": 2.3,
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "전원 인가 후 초기화 절차 확인",
@@ -54,21 +54,21 @@
     "test_list": [
       {
         "id": "TC-004",
-        "estimated_hours": 2.0,
+        "estimated_hours": 1.95,
         "owners": [
           "이지은"
         ]
       },
       {
         "id": "TC-005",
-        "estimated_hours": 2.0,
+        "estimated_hours": 1.3833,
         "owners": [
           "박준혁",
           "최수연"
         ]
       }
     ],
-    "estimated_hours": 4.0,
+    "estimated_hours": 3.33,
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
@@ -88,28 +88,28 @@
     "test_list": [
       {
         "id": "TC-010",
-        "estimated_hours": 2.0,
+        "estimated_hours": 2.0667,
         "owners": [
           "박준혁"
         ]
       },
       {
         "id": "TC-011",
-        "estimated_hours": 1.5,
+        "estimated_hours": 1.5167,
         "owners": [
           "김민수"
         ]
       },
       {
         "id": "TC-012",
-        "estimated_hours": 1.5,
+        "estimated_hours": 1.2167,
         "owners": [
           "최수연",
           "이지은"
         ]
       }
     ],
-    "estimated_hours": 5.0,
+    "estimated_hours": 4.8,
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "GPS 수신 환경 확인 필요",
@@ -128,16 +128,20 @@
     "test_list": [
       {
         "id": "TC-013",
-        "estimated_hours": 1.25,
-        "owners": []
+        "estimated_hours": 1.1167,
+        "owners": [
+          "박준혁"
+        ]
       },
       {
         "id": "TC-014",
-        "estimated_hours": 1.25,
-        "owners": []
+        "estimated_hours": 1.3667,
+        "owners": [
+          "김민수"
+        ]
       }
     ],
-    "estimated_hours": 2.5,
+    "estimated_hours": 2.48,
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
@@ -157,26 +161,34 @@
     "test_list": [
       {
         "id": "TC-020",
-        "estimated_hours": 0.5,
-        "owners": []
+        "estimated_hours": 0.4667,
+        "owners": [
+          "이지은"
+        ]
       },
       {
         "id": "TC-021",
-        "estimated_hours": 0.5,
-        "owners": []
+        "estimated_hours": 0.5667,
+        "owners": [
+          "박준혁"
+        ]
       },
       {
         "id": "TC-022",
-        "estimated_hours": 0.5,
-        "owners": []
+        "estimated_hours": 0.3667,
+        "owners": [
+          "최수연"
+        ]
       },
       {
         "id": "TC-023",
-        "estimated_hours": 0.5,
-        "owners": []
+        "estimated_hours": 0.5167,
+        "owners": [
+          "김민수"
+        ]
       }
     ],
-    "estimated_hours": 2.0,
+    "estimated_hours": 1.92,
     "remaining_hours": 2.0,
     "status": "completed",
     "memo": "외부 장비 연결 사전 확인",
@@ -195,16 +207,20 @@
     "test_list": [
       {
         "id": "TC-006",
-        "estimated_hours": 0.375,
-        "owners": []
+        "estimated_hours": 0.3833,
+        "owners": [
+          "최수연"
+        ]
       },
       {
         "id": "TC-007",
-        "estimated_hours": 0.375,
-        "owners": []
+        "estimated_hours": 0.3167,
+        "owners": [
+          "김민수"
+        ]
       }
     ],
-    "estimated_hours": 0.75,
+    "estimated_hours": 0.7,
     "remaining_hours": 0,
     "status": "waiting",
     "memo": "ss",
@@ -330,8 +346,8 @@
       }
     ],
     "estimated_hours": 2.0,
-    "remaining_hours": 0.67,
-    "status": "waiting",
+    "remaining_hours": 0.0,
+    "status": "in_progress",
     "memo": "정밀 측정 장비 필요",
     "created_at": "2026-04-01T09:10:00"
   },
@@ -521,7 +537,7 @@
     ],
     "estimated_hours": 2.0,
     "remaining_hours": 0.0,
-    "status": "waiting",
+    "status": "in_progress",
     "memo": "항온 챔버 예약 필요",
     "created_at": "2026-04-01T10:10:00"
   },
@@ -554,7 +570,7 @@
       }
     ],
     "estimated_hours": 3.0,
-    "remaining_hours": 0,
+    "remaining_hours": 1.67,
     "status": "in_progress",
     "memo": "진동 시험기 사전 점검",
     "created_at": "2026-04-01T10:20:00"
@@ -584,7 +600,7 @@
     ],
     "estimated_hours": 2.0,
     "remaining_hours": 0.0,
-    "status": "waiting",
+    "status": "in_progress",
     "memo": "",
     "created_at": "2026-04-01T10:30:00"
   },
@@ -802,7 +818,7 @@
     "test_list": [],
     "estimated_hours": 1.0,
     "remaining_hours": 0.0,
-    "status": "waiting",
+    "status": "completed",
     "memo": "",
     "created_at": "2026-04-04T21:40:50",
     "is_simple": true

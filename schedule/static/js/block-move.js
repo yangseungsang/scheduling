@@ -31,7 +31,7 @@
         var startTime = block.dataset.startTime;
         var endTime = block.dataset.endTime;
         var durationMin = workMinutes(timeToMin(startTime), timeToMin(endTime));
-        var ghostH = (durationMin / GRID_MINUTES) * SLOT_HEIGHT;
+        var ghostH = block.offsetHeight || (durationMin / GRID_MINUTES) * SLOT_HEIGHT;
 
         startDrag(e, {
           sourceEl: block,

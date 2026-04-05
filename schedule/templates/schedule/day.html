@@ -95,7 +95,7 @@
               <div class="block-title">
                 {{ block.section_name or block.procedure_id }}
                 {% if block.is_split %}
-                <span class="block-split-badge" title="분할 배치: {{ block.block_identifier_count }}/{{ block.total_identifier_count }}개 식별자">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>
+                <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}" title="{% if block.split_status == 'partial' %}부분 배치 (나머지 큐){% else %}분할 배치 (전체 배치됨){% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>
                 {% endif %}
                 <span class="block-status-badge badge-status-{{ block.block_status }}">
                   {% if block.block_status == 'in_progress' %}진행

@@ -293,17 +293,14 @@ class TestScheduleViewAPIs:
         queue = r.get_json()['queue_tasks']
         assert all(t['id'] != tid for t in queue)
 
-    def test_queue_tasks_partial_remaining(self, client):
-        """Task with 2h remaining but 1h scheduled should show 1h in queue."""
+    def test_queue_hides_task_with_full_block(self, client):
+        """Task with non-split block should NOT appear in queue (resize = real time change)."""
         uid = _create_user(client)
         tid = _create_task(client, uid, hours='2')
-        # Use time range that doesn't cross breaks (10:00-11:00 = exactly 1h)
         _create_block(client, tid, uid, start='10:00', end='11:00')
         r = client.get('/schedule/api/day')
         queue = r.get_json()['queue_tasks']
-        matching = [t for t in queue if t['id'] == tid]
-        assert len(matching) == 1
-        assert matching[0]['remaining_unscheduled_hours'] == 1.0
+        assert all(t['id'] != tid for t in queue)
 
     def test_queue_excludes_completed_tasks(self, client):
         uid = _create_user(client)

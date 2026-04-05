@@ -214,7 +214,7 @@
             '<label class="form-label">제목</label>' +
             '<input type="text" class="form-control form-control-sm mb-2" id="simple-title" placeholder="예: 시험 준비, 장비 점검">' +
             '<label class="form-label">예상 시간 (분)</label>' +
-            '<input type="number" class="form-control form-control-sm mb-2" id="simple-minutes" value="60" min="10" step="10">' +
+            '<input type="number" class="form-control form-control-sm mb-2" id="simple-minutes" value="60" min="1" step="1">' +
             '<div class="form-text mb-2">큐에 추가 후 드래그하여 배치하세요.</div>' +
             '<button class="btn btn-sm btn-primary w-100" id="simple-ok">큐에 추가</button>' +
           '</div>' +
@@ -245,8 +245,29 @@
   App.initQueueSearch = initQueueSearch;
   App.initQueueToggle = initQueueToggle;
   App.initTaskHoverLink = initTaskHoverLink;
+  // =====================================================================
+  // Month "more" toggle
+  // =====================================================================
+  function initMonthMoreToggle() {
+    document.querySelectorAll('.month-more-toggle').forEach(function (el) {
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var cell = el.closest('.month-day-cell');
+        if (!cell) return;
+        var expanded = cell.classList.toggle('expanded');
+        if (expanded) {
+          el.textContent = '접기';
+        } else {
+          var hidden = cell.querySelectorAll('.month-block-hidden').length;
+          el.textContent = '+' + hidden + '개 더';
+        }
+      });
+    });
+  }
+
   App.initWeekendToggle = initWeekendToggle;
   App.initShiftSchedule = initShiftSchedule;
   App.initAddButtons = initAddButtons;
+  App.initMonthMoreToggle = initMonthMoreToggle;
   window.ScheduleApp = App;
 })();

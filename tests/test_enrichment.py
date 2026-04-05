@@ -67,18 +67,34 @@ class TestQueueTasks:
         queue_ids = [q['id'] for q in queue]
         assert tid not in queue_ids
 
-    def test_queue_remaining_calculation(self, client):
+    def test_queue_hides_fully_placed(self, client):
+        """Non-split block → task disappears from queue (resize = real time change)."""
         uid = _create_user(client)
         loc_id = _create_location(client)
         vid = _create_version(client)
         tid = _create_task(client, uid, loc_id=loc_id, version_id=vid, hours='4')
 
-        # Place a 1-hour block at 10:00-11:00 (avoids 09:45-10:00 break)
         _create_block(client, tid, uid, date_str='2026-03-10',
                        start='10:00', end='11:00')
 
         r = client.get(f'/schedule/api/day?date=2026-03-10&version={vid}')
         queue = r.get_json()['queue_tasks']
+        assert all(q['id'] != tid for q in queue)
+
+    def test_queue_shows_split_remaining(self, client):
+        """Split block → unscheduled identifiers remain in queue."""
+        uid = _create_user(client)
+        vid = _create_version(client)
+        tid = _create_task(client, uid, version_id=vid, hours='4')
+
+        client.post('/schedule/api/blocks', json={
+            'task_id': tid, 'assignee_ids': [uid],
+            'date': '2026-03-10', 'start_time': '10:00', 'end_time': '11:00',
+            'identifier_ids': ['TC-001'],
+        })
+
+        r = client.get(f'/schedule/api/day?date=2026-03-10&version={vid}')
+        queue = r.get_json()['queue_tasks']
         match = [q for q in queue if q['id'] == tid]
         assert len(match) == 1
-        assert match[0]['remaining_unscheduled_hours'] < 4.0
+        assert match[0]['remaining_unscheduled_hours'] == 2.0

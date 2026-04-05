@@ -21,5 +21,6 @@
     App.initWeekendToggle();
     App.initShiftSchedule();
     App.initAddButtons();
+    App.initMonthMoreToggle();
   });
 })();

@@ -21,11 +21,11 @@
     var blockId = opts.blockId || null;
     Promise.all([
       api('GET', '/tasks/api/' + taskId),
-      api('GET', '/schedule/api/blocks/by-task/' + taskId),
+      api('GET', '/schedule/api/blocks/by-task/' + taskId).catch(function() { return {blocks: []}; }),
     ]).then(function (results) {
-      var task = results[0].task;
+      var task = results[0] && results[0].task;
       var allBlocks = (results[1] && results[1].blocks) || [];
-      if (!task) return;
+      if (!task) { showToast('항목 정보를 불러올 수 없습니다.', 'danger'); return; }
 
       var startTime = opts.startTime || '';
       var endTime = opts.endTime || '';
@@ -40,46 +40,64 @@
       var isQueued = opts.isQueued || false;
 
       var blockIdentifierIds = opts.identifierIds || null;
-      var displayTestList = task.test_list || [];
-      if (blockIdentifierIds && blockIdentifierIds.length && displayTestList.length) {
-        displayTestList = displayTestList.filter(function(item) {
-          var itemId = (typeof item === 'object') ? item.id : item;
-          return blockIdentifierIds.indexOf(itemId) !== -1;
-        });
+      var blockIdSet = {};
+      if (blockIdentifierIds) {
+        blockIdentifierIds.forEach(function(id) { blockIdSet[id] = true; });
       }
+      var isSplit = blockIdentifierIds && (task.test_list || []).length > blockIdentifierIds.length;
 
       // Build identifier -> schedule mapping from allBlocks
-      var allTaskIds = (task.test_list || []).map(function(it) { return typeof it === 'object' ? it.id : it; });
-      var idScheduleMap = {};
+      var allTestList = task.test_list || [];
+      var allTaskIds = allTestList.map(function(it) { return typeof it === 'object' ? it.id : it; });
+      var idScheduleMap = {};  // id → {time, status}
       allBlocks.sort(function(a,b) { return (a.date + a.start_time).localeCompare(b.date + b.start_time); });
       allBlocks.forEach(function(blk) {
         var bids = blk.identifier_ids || allTaskIds;
         bids.forEach(function(iid) {
           if (!idScheduleMap[iid]) {
-            idScheduleMap[iid] = blk.date + ' ' + blk.start_time + '–' + blk.end_time;
+            idScheduleMap[iid] = {
+              time: blk.date + ' ' + blk.start_time + '–' + blk.end_time,
+              date: blk.date,
+              status: blk.block_status || 'pending',
+            };
           }
         });
       });
 
       var testListHtml = '-';
       var idTotalMin = 0;
-      if (displayTestList.length) {
+      if (allTestList.length) {
         testListHtml = '<table style="width:100%;font-size:0.78rem;border-collapse:collapse;border-spacing:0">' +
-          '<colgroup><col style="width:20%"><col style="width:12%"><col style="width:33%"><col style="width:35%"></colgroup>' +
+          '<colgroup><col style="width:20%"><col style="width:15%"><col style="width:30%"><col style="width:35%"></colgroup>' +
           '<tr style="color:#9ca3af;font-size:0.68rem;border-bottom:1px solid #f3f4f6">' +
             '<td style="padding:3px 4px">식별자</td><td style="padding:3px 4px">시간</td>' +
             '<td style="padding:3px 4px">작성자</td><td style="padding:3px 4px">배치</td></tr>' +
-          displayTestList.map(function(item) {
+          allTestList.map(function(item) {
             if (typeof item === 'object' && item.id) {
               var mins = Math.round((item.estimated_hours || 0) * 60);
               idTotalMin += mins;
               var ow = (item.owners || []).join(', ') || '-';
+              var inThisBlock = !isSplit || blockIdSet[item.id];
               var sched = idScheduleMap[item.id];
-              var schedHtml = sched
-                ? '<a href="/schedule/?date=' + sched.split(' ')[0] + '" style="color:#2563eb;text-decoration:none;font-size:0.72rem;white-space:nowrap">' + sched + '</a>'
-                : '<span style="color:#adb5bd">미배치</span>';
-              return '<tr style="border-bottom:1px solid #f9fafb">' +
-                '<td style="padding:3px 4px;font-weight:600;white-space:nowrap">' + item.id + '</td>' +
+              var schedHtml;
+              if (sched) {
+                var statusColors = {completed:'#16a34a', in_progress:'#2563eb', cancelled:'#dc2626', pending:'#6c757d'};
+                var statusLabels = {completed:'완료', in_progress:'진행', cancelled:'불가', pending:'대기'};
+                var sColor = statusColors[sched.status] || '#6c757d';
+                var sLabel = statusLabels[sched.status] || '';
+                var statusBadge = sched.status !== 'pending'
+                  ? ' <span style="font-size:0.6rem;font-weight:700;color:' + sColor + '">' + sLabel + '</span>'
+                  : '';
+                schedHtml = '<a href="/schedule/?date=' + sched.date + '" style="color:#2563eb;text-decoration:none;font-size:0.72rem;white-space:nowrap">' + sched.time + '</a>' + statusBadge;
+              } else {
+                schedHtml = '<span style="color:#adb5bd">미배치</span>';
+              }
+              var rowStyle = inThisBlock
+                ? 'border-bottom:1px solid #f9fafb'
+                : 'border-bottom:1px solid #f9fafb;opacity:0.45';
+              var marker = inThisBlock ? '' : ' <span style="font-size:0.6rem;color:#9ca3af">타 블록</span>';
+              return '<tr style="' + rowStyle + '">' +
+                '<td style="padding:3px 4px;font-weight:600;white-space:nowrap">' + item.id + marker + '</td>' +
                 '<td style="padding:3px 4px;white-space:nowrap">' + mins + '분</td>' +
                 '<td style="padding:3px 4px;color:#6c757d">' + ow + '</td>' +
                 '<td style="padding:3px 4px">' + schedHtml + '</td></tr>';
@@ -95,7 +113,7 @@
       var splitInfo = '';
       var totalIdCount = (task.test_list || []).length;
       if (blockIdentifierIds && blockIdentifierIds.length < totalIdCount) {
-        splitInfo = ' <span style="font-size:0.75rem;color:#6c757d">(분할 ' + displayTestList.length + '/' + totalIdCount + ')</span>';
+        splitInfo = ' <span style="font-size:0.75rem;color:#6c757d">(분할 ' + blockIdentifierIds.length + '/' + totalIdCount + ')</span>';
       }
 
       var old = document.getElementById('block-detail-popup');
@@ -127,7 +145,7 @@
           '<table class="bd-tbl">' +
             '<tr><td class="bd-k">시험 식별자' + splitInfo + '</td><td class="bd-v">' + testListHtml + '</td></tr>' +
             '<tr><td class="bd-k">예상 시간</td><td class="bd-v bd-v-edit">' +
-              '<input type="number" class="bd-input" id="bd-est-min" value="' + hrsToMin(task.estimated_hours) + '" min="0" step="15">분' +
+              '<input type="number" class="bd-input" id="bd-est-min" value="' + hrsToMin(task.estimated_hours) + '" min="0" step="1">분' +
               ' <span class="bd-sub">(기준 ' + idTotalMin + '분 / 잔여 ' + hrsToMin(task.remaining_hours) + '분)</span>' +
             '</td></tr>' +
             '<tr><td class="bd-k">시험장소</td><td class="bd-v">' + (locationName || '-') + '</td></tr>' +
@@ -174,7 +192,7 @@
           })
           .catch(function (err) { showToast(err.message, 'danger'); });
       });
-    });
+    }).catch(function (err) { showToast(err.message || '팝업 로드 실패', 'danger'); });
   }
 
   function initBlockDetail() {
@@ -185,7 +203,7 @@
         e.stopPropagation();
 
         var taskId = block.dataset.taskId;
-        if (!taskId) return;
+        if (!taskId || taskId === 'None') return;
         var idIds = null;
         try { if (block.dataset.identifierIds) idIds = JSON.parse(block.dataset.identifierIds); } catch(ex) {}
         showTaskDetailPopup(taskId, {

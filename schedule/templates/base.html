@@ -168,6 +168,7 @@
   </main>
 
   <script src="{{ url_for('static', filename='vendor/bootstrap.bundle.min.js') }}"></script>
+  {% block scripts %}{% endblock %}
   <script src="{{ url_for('static', filename='js/utils.js') }}?v={{ cache_bust }}"></script>
   <script src="{{ url_for('static', filename='js/modals.js') }}?v={{ cache_bust }}"></script>
   <script src="{{ url_for('static', filename='js/drag-core.js') }}?v={{ cache_bust }}"></script>
@@ -178,6 +179,5 @@
   <script src="{{ url_for('static', filename='js/block-detail.js') }}?v={{ cache_bust }}"></script>
   <script src="{{ url_for('static', filename='js/schedule-features.js') }}?v={{ cache_bust }}"></script>
   <script src="{{ url_for('static', filename='js/schedule-app.js') }}?v={{ cache_bust }}"></script>
-  {% block scripts %}{% endblock %}
 </body>
 </html>
