@@ -241,3 +241,40 @@ class TestSyncTestData:
 
             t = task.get_by_external_key('3.1 시스템::VER-001')
             assert t['status'] == 'cancelled'
+
+
+# ===========================================================================
+# TestSyncAPI
+# ===========================================================================
+
+class TestSyncAPI:
+
+    @pytest.fixture(autouse=True)
+    def setup(self, tmp_path):
+        self.app = _make_app(tmp_path)
+
+    @pytest.fixture
+    def client(self):
+        return self.app.test_client()
+
+    def test_sync_versions_api(self, client):
+        with self.app.app_context():
+            resp = client.post('/api/sync/versions')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert 'added' in data
+
+    def test_sync_test_data_api(self, client):
+        with self.app.app_context():
+            resp = client.post('/api/sync/test-data', json={})
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert 'added' in data
+
+    def test_sync_status_api(self, client):
+        with self.app.app_context():
+            resp = client.get('/api/sync/status')
+            assert resp.status_code == 200
+            data = resp.get_json()
+            assert 'versions' in data
+            assert 'external_tasks' in data
