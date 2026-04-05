@@ -98,6 +98,7 @@ test_list 항목: {id, estimated_hours, owners: []}
 - `enrich_blocks()` — 블록에 task/user/location 정보 결합
   - 분할 블록: 해당 식별자 시간만 estimated_hours로
   - `is_split`, `block_identifier_count`, `total_identifier_count` 계산
+  - `split_status`: `'partial'`(나머지 큐에 있음) / `'split'`(전체 배치됨)
 - `get_queue_tasks()` — 큐 항목
   - 분할 안 된 블록 있으면 → 큐 미표시 (리사이즈 = 실제 시간 변경)
   - 분할 블록만 있으면 → 미배치 식별자 시간을 remaining으로

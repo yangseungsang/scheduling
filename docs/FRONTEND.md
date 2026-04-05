@@ -20,7 +20,7 @@ block-resize.js         ← initResize (축소 경고 모달)
 queue-drag.js           ← initQueueDrag, showIdentifierPicker
 context-menu.js         ← initContextMenu, showSplitPicker (우클릭 메뉴)
 block-detail.js         ← showTaskDetailPopup, initBlockDetail (더블클릭 팝업)
-schedule-features.js    ← 주말토글, 일정이동, 블록추가, 큐검색, 큐토글, hover링크, 큐복귀
+schedule-features.js    ← 주말토글, 일정이동, 블록추가, 큐검색, 큐토글, hover링크, 큐복귀, 월간 더보기
 schedule-app.js         ← DOMContentLoaded 진입점
 ```
 
@@ -73,9 +73,12 @@ window.GRID_INTERVAL = 10;  // settings.grid_interval_minutes
 
 ### 상세 팝업 (block-detail.js)
 - 더블클릭 → `showTaskDetailPopup()`
-- 식별자 테이블: ID, 시간, 작성자, 배치일
+- 분할 시 **전체 식별자** 표시 (이 블록 것은 진하게, 타 블록은 흐리게 + "타 블록" 라벨)
+- 식별자별 진행 상태 표시: 완료(초록), 진행(파랑), 불가(빨강), 대기(생략)
+- 식별자 테이블: ID, 시간, 작성자, 배치일+상태
 - 합계 시간 + 기준 시간(식별자 합) 표시
 - 메모 편집 + 저장
+- API 에러 시 토스트 표시 (.catch 처리)
 
 ---
 
@@ -109,7 +112,7 @@ window.GRID_INTERVAL = 10;  // settings.grid_interval_minutes
 
 - 배경색: 장소 색상
 - 제목: 장절명
-- 분할 블록: `2/5` 뱃지 표시
+- 분할 뱃지: `2/5` (전체 배치됨=기본색, 부분 배치=빨간색)
 - 시간: `09:00–10:00`
 - 상태 뱃지: 진행/완료/불가
 - 메모/잠금 아이콘
@@ -119,8 +122,15 @@ window.GRID_INTERVAL = 10;  // settings.grid_interval_minutes
 ## 7. 시험항목 목록 (tasks/list.html)
 
 테이블 열: 장절명, 담당자, 장소, 시간, 상태, 배치
-- 배치 칩 클릭 → 블록 상세 드롭다운 (날짜/시간/장소/식별자)
+- 배치 칩 클릭 → 블록 상세 드롭다운 (날짜/시간/장소/식별자, 클릭 시 일간 뷰로 이동)
 - 분할 시 "분할 (N건)" 주황색 뱃지
+
+### 호버 연동
+- 시간표/큐에서 같은 task의 항목에 마우스 올리면 관련 블록 모두 강조
+- 강조: 빨간 내부 테두리 (`box-shadow: inset 0 0 0 3px #dc2626`) + 어둡게
+
+### 월간 뷰 더보기
+- 기본 3개까지 표시, "+N개 더" 클릭 시 전체 펼침/접기
 
 ---
 
@@ -138,7 +148,7 @@ window.GRID_INTERVAL = 10;  // settings.grid_interval_minutes
 필드 순서:
 1. 장절명 (필수)
 2. 절차서 담당자 (hidden)
-3. 식별자 동적 테이블 (ID, 작성자, 예상시간 + 합계)
+3. 식별자 동적 테이블 (ID, 작성자, 예상시간(1분 단위) + 합계)
 4. 버전, 장소
 5. 시험 담당자 (복수 선택 + 칩)
 6. 잔여시간, 상태 (수정 시)
