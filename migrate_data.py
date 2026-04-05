@@ -94,6 +94,34 @@ def cleanup_schedule_blocks():
     print(f'  Cleaned up {changed} blocks (removed origin, is_draft)')
 
 
+def add_source_fields():
+    """Add source and external_key to existing tasks."""
+    tasks = read('tasks.json')
+    changed = 0
+    for t in tasks:
+        if 'source' not in t:
+            t['source'] = 'local'
+            t['external_key'] = ''
+            changed += 1
+    write('tasks.json', tasks)
+    print(f'  Added source field to {changed} tasks')
+
+
+def update_procedures_format():
+    """Update procedures.json to new provider format with version_id."""
+    procedures = read('procedures.json')
+    changed = 0
+    for p in procedures:
+        if 'identifiers' not in p:
+            p['identifiers'] = p.pop('test_list', [])
+            changed += 1
+        if 'version_id' not in p:
+            p['version_id'] = ''
+            changed += 1
+    write('procedures.json', procedures)
+    print(f'  Updated {changed} procedures to new format')
+
+
 if __name__ == '__main__':
     print('=== Data Migration ===')
     print('Migrating tasks...')

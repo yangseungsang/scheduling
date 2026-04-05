@@ -39,7 +39,9 @@
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "전원 인가 후 초기화 절차 확인",
-    "created_at": "2026-03-28T09:00:00"
+    "created_at": "2026-03-28T09:00:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000002",
@@ -72,7 +74,9 @@
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
-    "created_at": "2026-03-28T09:10:00"
+    "created_at": "2026-03-28T09:10:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000003",
@@ -113,7 +117,9 @@
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "GPS 수신 환경 확인 필요",
-    "created_at": "2026-03-28T09:20:00"
+    "created_at": "2026-03-28T09:20:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000004",
@@ -145,7 +151,9 @@
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
-    "created_at": "2026-03-28T09:30:00"
+    "created_at": "2026-03-28T09:30:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000005",
@@ -192,7 +200,9 @@
     "remaining_hours": 2.0,
     "status": "completed",
     "memo": "외부 장비 연결 사전 확인",
-    "created_at": "2026-03-28T09:40:00"
+    "created_at": "2026-03-28T09:40:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000006",
@@ -224,7 +234,9 @@
     "remaining_hours": 0,
     "status": "waiting",
     "memo": "ss",
-    "created_at": "2026-03-28T09:50:00"
+    "created_at": "2026-03-28T09:50:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000007",
@@ -253,7 +265,9 @@
     "remaining_hours": 3.5,
     "status": "waiting",
     "memo": "v2.0 신규 추가 항목",
-    "created_at": "2026-03-28T10:00:00"
+    "created_at": "2026-03-28T10:00:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000008",
@@ -287,7 +301,9 @@
     "remaining_hours": 4.0,
     "status": "waiting",
     "memo": "",
-    "created_at": "2026-03-28T10:10:00"
+    "created_at": "2026-03-28T10:10:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000009",
@@ -316,7 +332,9 @@
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
-    "created_at": "2026-04-01T09:00:00"
+    "created_at": "2026-04-01T09:00:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000010",
@@ -349,7 +367,9 @@
     "remaining_hours": 0.0,
     "status": "in_progress",
     "memo": "정밀 측정 장비 필요",
-    "created_at": "2026-04-01T09:10:00"
+    "created_at": "2026-04-01T09:10:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000011",
@@ -378,7 +398,9 @@
     "remaining_hours": 0,
     "status": "waiting",
     "memo": "비상 스위치 동작 확인",
-    "created_at": "2026-04-01T09:20:00"
+    "created_at": "2026-04-01T09:20:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000012",
@@ -411,7 +433,9 @@
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
-    "created_at": "2026-04-01T09:30:00"
+    "created_at": "2026-04-01T09:30:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000013",
@@ -449,7 +473,9 @@
     "remaining_hours": 0.0,
     "status": "in_progress",
     "memo": "IMU 센서 교정 필요",
-    "created_at": "2026-04-01T09:40:00"
+    "created_at": "2026-04-01T09:40:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000014",
@@ -478,7 +504,9 @@
     "remaining_hours": 0,
     "status": "waiting",
     "memo": "외부 안테나 설치 후 진행",
-    "created_at": "2026-04-01T09:50:00"
+    "created_at": "2026-04-01T09:50:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000015",
@@ -511,7 +539,9 @@
     "remaining_hours": 0,
     "status": "waiting",
     "memo": "",
-    "created_at": "2026-04-01T10:00:00"
+    "created_at": "2026-04-01T10:00:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000016",
@@ -539,7 +569,9 @@
     "remaining_hours": 0.0,
     "status": "in_progress",
     "memo": "항온 챔버 예약 필요",
-    "created_at": "2026-04-01T10:10:00"
+    "created_at": "2026-04-01T10:10:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000017",
@@ -573,7 +605,9 @@
     "remaining_hours": 1.67,
     "status": "in_progress",
     "memo": "진동 시험기 사전 점검",
-    "created_at": "2026-04-01T10:20:00"
+    "created_at": "2026-04-01T10:20:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000018",
@@ -602,7 +636,9 @@
     "remaining_hours": 0.0,
     "status": "in_progress",
     "memo": "",
-    "created_at": "2026-04-01T10:30:00"
+    "created_at": "2026-04-01T10:30:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000019",
@@ -636,7 +672,9 @@
     "remaining_hours": 4.5,
     "status": "waiting",
     "memo": "암호 모듈 펌웨어 업데이트 후 진행",
-    "created_at": "2026-04-01T10:40:00"
+    "created_at": "2026-04-01T10:40:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000020",
@@ -664,7 +702,9 @@
     "remaining_hours": 2.0,
     "status": "waiting",
     "memo": "",
-    "created_at": "2026-04-01T10:50:00"
+    "created_at": "2026-04-01T10:50:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000021",
@@ -698,7 +738,9 @@
     "remaining_hours": 3.0,
     "status": "waiting",
     "memo": "v2.0 패치 적용 후 검증",
-    "created_at": "2026-04-01T11:00:00"
+    "created_at": "2026-04-01T11:00:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_00000022",
@@ -737,7 +779,9 @@
     "remaining_hours": 5.0,
     "status": "waiting",
     "memo": "GPS+INS 복합 모드",
-    "created_at": "2026-04-01T11:10:00"
+    "created_at": "2026-04-01T11:10:00",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_06431566",
@@ -768,7 +812,9 @@
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
-    "created_at": "2026-04-04T18:12:27"
+    "created_at": "2026-04-04T18:12:27",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_d0a520aa",
@@ -789,7 +835,9 @@
     "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
-    "created_at": "2026-04-04T19:04:26"
+    "created_at": "2026-04-04T19:04:26",
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_a94eda3c",
@@ -805,7 +853,9 @@
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-04T20:48:20",
-    "is_simple": true
+    "is_simple": true,
+    "source": "local",
+    "external_key": ""
   },
   {
     "id": "t_85e03a36",
@@ -821,6 +871,8 @@
     "status": "completed",
     "memo": "",
     "created_at": "2026-04-04T21:40:50",
-    "is_simple": true
+    "is_simple": true,
+    "source": "local",
+    "external_key": ""
   }
 ]
