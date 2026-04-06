@@ -70,18 +70,23 @@ class TestBlockUpdate:
         assert r.status_code == 200
         assert r.get_json()['date'] == '2026-03-11'
 
-    def test_resize_no_remaining_hours_change(self, client):
+    def test_resize_creates_split_block(self, client):
         uid = _create_user(client)
         tid = _create_task(client, uid, hours='4')
         block, _ = _create_block(client, tid, uid, start='09:00', end='11:00')
+        orig_end = block['end_time']  # may differ from '11:00' due to break adjustment
         task_before = client.get(f'/tasks/api/{tid}').get_json()['task']
         rem_before = task_before['remaining_hours']
-        # Resize block shorter
-        client.put(f'/schedule/api/blocks/{block["id"]}', json={
+        # Resize block shorter — should create split block, remaining unchanged
+        r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
             'start_time': '09:00',
             'end_time': '10:00',
             'resize': True,
         })
+        data = r.get_json()
+        assert 'split_block' in data
+        assert data['split_block']['start_time'] == '10:00'
+        assert data['split_block']['end_time'] == orig_end
         task_after = client.get(f'/tasks/api/{tid}').get_json()['task']
         assert task_after['estimated_hours'] == 4.0
         assert task_after['remaining_hours'] == rem_before

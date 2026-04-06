@@ -148,22 +148,30 @@ def get_queue_tasks(users_map, locations_map, version_id):
         # For split blocks, check which identifiers are still unscheduled
         all_ids = [item['id'] if isinstance(item, dict) else item
                    for item in t.get('test_list', [])]
-        scheduled_ids = set()
-        for b in blocks:
-            bids = b.get('identifier_ids') or []
-            for bid in bids:
-                scheduled_ids.add(bid)
 
-        unscheduled_ids = [i for i in all_ids if i not in scheduled_ids]
-        if not unscheduled_ids:
-            continue
+        if not all_ids:
+            # Task with no identifiers (e.g. simple block): show if no blocks remain
+            if blocks:
+                continue
+            remaining = est
+        else:
+            scheduled_ids = set()
+            for b in blocks:
+                bids = b.get('identifier_ids') or []
+                for bid in bids:
+                    scheduled_ids.add(bid)
 
-        # Calculate remaining from unscheduled identifiers
-        remaining = round(sum(
-            item.get('estimated_hours', 0)
-            for item in t.get('test_list', [])
-            if isinstance(item, dict) and item.get('id') in set(unscheduled_ids)
-        ), 2)
+            unscheduled_ids = [i for i in all_ids if i not in scheduled_ids]
+            if not unscheduled_ids:
+                continue
+
+            # Calculate remaining from unscheduled identifiers
+            remaining = round(sum(
+                item.get('estimated_hours', 0)
+                for item in t.get('test_list', [])
+                if isinstance(item, dict) and item.get('id') in set(unscheduled_ids)
+            ), 2)
+
         if remaining <= 0:
             continue
 

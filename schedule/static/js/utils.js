@@ -136,6 +136,33 @@ window.ScheduleApp = window.ScheduleApp || {};
   App.workMinutes = workMinutes;
 
   // =====================================================================
+  // Soft reload — replace main content without full page reload
+  // =====================================================================
+  function softReload() {
+    return fetch(location.href).then(function (r) { return r.text(); }).then(function (html) {
+      var parser = new DOMParser();
+      var doc = parser.parseFromString(html, 'text/html');
+      var newMain = doc.querySelector('main');
+      var oldMain = document.querySelector('main');
+      if (newMain && oldMain) {
+        oldMain.innerHTML = newMain.innerHTML;
+        // Re-execute inline scripts (e.g. location filter init)
+        oldMain.querySelectorAll('script').forEach(function (old) {
+          var s = document.createElement('script');
+          s.textContent = old.textContent;
+          old.parentNode.replaceChild(s, old);
+        });
+        App.initAll();
+      } else {
+        location.reload();
+      }
+    }).catch(function () {
+      location.reload();
+    });
+  }
+  App.softReload = softReload;
+
+  // =====================================================================
   // Readonly check
   // =====================================================================
   function isReadonly() {

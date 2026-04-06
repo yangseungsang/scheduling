@@ -86,7 +86,7 @@
                 start_time: newStart,
                 end_time: newEnd,
                 resize: true,
-              }).then(function () { location.reload(); })
+              }).then(function () { return App.softReload(); })
                 .catch(function (err) {
                   showToast(err.message, 'danger');
                   block.style.top = origTop + 'px';
@@ -97,8 +97,8 @@
             // Warn if shrinking from current size
             if (newWorkMin < prevWorkMin) {
               showConfirmModal(
-                '현재 시간(<strong>' + prevWorkMin + '분</strong>)에서 <strong>' + newWorkMin + '분</strong>으로 줄입니다.<br>계속하시겠습니까?',
-                { title: '시간 축소 경고', icon: 'exclamation-triangle-fill', okText: '줄이기', cancelText: '취소' }
+                '현재 시간(<strong>' + prevWorkMin + '분</strong>)에서 <strong>' + newWorkMin + '분</strong>으로 줄이고,<br>나머지 <strong>' + (prevWorkMin - newWorkMin) + '분</strong>은 새 블록으로 분리됩니다.',
+                { title: '블록 분리', icon: 'scissors', okText: '분리', cancelText: '취소' }
               ).then(function (ok) {
                 if (ok) {
                   doResize();

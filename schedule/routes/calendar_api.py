@@ -137,12 +137,45 @@ def api_update_block(block_id):
 
     updated = schedule_block.update(block_id, **updates)
 
-    # Resize = real time change, don't recalculate remaining
-    # Move = position change, sync remaining
-    if block.get('task_id') and not is_resize:
+    # On resize-shrink, create a second block for the cut-off portion
+    split_block = None
+    if is_resize and block.get('task_id'):
+        old_start = block['start_time']
+        old_end = block['end_time']
+        new_start = updates.get('start_time', old_start)
+        new_end = updates.get('end_time', old_end)
+
+        remainder_start = remainder_end = None
+        if new_start > old_start:
+            # Shrunk from top → leftover before
+            remainder_start, remainder_end = old_start, new_start
+        elif new_end < old_end:
+            # Shrunk from bottom → leftover after
+            remainder_start, remainder_end = new_end, old_end
+
+        if remainder_start and remainder_end and remainder_start < remainder_end:
+            split_block = schedule_block.create(
+                task_id=block['task_id'],
+                assignee_ids=block.get('assignee_ids', []),
+                location_id=block.get('location_id', ''),
+                version_id=block.get('version_id', ''),
+                date=updates.get('date', block['date']),
+                start_time=remainder_start,
+                end_time=remainder_end,
+                block_status=block.get('block_status', 'pending'),
+                identifier_ids=block.get('identifier_ids'),
+                title=block.get('title', ''),
+                is_simple=block.get('is_simple', False),
+            )
+
+    # Always sync remaining hours so resize + move sequences stay consistent
+    if block.get('task_id'):
         sync_task_remaining_hours(block['task_id'])
 
-    return jsonify(updated)
+    result = dict(updated)
+    if split_block:
+        result['split_block'] = split_block
+    return jsonify(result)
 
 
 @schedule_bp.route('/api/blocks/<block_id>', methods=['DELETE'])

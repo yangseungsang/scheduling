@@ -9,6 +9,7 @@
   var showToast = App.showToast;
   var getTaskRemaining = App.getTaskRemaining;
   var checkRemainingAfterPlace = App.checkRemainingAfterPlace;
+  var softReload = function () { return App.softReload(); };
   var timeToMin = App.timeToMin;
   var minToTime = App.minToTime;
   var workMinutes = App.workMinutes;
@@ -42,7 +43,7 @@
           onDrop: function (target) {
             if (target.type === 'queue') {
               api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
-                .then(function () { location.reload(); })
+                .then(function () { softReload(); })
                 .catch(function (err) { showToast(err.message, 'danger'); });
             } else if (target.type === 'slot') {
               var t = snapMin(timeToMin(target.time));
@@ -59,7 +60,7 @@
               }).then(function () {
                 if (taskId) return checkRemainingAfterPlace(taskId, title.trim(), prevRem);
               }).then(function () {
-                location.reload();
+                softReload();
               }).catch(function (err) {
                 showToast(err.message, 'danger');
               });
@@ -73,7 +74,7 @@
               }).then(function () {
                 if (taskId) return checkRemainingAfterPlace(taskId, title.trim(), prevRem2);
               }).then(function () {
-                location.reload();
+                softReload();
               }).catch(function (err) {
                 showToast(err.message, 'danger');
               });
@@ -103,7 +104,7 @@
           onDrop: function (target) {
             if (target.type === 'queue') {
               api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
-                .then(function () { location.reload(); })
+                .then(function () { softReload(); })
                 .catch(function (err) { showToast(err.message, 'danger'); });
             } else if (target.type === 'month') {
               var prevRem;
@@ -114,7 +115,7 @@
                 });
               }).then(function () {
                 if (taskId) return checkRemainingAfterPlace(taskId, title, prevRem);
-              }).then(function () { location.reload(); })
+              }).then(function () { softReload(); })
                 .catch(function (err) { showToast(err.message, 'danger'); });
             }
           },

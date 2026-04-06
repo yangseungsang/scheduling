@@ -837,7 +837,7 @@ body {
   font-size: 0.8rem;
   position: sticky;
   top: 0;
-  z-index: 5;
+  z-index: 25;
 }
 .week-day-header a { text-decoration: none; color: inherit; font-weight: 600; }
 .week-day-header a:hover { color: #0d6efd; }

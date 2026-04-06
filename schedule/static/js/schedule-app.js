@@ -4,10 +4,10 @@
  */
 (function() {
   'use strict';
-  document.addEventListener('DOMContentLoaded', function () {
-    var App = window.ScheduleApp;
-    if (window.GRID_INTERVAL) App.GRID_MINUTES = window.GRID_INTERVAL;
+  var App = window.ScheduleApp;
 
+  function initAll() {
+    if (window.GRID_INTERVAL) App.GRID_MINUTES = window.GRID_INTERVAL;
     App.initBlockMove();
     App.initMonthBlockMove();
     App.initQueueDrag();
@@ -22,5 +22,8 @@
     App.initShiftSchedule();
     App.initAddButtons();
     App.initMonthMoreToggle();
-  });
+  }
+
+  App.initAll = initAll;
+  document.addEventListener('DOMContentLoaded', initAll);
 })();

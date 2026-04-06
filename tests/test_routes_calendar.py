@@ -158,21 +158,25 @@ class TestScheduleBlockAPI:
         })
         assert r.get_json()['end_time'] == '09:30'
 
-    def test_update_block_resize_no_remaining_change(self, client):
-        """On resize, remaining_hours does not change (real time reduction)."""
+    def test_update_block_resize_creates_split(self, client):
+        """On resize-shrink, a split block is created for the leftover portion."""
         uid = _create_user(client)
         tid = _create_task(client, uid, hours='4')
         block, _ = _create_block(client, tid, uid, start='09:00', end='11:00')
+        orig_end = block['end_time']
         t_before = client.get(f'/tasks/api/{tid}').get_json()['task']
         rem_before = t_before['remaining_hours']
-        # Resize to 1h — this is a real time change, not a split
-        client.put(f'/schedule/api/blocks/{block["id"]}', json={
+        # Resize to 1h — split block should be created, remaining unchanged
+        r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
             'start_time': '09:00', 'end_time': '10:00',
             'resize': True,
         })
+        data = r.get_json()
+        assert data['split_block']['start_time'] == '10:00'
+        assert data['split_block']['end_time'] == orig_end
         t = client.get(f'/tasks/api/{tid}').get_json()['task']
         assert t['estimated_hours'] == 4.0  # unchanged
-        assert t['remaining_hours'] == rem_before  # unchanged by resize
+        assert t['remaining_hours'] == rem_before  # unchanged (split block covers leftover)
 
     def test_update_block_overlap_rejected(self, client):
         uid = _create_user(client)

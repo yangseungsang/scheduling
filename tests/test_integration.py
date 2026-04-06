@@ -6,8 +6,8 @@ from tests.conftest import _create_block, _create_location, _create_task, _creat
 class TestFullWorkflow:
     """End-to-end workflows combining task creation, block placement, and queue updates."""
 
-    def test_create_place_resize_restore(self, app, client):
-        """Create task → place block → resize → verify estimated_hours unchanged → delete with restore → verify task back in queue."""
+    def test_create_place_resize_creates_split(self, app, client):
+        """Create task → place block → resize → verify split block created → delete both → verify task back in queue."""
         uid = _create_user(client)
         loc_id = _create_location(client)
         vid = _create_version(client)
@@ -20,22 +20,28 @@ class TestFullWorkflow:
         assert status == 201
         block_id = body['id']
 
-        # Resize to 09:00-10:00 (resize:true means real time change)
+        # Resize to 09:00-10:00 → split block 10:00-11:00 should be created
         r = client.put(f'/schedule/api/blocks/{block_id}', json={
             'start_time': '09:00',
             'end_time': '10:00',
             'resize': True,
         })
         assert r.status_code == 200
+        data = r.get_json()
+        split_id = data['split_block']['id']
+        assert data['split_block']['start_time'] == '10:00'
+        assert data['split_block']['end_time'] == body['end_time']
 
-        # Task estimated_hours should still be 4.0 (resize doesn't change it)
+        # Task estimated_hours should still be 4.0
         from schedule.models import task as task_model
         with app.app_context():
             t = task_model.get_by_id(tid)
             assert t['estimated_hours'] == 4.0
 
-        # Delete with restore=1
+        # Delete both blocks with restore=1
         r = client.delete(f'/schedule/api/blocks/{block_id}?restore=1')
+        assert r.status_code == 200
+        r = client.delete(f'/schedule/api/blocks/{split_id}?restore=1')
         assert r.status_code == 200
 
         # Task should be back in queue
