@@ -131,7 +131,6 @@ def api_update_block(block_id):
     overlap = check_overlap(
         assignee_ids, location_id, check_date, check_start, check_end,
         exclude_block_id=block_id,
-        exclude_task_id=block.get('task_id'),
     )
     if overlap:
         return jsonify({'error': '해당 시간에 이미 다른 시험이 배치되어 있습니다.'}), 409
@@ -387,6 +386,24 @@ def api_split_block(block_id):
     split_end_min = time_to_minutes(split_start) + split_min
     split_end = minutes_to_time(split_end_min)
     split_adjusted_end = adjust_end_for_breaks(split_start, split_end, sttngs)
+
+    # Check overlap for the new split block
+    overlap = check_overlap(
+        block.get('assignee_ids', []),
+        block.get('location_id', ''),
+        block['date'],
+        split_start,
+        split_adjusted_end,
+        exclude_block_id=block_id,
+    )
+    if overlap:
+        # Rollback: restore original block
+        schedule_block.update(block_id, identifier_ids=block.get('identifier_ids'),
+                              end_time=block['end_time'])
+        return jsonify({
+            'error': '분리된 블록이 다른 블록과 시간이 겹칩니다.',
+            'overlap_block': overlap.get('id'),
+        }), 409
 
     new_block = schedule_block.create(
         task_id=task_id,
