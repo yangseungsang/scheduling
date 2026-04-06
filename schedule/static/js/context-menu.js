@@ -75,8 +75,12 @@
         } else if (btn.dataset.action === 'split') {
           var taskId = block.dataset.taskId;
           if (!taskId) { showToast('분리할 수 없는 블록입니다.', 'danger'); return; }
-          api('GET', '/tasks/api/' + taskId).then(function (res) {
-            var tsk = res.task;
+          Promise.all([
+            api('GET', '/tasks/api/' + taskId),
+            api('GET', '/schedule/api/blocks/by-task/' + taskId).catch(function() { return {blocks: []}; }),
+          ]).then(function (results) {
+            var tsk = results[0].task;
+            var allBlocks = (results[1] && results[1].blocks) || [];
             if (!tsk || !tsk.test_list || tsk.test_list.length < 2) {
               showToast('식별자가 2개 이상이어야 분리할 수 있습니다.', 'danger');
               return;
@@ -84,7 +88,21 @@
             // Figure out which identifiers this block currently covers
             var blockIdIds = null;
             try { if (block.dataset.identifierIds) blockIdIds = JSON.parse(block.dataset.identifierIds); } catch(ex) {}
-            var currentIds = blockIdIds || tsk.test_list.map(function(it) { return typeof it === 'object' ? it.id : it; });
+
+            var currentIds;
+            if (blockIdIds) {
+              currentIds = blockIdIds;
+            } else {
+              // Full block: exclude identifiers already in other split blocks
+              var otherIds = {};
+              allBlocks.forEach(function (b) {
+                if (b.id === blockId || !b.identifier_ids) return;
+                b.identifier_ids.forEach(function (id) { otherIds[id] = true; });
+              });
+              currentIds = tsk.test_list
+                .map(function(it) { return typeof it === 'object' ? it.id : it; })
+                .filter(function(id) { return !otherIds[id]; });
+            }
 
             // Filter test_list to only this block's identifiers
             var blockTestList = tsk.test_list.filter(function(it) {
@@ -96,7 +114,7 @@
               return;
             }
 
-            // Show picker: checked = keep in this block, unchecked = send to queue
+            // Show picker: checked = keep in this block, unchecked = new block
             App.showSplitPicker(blockTestList, function (keepItems) {
               if (!keepItems || keepItems.length === 0 || keepItems.length === blockTestList.length) return;
               var keepIds = keepItems.map(function (s) { return typeof s === 'object' ? s.id : s; });
@@ -133,7 +151,7 @@
   }
 
   // =====================================================================
-  // Split picker — check = keep in block, uncheck = send to queue
+  // Split picker — check = keep in block, uncheck = new block
   // =====================================================================
   function showSplitPicker(testList, callback) {
     var old = document.getElementById('identifier-picker');
@@ -160,7 +178,7 @@
           '<button class="bd-x" id="picker-close">&times;</button></div>' +
         '<div class="bd-divider"></div>' +
         '<div style="padding:12px">' +
-          '<div class="form-text mb-2"><strong>체크 유지</strong> = 이 블록에 남김<br><strong>체크 해제</strong> = 큐로 보냄</div>' +
+          '<div class="form-text mb-2"><strong>체크 유지</strong> = 이 블록에 남김<br><strong>체크 해제</strong> = 새 블록으로 분리</div>' +
           '<div id="picker-list">' + rows + '</div>' +
           '<button class="btn btn-sm btn-primary w-100 mt-2" id="picker-ok">분리</button>' +
         '</div>' +

@@ -3,16 +3,13 @@ import io
 from datetime import date, datetime, timedelta
 
 
-HEADERS = ['날짜', '장소', '장절명', '시작시간', '종료시간']
+HEADERS = ['날짜', '장절명']
 
 
 def _block_to_row(b):
     return [
         b.get('date', ''),
-        b.get('location_name', ''),
         b.get('section_name', '') or b.get('task_title', ''),
-        b.get('start_time', ''),
-        b.get('end_time', ''),
     ]
 
 
@@ -125,13 +122,7 @@ def export_xlsx(enriched_blocks, start_date, end_date):
                 if r_offset < len(day_blocks):
                     b = day_blocks[r_offset]
                     section = b.get('section_name', '') or b.get('task_title', '')
-                    loc = b.get('location_name', '')
-                    time_range = f"{b.get('start_time', '')}~{b.get('end_time', '')}"
-                    lines = [section]
-                    if loc:
-                        lines.append(f'[{loc}]')
-                    lines.append(time_range)
-                    cell.value = '\n'.join(lines)
+                    cell.value = section
                     cell.font = block_font
                     # Tint cell with block color
                     color_hex = (b.get('color') or '#FFFFFF').lstrip('#')

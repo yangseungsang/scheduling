@@ -68,7 +68,7 @@
       var idTotalMin = 0;
       if (allTestList.length) {
         testListHtml = '<table style="width:100%;font-size:0.78rem;border-collapse:collapse;border-spacing:0">' +
-          '<colgroup><col style="width:20%"><col style="width:15%"><col style="width:30%"><col style="width:35%"></colgroup>' +
+          '<colgroup><col style="width:20%"><col style="width:18%"><col style="width:27%"><col style="width:35%"></colgroup>' +
           '<tr style="color:#9ca3af;font-size:0.68rem;border-bottom:1px solid #f3f4f6">' +
             '<td style="padding:3px 4px">식별자</td><td style="padding:3px 4px">시간</td>' +
             '<td style="padding:3px 4px">작성자</td><td style="padding:3px 4px">배치</td></tr>' +
@@ -106,7 +106,7 @@
           }).join('') +
           '<tr style="border-top:1px solid #e5e7eb">' +
             '<td style="padding:4px;font-weight:700">합계</td>' +
-            '<td style="padding:4px;font-weight:700">' + idTotalMin + '분</td>' +
+            '<td style="padding:4px;font-weight:700"><span id="bd-id-total">' + idTotalMin + '</span>분</td>' +
             '<td colspan="2"></td></tr>' +
           '</table>';
       }
@@ -144,9 +144,10 @@
           '<div class="bd-divider"></div>' +
           '<table class="bd-tbl">' +
             '<tr><td class="bd-k">시험 식별자' + splitInfo + '</td><td class="bd-v">' + testListHtml + '</td></tr>' +
-            '<tr><td class="bd-k">예상 시간</td><td class="bd-v bd-v-edit">' +
-              '<input type="number" class="bd-input" id="bd-est-min" value="' + hrsToMin(task.estimated_hours) + '" min="0" step="1">분' +
-              ' <span class="bd-sub">(기준 ' + idTotalMin + '분 / 잔여 ' + hrsToMin(task.remaining_hours) + '분)</span>' +
+            '<tr><td class="bd-k">예상 시간</td><td class="bd-v">' +
+              hrsToMin(task.estimated_hours) + '분' +
+              (idTotalMin && idTotalMin !== hrsToMin(task.estimated_hours) ? ' <span class="bd-sub">(식별자 합계 ' + idTotalMin + '분)</span>' : '') +
+              ' <span class="bd-sub">(잔여 ' + hrsToMin(task.remaining_hours) + '분)</span>' +
             '</td></tr>' +
             '<tr><td class="bd-k">시험장소</td><td class="bd-v">' + (locationName || '-') + '</td></tr>' +
             (startTime ? '<tr><td class="bd-k">배치 시간</td><td class="bd-v">' + startTime + ' – ' + endTime + '</td></tr>' : '') +
@@ -175,15 +176,8 @@
 
       document.getElementById('bd-save').addEventListener('click', function () {
         var newMemo = document.getElementById('bd-memo').value;
-        var newEstMin = parseInt(document.getElementById('bd-est-min').value, 10) || 0;
-        var newEstHours = newEstMin / 60.0;
         var updates = { memo: newMemo };
-        var durationChanged = newEstHours !== task.estimated_hours;
-        if (durationChanged) {
-          updates.estimated_hours = newEstHours;
-          updates.remaining_hours = Math.max(0, newEstHours - (task.estimated_hours - task.remaining_hours));
-        }
-        // Update task only — block position/size is unchanged
+
         api('PUT', '/tasks/api/' + taskId + '/update', Object.assign({}, task, updates))
           .then(function () {
             showToast('저장되었습니다.', 'success');

@@ -131,51 +131,18 @@ def api_update_block(block_id):
     overlap = check_overlap(
         assignee_ids, location_id, check_date, check_start, check_end,
         exclude_block_id=block_id,
+        exclude_task_id=block.get('task_id'),
     )
     if overlap:
         return jsonify({'error': '해당 시간에 이미 다른 시험이 배치되어 있습니다.'}), 409
 
     updated = schedule_block.update(block_id, **updates)
 
-    # On resize-shrink, create a second block for the cut-off portion
-    split_block = None
-    if is_resize and block.get('task_id'):
-        old_start = block['start_time']
-        old_end = block['end_time']
-        new_start = updates.get('start_time', old_start)
-        new_end = updates.get('end_time', old_end)
-
-        remainder_start = remainder_end = None
-        if new_start > old_start:
-            # Shrunk from top → leftover before
-            remainder_start, remainder_end = old_start, new_start
-        elif new_end < old_end:
-            # Shrunk from bottom → leftover after
-            remainder_start, remainder_end = new_end, old_end
-
-        if remainder_start and remainder_end and remainder_start < remainder_end:
-            split_block = schedule_block.create(
-                task_id=block['task_id'],
-                assignee_ids=block.get('assignee_ids', []),
-                location_id=block.get('location_id', ''),
-                version_id=block.get('version_id', ''),
-                date=updates.get('date', block['date']),
-                start_time=remainder_start,
-                end_time=remainder_end,
-                block_status=block.get('block_status', 'pending'),
-                identifier_ids=block.get('identifier_ids'),
-                title=block.get('title', ''),
-                is_simple=block.get('is_simple', False),
-            )
-
     # Always sync remaining hours so resize + move sequences stay consistent
     if block.get('task_id'):
         sync_task_remaining_hours(block['task_id'])
 
-    result = dict(updated)
-    if split_block:
-        result['split_block'] = split_block
-    return jsonify(result)
+    return jsonify(updated)
 
 
 @schedule_bp.route('/api/blocks/<block_id>', methods=['DELETE'])
@@ -358,7 +325,7 @@ def api_shift_blocks():
 @schedule_bp.route('/api/blocks/<block_id>/split', methods=['POST'])
 def api_split_block(block_id):
     """Split a block: keep selected identifiers in this block,
-    the rest go back to queue (unscheduled)."""
+    the rest become a new adjacent block."""
     block = schedule_block.get_by_id(block_id)
     if not block:
         return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
@@ -376,21 +343,62 @@ def api_split_block(block_id):
     if not t:
         return jsonify({'error': '연결된 시험 항목을 찾을 수 없습니다.'}), 404
 
-    # Calculate new duration based on kept identifiers
     sttngs = settings.get()
     test_list = t.get('test_list', [])
     keep_set = set(keep_ids)
+
+    # Determine which identifiers this block actually covers
+    block_ids = block.get('identifier_ids')
+    if block_ids is None:
+        # Full block: exclude identifiers already in other split blocks
+        other_ids = set()
+        for b in schedule_block.get_all():
+            if b['id'] == block_id or b.get('task_id') != task_id:
+                continue
+            if b.get('identifier_ids'):
+                other_ids.update(b['identifier_ids'])
+        block_ids = [item['id'] for item in test_list
+                     if isinstance(item, dict) and item['id'] not in other_ids]
+
+    split_ids = [iid for iid in block_ids if iid not in keep_set]
+
+    # Calculate durations
     keep_hours = sum(
         item.get('estimated_hours', 0)
         for item in test_list
         if isinstance(item, dict) and item.get('id') in keep_set
     )
+    split_hours = sum(
+        item.get('estimated_hours', 0)
+        for item in test_list
+        if isinstance(item, dict) and item.get('id') in set(split_ids)
+    )
 
-    # Update block: set identifier_ids and adjust time
-    keep_min = max(int(keep_hours * 60), 15) if keep_hours > 0 else 15
+    # Update original block: set identifier_ids and adjust time
+    keep_min = max(int(round(keep_hours * 60)), 1)
     new_end_min = time_to_minutes(block['start_time']) + keep_min
     new_end = minutes_to_time(new_end_min)
     adjusted_end = adjust_end_for_breaks(block['start_time'], new_end, sttngs)
     schedule_block.update(block_id, identifier_ids=keep_ids, end_time=adjusted_end)
 
-    return jsonify({'success': True})
+    # Create new block for split identifiers, starting right after
+    split_min = max(int(round(split_hours * 60)), 1)
+    split_start = adjusted_end
+    split_end_min = time_to_minutes(split_start) + split_min
+    split_end = minutes_to_time(split_end_min)
+    split_adjusted_end = adjust_end_for_breaks(split_start, split_end, sttngs)
+
+    new_block = schedule_block.create(
+        task_id=task_id,
+        assignee_ids=block.get('assignee_ids', []),
+        location_id=block.get('location_id', ''),
+        version_id=block.get('version_id', ''),
+        date=block['date'],
+        start_time=split_start,
+        end_time=split_adjusted_end,
+        block_status=block.get('block_status', 'pending'),
+        identifier_ids=split_ids,
+    )
+
+    sync_task_remaining_hours(task_id)
+    return jsonify({'success': True, 'new_block': new_block})

@@ -46,38 +46,20 @@
                 .then(function () { softReload(); })
                 .catch(function (err) { showToast(err.message, 'danger'); });
             } else if (target.type === 'slot') {
-              var t = snapMin(timeToMin(target.time));
+              var t = App.snapToBlockEdge(target.el);
               var moveUpdate = {
                 date: target.date,
                 start_time: minToTime(t),
                 end_time: minToTime(t + durationMin),
               };
               if (target.locationId) moveUpdate.location_id = target.locationId;
-              var prevRem;
-              (taskId ? getTaskRemaining(taskId) : Promise.resolve(0)).then(function (r) {
-                prevRem = r;
-                return api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate);
-              }).then(function () {
-                if (taskId) return checkRemainingAfterPlace(taskId, title.trim(), prevRem);
-              }).then(function () {
-                softReload();
-              }).catch(function (err) {
-                showToast(err.message, 'danger');
-              });
+              api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate)
+                .then(function () { softReload(); })
+                .catch(function (err) { showToast(err.message, 'danger'); });
             } else if (target.type === 'month') {
-              var prevRem2;
-              (taskId ? getTaskRemaining(taskId) : Promise.resolve(0)).then(function (r) {
-                prevRem2 = r;
-                return api('PUT', '/schedule/api/blocks/' + blockId, {
-                  date: target.date,
-                });
-              }).then(function () {
-                if (taskId) return checkRemainingAfterPlace(taskId, title.trim(), prevRem2);
-              }).then(function () {
-                softReload();
-              }).catch(function (err) {
-                showToast(err.message, 'danger');
-              });
+              api('PUT', '/schedule/api/blocks/' + blockId, { date: target.date })
+                .then(function () { softReload(); })
+                .catch(function (err) { showToast(err.message, 'danger'); });
             }
           },
         });

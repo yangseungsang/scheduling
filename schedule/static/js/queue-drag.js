@@ -33,8 +33,7 @@
         try { testList = JSON.parse(testListRaw); } catch(e2) {}
 
         var blockMin = Math.round(remaining * 60);
-        blockMin = Math.max(blockMin, GRID_MINUTES);
-        blockMin = Math.round(blockMin / GRID_MINUTES) * GRID_MINUTES;
+        blockMin = Math.max(blockMin, 1);
         var expectedHeight = (blockMin / GRID_MINUTES) * SLOT_HEIGHT;
 
         startDrag(e, {
@@ -49,7 +48,7 @@
               var bMin = overrideMin || blockMin;
               var identifierIds = selectedIds || null;
               if (target.type === 'slot') {
-                var t = snapMin(timeToMin(target.time));
+                var t = App.snapToBlockEdge(target.el);
                 var dropLocationId = target.locationId || locationId;
                 var prevRem;
                 getTaskRemaining(taskId).then(function (r) {
@@ -118,8 +117,7 @@
                   } else {
                     var totalMin = 0;
                     selected.forEach(function (s) { totalMin += typeof s === 'object' ? Math.round((s.estimated_hours || 0) * 60) : 0; });
-                    totalMin = Math.max(totalMin, GRID_MINUTES);
-                    totalMin = Math.round(totalMin / GRID_MINUTES) * GRID_MINUTES;
+                    totalMin = Math.max(totalMin, 1);
                     createBlock(selectedIds, totalMin);
                   }
                 });

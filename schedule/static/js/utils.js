@@ -129,10 +129,32 @@ window.ScheduleApp = window.ScheduleApp || {};
     return Math.max(0, endMin - startMin - breakMin);
   }
 
+  /**
+   * Find the best start minute for a drop target.
+   * If a block ends at a non-grid time within the target slot, snap to that edge.
+   * Otherwise fall back to grid-snapped time.
+   */
+  function snapToBlockEdge(targetSlot) {
+    var gridMin = App.GRID_MINUTES;
+    var snapT = snapMin(timeToMin(targetSlot.dataset.time));
+    var nextGrid = snapT + gridMin;
+    var best = snapT;
+    var container = targetSlot.closest('.day-loc-body, .week-day-slots');
+    if (!container) return best;
+    container.querySelectorAll('.schedule-block[data-end-time]').forEach(function (b) {
+      var endMin = timeToMin(b.dataset.endTime);
+      if (endMin > snapT && endMin <= nextGrid && endMin > best) {
+        best = endMin;
+      }
+    });
+    return best;
+  }
+
   App.pad = pad;
   App.timeToMin = timeToMin;
   App.minToTime = minToTime;
   App.snapMin = snapMin;
+  App.snapToBlockEdge = snapToBlockEdge;
   App.workMinutes = workMinutes;
 
   // =====================================================================

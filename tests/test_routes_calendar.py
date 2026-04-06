@@ -158,36 +158,38 @@ class TestScheduleBlockAPI:
         })
         assert r.get_json()['end_time'] == '09:30'
 
-    def test_update_block_resize_creates_split(self, client):
-        """On resize-shrink, a split block is created for the leftover portion."""
+    def test_update_block_resize_syncs_remaining(self, client):
+        """On resize-shrink, remaining hours increase (no auto-split)."""
         uid = _create_user(client)
         tid = _create_task(client, uid, hours='4')
         block, _ = _create_block(client, tid, uid, start='09:00', end='11:00')
-        orig_end = block['end_time']
         t_before = client.get(f'/tasks/api/{tid}').get_json()['task']
         rem_before = t_before['remaining_hours']
-        # Resize to 1h — split block should be created, remaining unchanged
+        # Resize to 1h — remaining should increase
         r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
             'start_time': '09:00', 'end_time': '10:00',
             'resize': True,
         })
-        data = r.get_json()
-        assert data['split_block']['start_time'] == '10:00'
-        assert data['split_block']['end_time'] == orig_end
+        assert 'split_block' not in r.get_json()
         t = client.get(f'/tasks/api/{tid}').get_json()['task']
-        assert t['estimated_hours'] == 4.0  # unchanged
-        assert t['remaining_hours'] == rem_before  # unchanged (split block covers leftover)
+        assert t['estimated_hours'] == 4.0
+        assert t['remaining_hours'] > rem_before
 
     def test_update_block_overlap_rejected(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
-        # Use times that don't span breaks, same location to trigger overlap check
-        b1, _ = _create_block(client, tid, uid, start='10:00', end='11:00',
-                              location_id='loc_test')
-        b2, _ = _create_block(client, tid, uid, start='11:00', end='11:30',
-                              location_id='loc_test')
+        # Create two simple blocks (different tasks) at same location
+        r1 = client.post('/schedule/api/blocks', json={
+            'is_simple': True, 'date': '2026-03-10',
+            'start_time': '10:00', 'end_time': '11:00',
+            'location_id': 'loc_test', 'title': 'A',
+        })
+        r2 = client.post('/schedule/api/blocks', json={
+            'is_simple': True, 'date': '2026-03-10',
+            'start_time': '11:00', 'end_time': '11:30',
+            'location_id': 'loc_test', 'title': 'B',
+        })
+        b2_id = r2.get_json()['id']
         # Try to move b2 to overlap with b1
-        r = client.put(f'/schedule/api/blocks/{b2["id"]}', json={
+        r = client.put(f'/schedule/api/blocks/{b2_id}', json={
             'start_time': '10:00', 'end_time': '10:30',
         })
         assert r.status_code == 409

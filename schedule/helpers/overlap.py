@@ -2,7 +2,8 @@ from schedule.helpers.time_utils import time_to_minutes
 from schedule.models import schedule_block
 
 
-def check_overlap(assignee_ids, location_id, date_str, start_time, end_time, exclude_block_id=None):
+def check_overlap(assignee_ids, location_id, date_str, start_time, end_time,
+                   exclude_block_id=None, exclude_task_id=None):
     """Check location overlap only. Same assignees at the same time are allowed."""
     if not location_id:
         return None
@@ -10,6 +11,8 @@ def check_overlap(assignee_ids, location_id, date_str, start_time, end_time, exc
     e1 = time_to_minutes(end_time)
     for b in schedule_block.get_by_date(date_str):
         if exclude_block_id and b['id'] == exclude_block_id:
+            continue
+        if exclude_task_id and b.get('task_id') == exclude_task_id:
             continue
         if b.get('location_id') != location_id:
             continue

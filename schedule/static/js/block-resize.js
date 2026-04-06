@@ -94,21 +94,6 @@
                 });
             }
 
-            // Warn if shrinking from current size
-            if (newWorkMin < prevWorkMin) {
-              showConfirmModal(
-                '현재 시간(<strong>' + prevWorkMin + '분</strong>)에서 <strong>' + newWorkMin + '분</strong>으로 줄이고,<br>나머지 <strong>' + (prevWorkMin - newWorkMin) + '분</strong>은 새 블록으로 분리됩니다.',
-                { title: '블록 분리', icon: 'scissors', okText: '분리', cancelText: '취소' }
-              ).then(function (ok) {
-                if (ok) {
-                  doResize();
-                } else {
-                  block.style.top = origTop + 'px';
-                  block.style.height = origHeight + 'px';
-                }
-              });
-              return;
-            }
             doResize();
           }
         }
