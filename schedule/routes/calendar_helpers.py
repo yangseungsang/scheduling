@@ -32,11 +32,11 @@ def remove_identifiers_from_other_blocks(task_id, exclude_block_id,
     if not t:
         return
     test_list = t.get('test_list', [])
-    # Build hours lookup: identifier_id → estimated_hours
-    id_hours = {}
+    # Build minutes lookup: identifier_id → estimated_minutes
+    id_minutes = {}
     for item in test_list:
         if isinstance(item, dict):
-            id_hours[item['id']] = item.get('estimated_hours', 0)
+            id_minutes[item['id']] = item.get('estimated_minutes', 0)
 
     moved_set = set(moved_ids)
     all_blocks = schedule_block.get_all()
@@ -62,8 +62,7 @@ def remove_identifiers_from_other_blocks(task_id, exclude_block_id,
             schedule_block.delete(b['id'])
         else:
             # Shrink block duration to match remaining identifiers
-            remaining_hours = sum(id_hours.get(i, 0) for i in remaining_ids)
-            remaining_min = max(int(remaining_hours * 60), 15)
+            remaining_min = max(sum(id_minutes.get(i, 0) for i in remaining_ids), 15)
             new_end_min = time_to_minutes(b['start_time']) + remaining_min
             new_end = minutes_to_time(new_end_min)
             adjusted_end = adjust_end_for_breaks(b['start_time'], new_end, sttngs)
@@ -72,20 +71,20 @@ def remove_identifiers_from_other_blocks(task_id, exclude_block_id,
                                  end_time=adjusted_end)
 
 
-def sync_task_remaining_hours(task_id):
+def sync_task_remaining_minutes(task_id):
     if not task_id:
         return
     t = task.get_by_id(task_id)
     if not t:
         return
 
-    # estimated_hours = sum of test_list identifier hours, or task value for simple blocks
+    # estimated_minutes = sum of test_list identifier minutes, or task value for simple blocks
     test_list = t.get('test_list', [])
-    tl_sum = round(sum(
-        item.get('estimated_hours', 0) for item in test_list
+    tl_sum = sum(
+        item.get('estimated_minutes', 0) for item in test_list
         if isinstance(item, dict)
-    ), 2)
-    est = tl_sum if tl_sum > 0 else t.get('estimated_hours', 0)
+    )
+    est = tl_sum if tl_sum > 0 else t.get('estimated_minutes', 0)
 
     sttngs = settings.get()
     total_min = sum(
@@ -93,14 +92,13 @@ def sync_task_remaining_hours(task_id):
         for b in schedule_block.get_all()
         if b.get('task_id') == task_id
     )
-    scheduled_hours = round(total_min / 60.0, 2)
-    new_remaining = round(max(est - scheduled_hours, 0), 2)
+    new_remaining = max(est - total_min, 0)
 
     patches = {}
-    if t.get('estimated_hours', 0) != est:
-        patches['estimated_hours'] = est
-    if t.get('remaining_hours', 0) != new_remaining:
-        patches['remaining_hours'] = new_remaining
+    if t.get('estimated_minutes', 0) != est:
+        patches['estimated_minutes'] = est
+    if t.get('remaining_minutes', 0) != new_remaining:
+        patches['remaining_minutes'] = new_remaining
     if patches:
         task.patch(task_id, **patches)
 

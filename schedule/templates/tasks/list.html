@@ -115,7 +115,7 @@
             {% if not task.assignee_ids %}-{% endif %}
           </td>
           <td>{{ location_map.get(task.location_id, '-') }}</td>
-          <td class="text-nowrap">{{ (task.remaining_hours * 60)|int }}분 / {{ (task.estimated_hours * 60)|int }}분</td>
+          <td class="text-nowrap">{{ task.remaining_minutes }}분 / {{ task.estimated_minutes }}분</td>
           <td>
             {% if task.status == 'waiting' %}
             <span class="task-status-chip status-waiting">대기</span>

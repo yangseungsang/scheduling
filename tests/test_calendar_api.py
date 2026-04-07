@@ -75,7 +75,7 @@ class TestBlockUpdate:
         tid = _create_task(client, uid, hours='4')
         block, _ = _create_block(client, tid, uid, start='09:00', end='11:00')
         task_before = client.get(f'/tasks/api/{tid}').get_json()['task']
-        rem_before = task_before['remaining_hours']
+        rem_before = task_before['remaining_minutes']
         # Resize block shorter — remaining should increase (no split block)
         r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
             'start_time': '09:00',
@@ -85,8 +85,8 @@ class TestBlockUpdate:
         data = r.get_json()
         assert 'split_block' not in data
         task_after = client.get(f'/tasks/api/{tid}').get_json()['task']
-        assert task_after['estimated_hours'] == 4.0
-        assert task_after['remaining_hours'] > rem_before
+        assert task_after['estimated_minutes'] == 240
+        assert task_after['remaining_minutes'] > rem_before
 
 
 class TestBlockDelete:

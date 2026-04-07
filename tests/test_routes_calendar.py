@@ -164,7 +164,7 @@ class TestScheduleBlockAPI:
         tid = _create_task(client, uid, hours='4')
         block, _ = _create_block(client, tid, uid, start='09:00', end='11:00')
         t_before = client.get(f'/tasks/api/{tid}').get_json()['task']
-        rem_before = t_before['remaining_hours']
+        rem_before = t_before['remaining_minutes']
         # Resize to 1h — remaining should increase
         r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
             'start_time': '09:00', 'end_time': '10:00',
@@ -172,8 +172,8 @@ class TestScheduleBlockAPI:
         })
         assert 'split_block' not in r.get_json()
         t = client.get(f'/tasks/api/{tid}').get_json()['task']
-        assert t['estimated_hours'] == 4.0
-        assert t['remaining_hours'] > rem_before
+        assert t['estimated_minutes'] == 240
+        assert t['remaining_minutes'] > rem_before
 
     def test_update_block_overlap_rejected(self, client):
         # Create two simple blocks (different tasks) at same location
@@ -288,7 +288,7 @@ class TestScheduleViewAPIs:
         r = client.get('/schedule/api/day')
         data = r.get_json()
         assert len(data['queue_tasks']) == 1
-        assert data['queue_tasks'][0]['remaining_unscheduled_hours'] == 4.0
+        assert data['queue_tasks'][0]['remaining_unscheduled_minutes'] == 240
 
     def test_queue_tasks_exclude_fully_scheduled(self, client):
         """Task fully covered by blocks should not appear in queue."""
@@ -315,8 +315,8 @@ class TestScheduleViewAPIs:
         client.put(f'/tasks/api/{tid}/update', json={
             'procedure_id': 'SYS-001',
             'status': 'completed',
-            'estimated_hours': 2,
-            'remaining_hours': 0,
+            'estimated_minutes': 120,
+            'remaining_minutes': 0,
         })
         r = client.get('/schedule/api/day')
         queue = r.get_json()['queue_tasks']

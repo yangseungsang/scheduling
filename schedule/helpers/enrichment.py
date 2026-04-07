@@ -100,16 +100,16 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         else:
             block['split_status'] = ''
 
-        # estimated_hours for this block: if split, sum only assigned identifiers
+        # estimated_minutes for this block: if split, sum only assigned identifiers
         if block_ids and t:
             id_set = set(block_ids)
-            block['estimated_hours'] = round(sum(
-                item.get('estimated_hours', 0)
+            block['estimated_minutes'] = sum(
+                item.get('estimated_minutes', 0)
                 for item in t.get('test_list', [])
                 if isinstance(item, dict) and item.get('id') in id_set
-            ), 2)
+            )
         else:
-            block['estimated_hours'] = t.get('estimated_hours', 0) if t else 0
+            block['estimated_minutes'] = t.get('estimated_minutes', 0) if t else 0
 
         enriched.append(block)
     return enriched
@@ -134,7 +134,7 @@ def get_queue_tasks(users_map, locations_map, version_id):
     for t in tasks:
         if t['status'] == 'completed':
             continue
-        est = t.get('estimated_hours', 0)
+        est = t.get('estimated_minutes', 0)
         if est <= 0:
             continue
 
@@ -166,17 +166,17 @@ def get_queue_tasks(users_map, locations_map, version_id):
                 continue
 
             # Calculate remaining from unscheduled identifiers
-            remaining = round(sum(
-                item.get('estimated_hours', 0)
+            remaining = sum(
+                item.get('estimated_minutes', 0)
                 for item in t.get('test_list', [])
                 if isinstance(item, dict) and item.get('id') in set(unscheduled_ids)
-            ), 2)
+            )
 
         if remaining <= 0:
             continue
 
         task_item = dict(t)
-        task_item['remaining_unscheduled_hours'] = round(remaining, 2)
+        task_item['remaining_unscheduled_minutes'] = remaining
         task_item['section_color'] = _section_color(t.get('section_name', ''))
 
         assignee_ids = t.get('assignee_ids', [])

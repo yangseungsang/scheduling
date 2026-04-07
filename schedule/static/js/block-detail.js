@@ -14,7 +14,7 @@
   // =====================================================================
   // Block detail popup
   // =====================================================================
-  function hrsToMin(h) { return Math.round(h * 60); }
+
 
   function showTaskDetailPopup(taskId, opts) {
     opts = opts || {};
@@ -68,13 +68,13 @@
       var idTotalMin = 0;
       if (allTestList.length) {
         testListHtml = '<table style="width:100%;font-size:0.78rem;border-collapse:collapse;border-spacing:0">' +
-          '<colgroup><col style="width:20%"><col style="width:18%"><col style="width:27%"><col style="width:35%"></colgroup>' +
+          '<colgroup><col style="width:15%"><col style="width:22%"><col style="width:13%"><col style="width:20%"><col style="width:30%"></colgroup>' +
           '<tr style="color:#9ca3af;font-size:0.68rem;border-bottom:1px solid #f3f4f6">' +
-            '<td style="padding:3px 4px">식별자</td><td style="padding:3px 4px">시간</td>' +
+            '<td style="padding:3px 4px">식별자</td><td style="padding:3px 4px">시험항목</td><td style="padding:3px 4px">시간</td>' +
             '<td style="padding:3px 4px">작성자</td><td style="padding:3px 4px">배치</td></tr>' +
           allTestList.map(function(item) {
             if (typeof item === 'object' && item.id) {
-              var mins = Math.round((item.estimated_hours || 0) * 60);
+              var mins = item.estimated_minutes || 0;
               idTotalMin += mins;
               var ow = (item.owners || []).join(', ') || '-';
               var inThisBlock = !isSplit || blockIdSet[item.id];
@@ -96,17 +96,19 @@
                 ? 'border-bottom:1px solid #f9fafb'
                 : 'border-bottom:1px solid #f9fafb;opacity:0.45';
               var marker = inThisBlock ? '' : ' <span style="font-size:0.6rem;color:#9ca3af">타 블록</span>';
+              var itemName = item.name || '-';
               return '<tr style="' + rowStyle + '">' +
                 '<td style="padding:3px 4px;font-weight:600;white-space:nowrap">' + item.id + marker + '</td>' +
+                '<td style="padding:3px 4px;color:#475569">' + itemName + '</td>' +
                 '<td style="padding:3px 4px;white-space:nowrap">' + mins + '분</td>' +
                 '<td style="padding:3px 4px;color:#6c757d">' + ow + '</td>' +
                 '<td style="padding:3px 4px">' + schedHtml + '</td></tr>';
             }
-            return '<tr><td colspan="4" style="padding:3px 4px">' + item + '</td></tr>';
+            return '<tr><td colspan="5" style="padding:3px 4px">' + item + '</td></tr>';
           }).join('') +
           '<tr style="border-top:1px solid #e5e7eb">' +
             '<td style="padding:4px;font-weight:700">합계</td>' +
-            '<td style="padding:4px;font-weight:700"><span id="bd-id-total">' + idTotalMin + '</span>분</td>' +
+            '<td style="padding:4px;font-weight:700" colspan="2"><span id="bd-id-total">' + idTotalMin + '</span>분</td>' +
             '<td colspan="2"></td></tr>' +
           '</table>';
       }
@@ -145,9 +147,9 @@
           '<table class="bd-tbl">' +
             '<tr><td class="bd-k">시험 식별자' + splitInfo + '</td><td class="bd-v">' + testListHtml + '</td></tr>' +
             '<tr><td class="bd-k">예상 시간</td><td class="bd-v">' +
-              hrsToMin(task.estimated_hours) + '분' +
-              (idTotalMin && idTotalMin !== hrsToMin(task.estimated_hours) ? ' <span class="bd-sub">(식별자 합계 ' + idTotalMin + '분)</span>' : '') +
-              ' <span class="bd-sub">(잔여 ' + hrsToMin(task.remaining_hours) + '분)</span>' +
+              (task.estimated_minutes || 0) + '분' +
+              (idTotalMin && idTotalMin !== (task.estimated_minutes || 0) ? ' <span class="bd-sub">(식별자 합계 ' + idTotalMin + '분)</span>' : '') +
+              ' <span class="bd-sub">(잔여 ' + (task.remaining_minutes || 0) + '분)</span>' +
             '</td></tr>' +
             '<tr><td class="bd-k">시험장소</td><td class="bd-v">' + (locationName || '-') + '</td></tr>' +
             (startTime ? '<tr><td class="bd-k">배치 시간</td><td class="bd-v">' + startTime + ' – ' + endTime + '</td></tr>' : '') +

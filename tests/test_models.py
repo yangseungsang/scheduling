@@ -132,7 +132,7 @@ class TestTaskModel:
                 section_name='3.2 통신 기능',
                 procedure_owner='홍길동',
                 test_list=['TC-001', 'TC-002'],
-                estimated_hours=4.0,
+                estimated_minutes=240,
                 memo='테스트 메모',
             )
             assert t['id'].startswith('t_')
@@ -143,7 +143,7 @@ class TestTaskModel:
             assert t['section_name'] == '3.2 통신 기능'
             assert t['procedure_owner'] == '홍길동'
             assert t['test_list'] == ['TC-001', 'TC-002']
-            assert t['remaining_hours'] == 4.0
+            assert t['remaining_minutes'] == 240
             assert t['status'] == 'waiting'
             assert t['memo'] == '테스트 메모'
 
@@ -154,7 +154,7 @@ class TestTaskModel:
                 procedure_id='ABC-001', version_id='v_1',
                 assignee_ids=['u_aaa'], location_id='loc_1',
                 section_name='sec', procedure_owner='owner',
-                test_list=['TC-001'], estimated_hours=4.0,
+                test_list=['TC-001'], estimated_minutes=240,
                 memo='',
             )
             updated = task.update(
@@ -162,13 +162,13 @@ class TestTaskModel:
                 procedure_id='ABC-002', version_id='v_2',
                 assignee_ids=['u_bbb', 'u_ccc'], location_id='loc_2',
                 section_name='new sec', procedure_owner='new owner',
-                test_list=['TC-003'], estimated_hours=6.0,
-                remaining_hours=3.0,
+                test_list=['TC-003'], estimated_minutes=360,
+                remaining_minutes=180,
                 status='in_progress', memo='updated',
             )
             assert updated['procedure_id'] == 'ABC-002'
             assert updated['assignee_ids'] == ['u_bbb', 'u_ccc']
-            assert updated['remaining_hours'] == 3.0
+            assert updated['remaining_minutes'] == 180
 
     def test_patch_task(self, app):
         with app.app_context():
@@ -177,7 +177,7 @@ class TestTaskModel:
                 procedure_id='ABC-001', version_id='v_1',
                 assignee_ids=['u_aaa'], location_id='loc_1',
                 section_name='sec', procedure_owner='owner',
-                test_list=[], estimated_hours=4.0,
+                test_list=[], estimated_minutes=240,
                 memo='',
             )
             patched = task.patch(t['id'], memo='patched memo')
@@ -191,14 +191,14 @@ class TestTaskModel:
                 procedure_id='ABC-001', version_id='v_1',
                 assignee_ids=[], location_id='',
                 section_name='', procedure_owner='',
-                test_list=[], estimated_hours=2.0,
+                test_list=[], estimated_minutes=120,
                 memo='',
             )
             task.create(
                 procedure_id='ABC-002', version_id='v_2',
                 assignee_ids=[], location_id='',
                 section_name='', procedure_owner='',
-                test_list=[], estimated_hours=3.0,
+                test_list=[], estimated_minutes=180,
                 memo='',
             )
             v1_tasks = task.get_by_version('v_1')

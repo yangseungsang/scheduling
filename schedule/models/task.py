@@ -34,18 +34,18 @@ class TaskRepository(BaseRepository):
         return [i for i in new_ids if i in existing_ids]
 
     @staticmethod
-    def compute_estimated_hours(test_list):
-        """Sum estimated_hours from test_list identifiers."""
+    def compute_estimated_minutes(test_list):
+        """Sum estimated_minutes from test_list identifiers."""
         total = 0
         for item in (test_list or []):
             if isinstance(item, dict):
-                total += item.get('estimated_hours', 0)
-        return round(total, 2)
+                total += item.get('estimated_minutes', 0)
+        return total
 
     @classmethod
     def create(cls, procedure_id, version_id, assignee_ids, location_id,
                section_name, procedure_owner, test_list,
-               estimated_hours, memo='', source='local', external_key=''):
+               estimated_minutes, memo='', source='local', external_key=''):
         data = {
             'procedure_id': procedure_id,
             'version_id': version_id,
@@ -54,8 +54,8 @@ class TaskRepository(BaseRepository):
             'section_name': section_name,
             'procedure_owner': procedure_owner,
             'test_list': test_list or [],
-            'estimated_hours': estimated_hours,
-            'remaining_hours': estimated_hours,
+            'estimated_minutes': estimated_minutes,
+            'remaining_minutes': estimated_minutes,
             'status': 'waiting',
             'memo': memo,
             'source': source,
@@ -67,7 +67,7 @@ class TaskRepository(BaseRepository):
     @classmethod
     def update(cls, task_id, procedure_id, version_id, assignee_ids, location_id,
                section_name, procedure_owner, test_list,
-               estimated_hours, remaining_hours, status, memo=''):
+               estimated_minutes, remaining_minutes, status, memo=''):
         return cls.patch(
             task_id,
             procedure_id=procedure_id,
@@ -77,8 +77,8 @@ class TaskRepository(BaseRepository):
             section_name=section_name,
             procedure_owner=procedure_owner,
             test_list=test_list or [],
-            estimated_hours=estimated_hours,
-            remaining_hours=remaining_hours,
+            estimated_minutes=estimated_minutes,
+            remaining_minutes=remaining_minutes,
             status=status,
             memo=memo,
         )
@@ -101,5 +101,5 @@ update = TaskRepository.update
 patch = TaskRepository.patch
 delete = TaskRepository.delete
 validate_unique_identifiers = TaskRepository.validate_unique_identifiers
-compute_estimated_hours = TaskRepository.compute_estimated_hours
+compute_estimated_minutes = TaskRepository.compute_estimated_minutes
 get_by_external_key = TaskRepository.get_by_external_key

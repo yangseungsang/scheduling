@@ -14,8 +14,8 @@ class TestTaskCRUD:
             'location_id': '',
             'section_name': '3.1 시스템',
             'procedure_owner': '담당자',
-            'test_list_json': '[{"id":"TC-001","owners":[],"estimated_hours":2}]',
-            'estimated_hours': '2',
+            'test_list_json': '[{"id":"TC-001","owners":[],"estimated_minutes":120}]',
+            'estimated_minutes': '120',
             'memo': '',
         }, follow_redirects=True)
         assert r.status_code == 200
@@ -31,7 +31,7 @@ class TestTaskCRUD:
             'section_name': '',
             'procedure_owner': '',
             'test_list_json': '',
-            'estimated_hours': '1',
+            'estimated_minutes': '60',
             'memo': '',
         }, follow_redirects=True)
         assert '절차서 식별자를 입력' in r.data.decode()
@@ -57,9 +57,9 @@ class TestTaskCRUD:
             'location_id': '',
             'section_name': '4.1 수정됨',
             'procedure_owner': '수정자',
-            'test_list_json': '[{"id":"TC-003","owners":[],"estimated_hours":1}]',
-            'estimated_hours': '1',
-            'remaining_hours_min': '60',
+            'test_list_json': '[{"id":"TC-003","owners":[],"estimated_minutes":60}]',
+            'estimated_minutes': '60',
+            'remaining_minutes': '60',
             'status': 'in_progress',
             'memo': '',
         }, follow_redirects=True)
@@ -92,12 +92,12 @@ class TestTaskCRUD:
         r = client.post('/tasks/api/create', json={
             'procedure_id': 'API-001',
             'assignee_ids': [uid],
-            'test_list': [{'id': 'TC-X', 'owners': [], 'estimated_hours': 3}],
+            'test_list': [{'id': 'TC-X', 'owners': [], 'estimated_minutes': 180}],
         })
         assert r.status_code == 201
         data = r.get_json()
-        assert data['estimated_hours'] == 3
-        assert data['remaining_hours'] == 3
+        assert data['estimated_minutes'] == 180
+        assert data['remaining_minutes'] == 180
 
     def test_api_create_task_missing_procedure_id(self, client):
         r = client.post('/tasks/api/create', json={'procedure_id': ''})
@@ -120,12 +120,12 @@ class TestTaskCRUD:
         r = client.put(f'/tasks/api/{tid}/update', json={
             'procedure_id': 'SYS-EDIT',
             'assignee_ids': [uid],
-            'test_list': [{'id': 'TC-E', 'owners': [], 'estimated_hours': 2}],
-            'remaining_hours': 1,
+            'test_list': [{'id': 'TC-E', 'owners': [], 'estimated_minutes': 120}],
+            'remaining_minutes': 60,
             'status': 'in_progress',
         })
         assert r.status_code == 200
-        assert r.get_json()['estimated_hours'] == 2
+        assert r.get_json()['estimated_minutes'] == 120
 
     def test_api_delete_task(self, client):
         uid = _create_user(client)

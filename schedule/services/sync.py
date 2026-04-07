@@ -49,12 +49,12 @@ class SyncService:
             existing = task.get_by_external_key(key)
 
             identifiers = item.get('identifiers', [])
-            est_hours = round(sum(i.get('estimated_hours', 0) for i in identifiers), 4)
+            est_minutes = sum(i.get('estimated_minutes', 0) for i in identifiers)
 
             if existing:
                 task.patch(existing['id'],
                            test_list=identifiers,
-                           estimated_hours=est_hours,
+                           estimated_minutes=est_minutes,
                            section_name=item['section_name'])
                 updated += 1
             else:
@@ -66,7 +66,7 @@ class SyncService:
                     section_name=item['section_name'],
                     procedure_owner='',
                     test_list=identifiers,
-                    estimated_hours=est_hours,
+                    estimated_minutes=est_minutes,
                     source='external',
                     external_key=key,
                 )

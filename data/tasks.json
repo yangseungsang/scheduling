@@ -13,35 +13,35 @@
     "test_list": [
       {
         "id": "TC-001",
-        "estimated_hours": 0.7833,
         "owners": [
           "김민수",
           "이지은"
-        ]
+        ],
+        "estimated_minutes": 47
       },
       {
         "id": "TC-002",
-        "estimated_hours": 0.8833,
         "owners": [
           "박준혁"
-        ]
+        ],
+        "estimated_minutes": 53
       },
       {
         "id": "TC-003",
-        "estimated_hours": 0.6333,
         "owners": [
           "최수연",
           "김민수"
-        ]
+        ],
+        "estimated_minutes": 38
       }
     ],
-    "estimated_hours": 2.3,
-    "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "전원 인가 후 초기화 절차 확인",
     "created_at": "2026-03-28T09:00:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 138,
+    "remaining_minutes": 0
   },
   {
     "id": "t_00000002",
@@ -56,27 +56,27 @@
     "test_list": [
       {
         "id": "TC-004",
-        "estimated_hours": 1.95,
         "owners": [
           "이지은"
-        ]
+        ],
+        "estimated_minutes": 117
       },
       {
         "id": "TC-005",
-        "estimated_hours": 1.3833,
         "owners": [
           "박준혁",
           "최수연"
-        ]
+        ],
+        "estimated_minutes": 83
       }
     ],
-    "estimated_hours": 3.33,
-    "remaining_hours": 0.01,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-03-28T09:10:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 200,
+    "remaining_minutes": 1
   },
   {
     "id": "t_00000003",
@@ -92,34 +92,34 @@
     "test_list": [
       {
         "id": "TC-010",
-        "estimated_hours": 2.0667,
         "owners": [
           "박준혁"
-        ]
+        ],
+        "estimated_minutes": 124
       },
       {
         "id": "TC-011",
-        "estimated_hours": 1.5167,
         "owners": [
           "김민수"
-        ]
+        ],
+        "estimated_minutes": 91
       },
       {
         "id": "TC-012",
-        "estimated_hours": 1.2167,
         "owners": [
           "최수연",
           "이지은"
-        ]
+        ],
+        "estimated_minutes": 73
       }
     ],
-    "estimated_hours": 4.8,
-    "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "GPS 수신 환경 확인 필요",
     "created_at": "2026-03-28T09:20:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 288,
+    "remaining_minutes": 0
   },
   {
     "id": "t_00000004",
@@ -128,32 +128,32 @@
     "assignee_ids": [
       "u_001"
     ],
-    "location_id": "loc_00000002",
+    "location_id": "",
     "section_name": "4.2 항법 데이터 출력",
     "procedure_owner": "박준혁",
     "test_list": [
       {
         "id": "TC-013",
-        "estimated_hours": 1.1167,
         "owners": [
           "박준혁"
-        ]
+        ],
+        "estimated_minutes": 67
       },
       {
         "id": "TC-014",
-        "estimated_hours": 1.3667,
         "owners": [
           "김민수"
-        ]
+        ],
+        "estimated_minutes": 82
       }
     ],
-    "estimated_hours": 2.48,
-    "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-03-28T09:30:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 149,
+    "remaining_minutes": 7
   },
   {
     "id": "t_00000005",
@@ -169,40 +169,40 @@
     "test_list": [
       {
         "id": "TC-020",
-        "estimated_hours": 0.4667,
         "owners": [
           "이지은"
-        ]
+        ],
+        "estimated_minutes": 28
       },
       {
         "id": "TC-021",
-        "estimated_hours": 0.5667,
         "owners": [
           "박준혁"
-        ]
+        ],
+        "estimated_minutes": 34
       },
       {
         "id": "TC-022",
-        "estimated_hours": 0.3667,
         "owners": [
           "최수연"
-        ]
+        ],
+        "estimated_minutes": 22
       },
       {
         "id": "TC-023",
-        "estimated_hours": 0.5167,
         "owners": [
           "김민수"
-        ]
+        ],
+        "estimated_minutes": 31
       }
     ],
-    "estimated_hours": 1.92,
-    "remaining_hours": 2.0,
     "status": "completed",
     "memo": "외부 장비 연결 사전 확인",
     "created_at": "2026-03-28T09:40:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 115,
+    "remaining_minutes": 120
   },
   {
     "id": "t_00000006",
@@ -217,26 +217,26 @@
     "test_list": [
       {
         "id": "TC-006",
-        "estimated_hours": 0.3833,
         "owners": [
           "최수연"
-        ]
+        ],
+        "estimated_minutes": 23
       },
       {
         "id": "TC-007",
-        "estimated_hours": 0.3167,
         "owners": [
           "김민수"
-        ]
+        ],
+        "estimated_minutes": 19
       }
     ],
-    "estimated_hours": 0.7,
-    "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "ss",
     "created_at": "2026-03-28T09:50:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 42,
+    "remaining_minutes": 0
   },
   {
     "id": "t_00000007",
@@ -252,22 +252,22 @@
     "test_list": [
       {
         "id": "TC-024",
-        "estimated_hours": 1.75,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 105
       },
       {
         "id": "TC-025",
-        "estimated_hours": 1.75,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 105
       }
     ],
-    "estimated_hours": 3.5,
-    "remaining_hours": 3.5,
     "status": "waiting",
     "memo": "v2.0 신규 추가 항목",
     "created_at": "2026-03-28T10:00:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 210,
+    "remaining_minutes": 210
   },
   {
     "id": "t_00000008",
@@ -283,27 +283,27 @@
     "test_list": [
       {
         "id": "TC-030",
-        "estimated_hours": 1.3333,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 80
       },
       {
         "id": "TC-031",
-        "estimated_hours": 1.3333,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 80
       },
       {
         "id": "TC-032",
-        "estimated_hours": 1.3333,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 80
       }
     ],
-    "estimated_hours": 4.0,
-    "remaining_hours": 4.0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-03-28T10:10:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 240,
+    "remaining_minutes": 240
   },
   {
     "id": "t_00000009",
@@ -319,22 +319,22 @@
     "test_list": [
       {
         "id": "TC-008",
-        "estimated_hours": 0.75,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 45
       },
       {
         "id": "TC-009",
-        "estimated_hours": 0.75,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 45
       }
     ],
-    "estimated_hours": 1.5,
-    "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T09:00:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 90,
+    "remaining_minutes": 0
   },
   {
     "id": "t_00000010",
@@ -349,27 +349,27 @@
     "test_list": [
       {
         "id": "TC-015",
-        "estimated_hours": 0.6667,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 40
       },
       {
         "id": "TC-016",
-        "estimated_hours": 0.6667,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 40
       },
       {
         "id": "TC-017",
-        "estimated_hours": 0.6667,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 40
       }
     ],
-    "estimated_hours": 2.0,
-    "remaining_hours": 0,
     "status": "in_progress",
     "memo": "정밀 측정 장비 필요",
     "created_at": "2026-04-01T09:10:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 120,
+    "remaining_minutes": 0
   },
   {
     "id": "t_00000011",
@@ -385,22 +385,22 @@
     "test_list": [
       {
         "id": "TC-040",
-        "estimated_hours": 0.75,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 45
       },
       {
         "id": "TC-041",
-        "estimated_hours": 0.75,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 45
       }
     ],
-    "estimated_hours": 1.5,
-    "remaining_hours": 0,
     "status": "waiting",
     "memo": "비상 스위치 동작 확인",
     "created_at": "2026-04-01T09:20:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 90,
+    "remaining_minutes": 0
   },
   {
     "id": "t_00000012",
@@ -415,27 +415,27 @@
     "test_list": [
       {
         "id": "TC-042",
-        "estimated_hours": 0.8333,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 50
       },
       {
         "id": "TC-043",
-        "estimated_hours": 0.8333,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 50
       },
       {
         "id": "TC-044",
-        "estimated_hours": 0.8333,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 50
       }
     ],
-    "estimated_hours": 2.5,
-    "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T09:30:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 150,
+    "remaining_minutes": 0
   },
   {
     "id": "t_00000013",
@@ -449,33 +449,33 @@
     "procedure_owner": "박준혁",
     "test_list": [
       {
-        "estimated_hours": 1,
         "id": "TC-050",
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
-        "estimated_hours": 1,
         "id": "TC-051",
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
-        "estimated_hours": 1,
         "id": "TC-052",
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
-        "estimated_hours": 1,
         "id": "TC-053",
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       }
     ],
-    "estimated_hours": 4,
-    "remaining_hours": 4.0,
     "status": "completed",
     "memo": "IMU 센서 교정 필요",
     "created_at": "2026-04-01T09:40:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 240,
+    "remaining_minutes": 240
   },
   {
     "id": "t_00000014",
@@ -491,22 +491,22 @@
     "test_list": [
       {
         "id": "TC-060",
-        "estimated_hours": 0.25,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 15
       },
       {
         "id": "TC-061",
-        "estimated_hours": 0.25,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 15
       }
     ],
-    "estimated_hours": 0.5,
-    "remaining_hours": 0,
     "status": "waiting",
     "memo": "외부 안테나 설치 후 진행",
     "created_at": "2026-04-01T09:50:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 30,
+    "remaining_minutes": 0
   },
   {
     "id": "t_00000015",
@@ -521,27 +521,27 @@
     "test_list": [
       {
         "id": "TC-062",
-        "estimated_hours": 0.25,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 15
       },
       {
         "id": "TC-063",
-        "estimated_hours": 0.25,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 15
       },
       {
         "id": "TC-064",
-        "estimated_hours": 0.25,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 15
       }
     ],
-    "estimated_hours": 0.75,
-    "remaining_hours": 0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T10:00:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 45,
+    "remaining_minutes": 0
   },
   {
     "id": "t_00000016",
@@ -556,22 +556,22 @@
     "test_list": [
       {
         "id": "TC-070",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
         "id": "TC-071",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       }
     ],
-    "estimated_hours": 2.0,
-    "remaining_hours": 0.33,
     "status": "in_progress",
     "memo": "항온 챔버 예약 필요",
     "created_at": "2026-04-01T10:10:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 120,
+    "remaining_minutes": 20
   },
   {
     "id": "t_00000017",
@@ -587,27 +587,27 @@
     "test_list": [
       {
         "id": "TC-072",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
         "id": "TC-073",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
         "id": "TC-074",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       }
     ],
-    "estimated_hours": 3.0,
-    "remaining_hours": 1.67,
     "status": "in_progress",
     "memo": "진동 시험기 사전 점검",
     "created_at": "2026-04-01T10:20:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 180,
+    "remaining_minutes": 100
   },
   {
     "id": "t_00000018",
@@ -623,22 +623,22 @@
     "test_list": [
       {
         "id": "TC-075",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
         "id": "TC-076",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       }
     ],
-    "estimated_hours": 2.0,
-    "remaining_hours": 0.0,
     "status": "in_progress",
     "memo": "",
     "created_at": "2026-04-01T10:30:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 120,
+    "remaining_minutes": 0
   },
   {
     "id": "t_00000019",
@@ -654,27 +654,27 @@
     "test_list": [
       {
         "id": "TC-033",
-        "estimated_hours": 1.5,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 90
       },
       {
         "id": "TC-034",
-        "estimated_hours": 1.5,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 90
       },
       {
         "id": "TC-035",
-        "estimated_hours": 1.5,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 90
       }
     ],
-    "estimated_hours": 4.5,
-    "remaining_hours": 4.5,
     "status": "waiting",
     "memo": "암호 모듈 펌웨어 업데이트 후 진행",
     "created_at": "2026-04-01T10:40:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 270,
+    "remaining_minutes": 270
   },
   {
     "id": "t_00000020",
@@ -689,22 +689,22 @@
     "test_list": [
       {
         "id": "TC-036",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
         "id": "TC-037",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       }
     ],
-    "estimated_hours": 2.0,
-    "remaining_hours": 2.0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T10:50:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 120,
+    "remaining_minutes": 120
   },
   {
     "id": "t_00000021",
@@ -720,27 +720,27 @@
     "test_list": [
       {
         "id": "TC-080",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
         "id": "TC-081",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
         "id": "TC-082",
-        "estimated_hours": 1.0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       }
     ],
-    "estimated_hours": 3.0,
-    "remaining_hours": 3.0,
     "status": "waiting",
     "memo": "v2.0 패치 적용 후 검증",
     "created_at": "2026-04-01T11:00:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 180,
+    "remaining_minutes": 180
   },
   {
     "id": "t_00000022",
@@ -756,32 +756,32 @@
     "test_list": [
       {
         "id": "TC-055",
-        "estimated_hours": 1.25,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 75
       },
       {
         "id": "TC-056",
-        "estimated_hours": 1.25,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 75
       },
       {
         "id": "TC-057",
-        "estimated_hours": 1.25,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 75
       },
       {
         "id": "TC-058",
-        "estimated_hours": 1.25,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 75
       }
     ],
-    "estimated_hours": 5.0,
-    "remaining_hours": 5.0,
     "status": "waiting",
     "memo": "GPS+INS 복합 모드",
     "created_at": "2026-04-01T11:10:00",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 300,
+    "remaining_minutes": 300
   },
   {
     "id": "t_06431566",
@@ -793,28 +793,28 @@
     "procedure_owner": "",
     "test_list": [
       {
-        "estimated_hours": 1,
         "id": "ID-A",
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
-        "estimated_hours": 1,
         "id": "ID-B",
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       },
       {
-        "estimated_hours": 1,
         "id": "ID-C",
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       }
     ],
-    "estimated_hours": 3,
-    "remaining_hours": 1.0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-04T18:12:27",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 180,
+    "remaining_minutes": 10
   },
   {
     "id": "t_d0a520aa",
@@ -826,18 +826,18 @@
     "procedure_owner": "",
     "test_list": [
       {
-        "estimated_hours": 1.0,
         "id": "팀 회의",
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 60
       }
     ],
-    "estimated_hours": 1.0,
-    "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-04T19:04:26",
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 60,
+    "remaining_minutes": 0
   },
   {
     "id": "t_a94eda3c",
@@ -848,14 +848,14 @@
     "section_name": "장비 점검",
     "procedure_owner": "",
     "test_list": [],
-    "estimated_hours": 1.5,
-    "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-04T20:48:20",
     "is_simple": true,
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 90,
+    "remaining_minutes": 0
   },
   {
     "id": "t_85e03a36",
@@ -866,14 +866,14 @@
     "section_name": "ㅁㅇㅁㄴ",
     "procedure_owner": "",
     "test_list": [],
-    "estimated_hours": 1.0,
-    "remaining_hours": 0.0,
     "status": "completed",
     "memo": "",
     "created_at": "2026-04-04T21:40:50",
     "is_simple": true,
     "source": "local",
-    "external_key": ""
+    "external_key": "",
+    "estimated_minutes": 60,
+    "remaining_minutes": 0
   },
   {
     "procedure_id": "EXT-027",
@@ -885,28 +885,28 @@
     "test_list": [
       {
         "id": "TC-001",
-        "estimated_hours": 0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 0
       },
       {
         "id": "TC-002",
-        "estimated_hours": 0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 0
       },
       {
         "id": "TC-003",
-        "estimated_hours": 0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 0
       }
     ],
-    "estimated_hours": 0,
-    "remaining_hours": 0,
     "status": "waiting",
     "memo": "",
     "source": "external",
     "external_key": "3.1 시스템 초기화::",
     "created_at": "2026-04-05T22:26:17",
-    "id": "t_13d81378"
+    "id": "t_13d81378",
+    "estimated_minutes": 0,
+    "remaining_minutes": 0
   },
   {
     "procedure_id": "EXT-028",
@@ -918,23 +918,23 @@
     "test_list": [
       {
         "id": "TC-004",
-        "estimated_hours": 0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 0
       },
       {
         "id": "TC-005",
-        "estimated_hours": 0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 0
       }
     ],
-    "estimated_hours": 0,
-    "remaining_hours": 0,
     "status": "waiting",
     "memo": "",
     "source": "external",
     "external_key": "3.2 통신 기능::",
     "created_at": "2026-04-05T22:26:17",
-    "id": "t_e415353e"
+    "id": "t_e415353e",
+    "estimated_minutes": 0,
+    "remaining_minutes": 0
   },
   {
     "procedure_id": "EXT-029",
@@ -946,28 +946,28 @@
     "test_list": [
       {
         "id": "TC-010",
-        "estimated_hours": 0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 0
       },
       {
         "id": "TC-011",
-        "estimated_hours": 0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 0
       },
       {
         "id": "TC-012",
-        "estimated_hours": 0,
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 0
       }
     ],
-    "estimated_hours": 0,
-    "remaining_hours": 0,
     "status": "waiting",
     "memo": "",
     "source": "external",
     "external_key": "4.1 항법 연산::",
     "created_at": "2026-04-05T22:26:17",
-    "id": "t_c8d0a27a"
+    "id": "t_c8d0a27a",
+    "estimated_minutes": 0,
+    "remaining_minutes": 0
   },
   {
     "procedure_id": "SEC-KTZD",
@@ -982,19 +982,19 @@
     "procedure_owner": "",
     "test_list": [
       {
-        "estimated_hours": 0.5666666666666667,
         "id": "ㄹㅇㄴㄹㄴㅇ",
-        "owners": []
+        "owners": [],
+        "estimated_minutes": 34
       }
     ],
-    "estimated_hours": 0.57,
-    "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
     "source": "local",
     "external_key": "",
     "created_at": "2026-04-06T21:42:55",
-    "id": "t_0ef4f58a"
+    "id": "t_0ef4f58a",
+    "estimated_minutes": 34,
+    "remaining_minutes": 0
   },
   {
     "procedure_id": "SEC-L30W",
@@ -1004,13 +1004,13 @@
     "section_name": "ㅁㄴㅇㅁㄴㅇ",
     "procedure_owner": "",
     "test_list": [],
-    "estimated_hours": 0.0,
-    "remaining_hours": 0.0,
     "status": "waiting",
     "memo": "",
     "source": "local",
     "external_key": "",
     "created_at": "2026-04-06T21:43:07",
-    "id": "t_2bf593db"
+    "id": "t_2bf593db",
+    "estimated_minutes": 0,
+    "remaining_minutes": 0
   }
 ]

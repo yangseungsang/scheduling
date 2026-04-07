@@ -1012,8 +1012,8 @@ body {
   border: 1px solid #d1d5db;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  width: 560px;
-  max-width: 92vw;
+  width: 700px;
+  max-width: 95vw;
   max-height: 85vh;
   overflow-y: auto;
 }
@@ -1421,7 +1421,7 @@ body {
 /* ==================================================================
    Task list page
    ================================================================== */
-.task-list-page { max-width: 800px; margin: 0 auto; padding: 20px 16px; }
+.task-list-page { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
 .task-list-header {
   display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
 }

@@ -164,11 +164,13 @@
     testList.forEach(function (item, i) {
       var id = typeof item === 'object' ? item.id : item;
       var owners = (typeof item === 'object' && item.owners) ? item.owners : [];
-      var mins = typeof item === 'object' ? Math.round((item.estimated_hours || 0) * 60) : 0;
+      var mins = typeof item === 'object' ? (item.estimated_minutes || 0) : 0;
+      var itemName = (typeof item === 'object' && item.name) ? item.name : '';
       var ownerStr = owners.length ? ' <span class="text-muted">작성: ' + owners.join(', ') + '</span>' : '';
+      var nameStr = itemName ? ' <span class="text-muted" style="font-size:0.78rem">- ' + itemName + '</span>' : '';
       rows += '<label class="d-flex align-items-center gap-2 mb-1" style="font-size:0.85rem">' +
         '<input type="checkbox" class="form-check-input" value="' + i + '" checked> ' +
-        '<span>' + id + '</span>' + ownerStr +
+        '<span>' + id + '</span>' + nameStr + ownerStr +
         (mins > 0 ? ' <span class="text-muted">(' + mins + '분)</span>' : '') +
         '</label>';
     });

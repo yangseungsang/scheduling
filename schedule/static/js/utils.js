@@ -55,7 +55,7 @@ window.ScheduleApp = window.ScheduleApp || {};
   // =====================================================================
   function getTaskRemaining(taskId) {
     return api('GET', '/tasks/api/' + taskId).then(function (res) {
-      return res.task ? res.task.remaining_hours : 0;
+      return res.task ? res.task.remaining_minutes : 0;
     }).catch(function () { return 0; });
   }
   App.getTaskRemaining = getTaskRemaining;
@@ -64,7 +64,7 @@ window.ScheduleApp = window.ScheduleApp || {};
     return api('GET', '/tasks/api/' + taskId).then(function (res) {
       var task = res.task;
       if (!task) return false;
-      var remaining = task.remaining_hours;
+      var remaining = task.remaining_minutes;
       // Only alert when remaining hours INCREASED (time was cut)
       if (remaining > 0 && remaining > (prevRemaining || 0)) {
         return showRemainingAlert(procedureId || task.procedure_id, remaining);
@@ -87,7 +87,7 @@ window.ScheduleApp = window.ScheduleApp || {};
           '<div class="remaining-alert-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>' +
           '<div class="remaining-alert-title">시험이 당일에 완료되지 않습니다</div>' +
           '<div class="remaining-alert-body">' +
-            '<strong>' + procedureId + '</strong> 항목의 잔여 시간 <strong>' + Math.round(remaining * 60) + '분</strong>이 ' +
+            '<strong>' + procedureId + '</strong> 항목의 잔여 시간 <strong>' + remaining + '분</strong>이 ' +
             '시험 큐에 남아있습니다.<br>추가 일정 배치가 필요합니다.' +
           '</div>' +
           '<button class="remaining-alert-btn" id="remaining-alert-close">확인</button>' +
@@ -191,5 +191,32 @@ window.ScheduleApp = window.ScheduleApp || {};
     return document.body.classList.contains('readonly-mode');
   }
   App.isReadonly = isReadonly;
+
+  // =====================================================================
+  // Global Esc key — close topmost overlay
+  // =====================================================================
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    // Find topmost overlay (last in DOM order)
+    var overlays = document.querySelectorAll(
+      '.block-detail-overlay, .remaining-alert-overlay, .memo-modal-backdrop'
+    );
+    if (!overlays.length) return;
+    var top = overlays[overlays.length - 1];
+    // Try close button first, then remove directly
+    var closeBtn = top.querySelector('.bd-x, #remaining-alert-close, #memo-cancel, #confirm-modal-cancel');
+    if (closeBtn) {
+      closeBtn.click();
+    } else {
+      top.remove();
+    }
+  });
+
+  // Also close context menu on Esc
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    var menu = document.getElementById('block-context-menu');
+    if (menu) menu.remove();
+  });
 
 })(window.ScheduleApp);

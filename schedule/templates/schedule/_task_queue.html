@@ -29,8 +29,8 @@
          data-assignee-ids="{{ task.assignee_ids|join(',') }}"
          data-location-id="{{ task.location_id }}"
          data-version-id="{{ task.version_id }}"
-         data-remaining-hours="{{ task.remaining_unscheduled_hours }}"
-         data-estimated-hours="{{ task.estimated_hours }}"
+         data-remaining-minutes="{{ task.remaining_unscheduled_minutes }}"
+         data-estimated-minutes="{{ task.estimated_minutes }}"
          data-title="{{ task.section_name or task.procedure_id }}"
          data-location-name="{{ task.location_name }}"
          data-assignee-name="{{ task.assignee_name }}"
@@ -43,7 +43,7 @@
           {% if task.get('is_simple') %}<span class="badge bg-secondary" style="font-size:0.6rem;vertical-align:middle;margin-left:4px">준비</span>{% endif %}
         </div>
         <div class="queue-card-hours">
-          남은: {{ (task.remaining_unscheduled_hours * 60)|int }}분 / 전체: {{ (task.estimated_hours * 60)|int }}분
+          남은: {{ task.remaining_unscheduled_minutes }}분 / 전체: {{ task.estimated_minutes }}분
         </div>
       </div>
     </div>

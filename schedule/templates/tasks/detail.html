@@ -23,6 +23,7 @@
             <thead>
               <tr class="text-muted" style="font-size:0.75rem">
                 <th>식별자</th>
+                <th>시험항목</th>
                 <th>시간</th>
                 <th>작성자</th>
                 <th>배치일</th>
@@ -34,7 +35,8 @@
               {% set sched = identifier_schedule.get(item.id) %}
               <tr>
                 <td class="fw-bold">{{ item.id }}</td>
-                <td>{{ (item.estimated_hours * 60)|int }}분</td>
+                <td>{{ item.name or '-' }}</td>
+                <td>{{ item.estimated_minutes }}분</td>
                 <td>{{ item.owners|join(', ') if item.owners else '-' }}</td>
                 <td>
                   {% if sched %}
@@ -47,14 +49,14 @@
                 </td>
               </tr>
               {% else %}
-              <tr><td>{{ item }}</td><td>-</td><td>-</td><td>-</td></tr>
+              <tr><td>{{ item }}</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
               {% endif %}
             {% endfor %}
             </tbody>
           </table>
         {% else %}-{% endif %}
       </td></tr>
-      <tr><th>예상 시간</th><td>{{ (task.estimated_hours * 60)|int }}분 <span class="text-muted">(잔여 {{ (task.remaining_hours * 60)|int }}분)</span></td></tr>
+      <tr><th>예상 시간</th><td>{{ task.estimated_minutes }}분 <span class="text-muted">(잔여 {{ task.remaining_minutes }}분)</span></td></tr>
       <tr><th>시험장소</th><td>{{ location.name if location else '-' }}</td></tr>
       <tr><th>시험 담당자</th><td>{{ assignee_names|join(', ') if assignee_names else '-' }}</td></tr>
       <tr><th>버전</th><td>{{ version.name if version else '-' }}</td></tr>

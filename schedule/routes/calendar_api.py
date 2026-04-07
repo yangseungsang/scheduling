@@ -14,7 +14,7 @@ from schedule.models import schedule_block, settings, task
 from schedule.routes.calendar_helpers import (
     VALID_BLOCK_STATUSES,
     remove_identifiers_from_other_blocks,
-    sync_task_remaining_hours,
+    sync_task_remaining_minutes,
     sync_task_status,
 )
 from schedule.routes.calendar_views import schedule_bp
@@ -90,7 +90,7 @@ def api_create_block():
             data['task_id'], block['id'], new_identifier_ids, sttngs,
         )
 
-    sync_task_remaining_hours(data['task_id'])
+    sync_task_remaining_minutes(data['task_id'])
     return jsonify(block), 201
 
 
@@ -139,7 +139,7 @@ def api_update_block(block_id):
 
     # Always sync remaining hours so resize + move sequences stay consistent
     if block.get('task_id'):
-        sync_task_remaining_hours(block['task_id'])
+        sync_task_remaining_minutes(block['task_id'])
 
     return jsonify(updated)
 
@@ -153,7 +153,7 @@ def api_delete_block(block_id):
     is_restore = request.args.get('restore') == '1'
     schedule_block.delete(block_id)
     if task_id:
-        sync_task_remaining_hours(task_id)
+        sync_task_remaining_minutes(task_id)
         if is_restore:
             task.patch(task_id, location_id='')
     return jsonify({'success': True})
@@ -197,7 +197,6 @@ def api_create_simple_block():
         return jsonify({'error': '제목을 입력해주세요.'}), 400
     title = data['title'].strip()
     minutes = int(data.get('estimated_minutes', 60))
-    hours = round(minutes / 60.0, 4)
     version_id = data.get('version_id', '')
     t = task.create(
         procedure_id='BLK-' + str(int(__import__('time').time()))[-6:],
@@ -207,7 +206,7 @@ def api_create_simple_block():
         section_name=title,
         procedure_owner='',
         test_list=[],
-        estimated_hours=hours,
+        estimated_minutes=minutes,
         memo='',
     )
     # Mark as simple block
@@ -362,26 +361,26 @@ def api_split_block(block_id):
     split_ids = [iid for iid in block_ids if iid not in keep_set]
 
     # Calculate durations
-    keep_hours = sum(
-        item.get('estimated_hours', 0)
+    keep_minutes = sum(
+        item.get('estimated_minutes', 0)
         for item in test_list
         if isinstance(item, dict) and item.get('id') in keep_set
     )
-    split_hours = sum(
-        item.get('estimated_hours', 0)
+    split_minutes = sum(
+        item.get('estimated_minutes', 0)
         for item in test_list
         if isinstance(item, dict) and item.get('id') in set(split_ids)
     )
 
     # Update original block: set identifier_ids and adjust time
-    keep_min = max(int(round(keep_hours * 60)), 1)
+    keep_min = max(keep_minutes, 1)
     new_end_min = time_to_minutes(block['start_time']) + keep_min
     new_end = minutes_to_time(new_end_min)
     adjusted_end = adjust_end_for_breaks(block['start_time'], new_end, sttngs)
     schedule_block.update(block_id, identifier_ids=keep_ids, end_time=adjusted_end)
 
     # Create new block for split identifiers, starting right after
-    split_min = max(int(round(split_hours * 60)), 1)
+    split_min = max(split_minutes, 1)
     split_start = adjusted_end
     split_end_min = time_to_minutes(split_start) + split_min
     split_end = minutes_to_time(split_end_min)
@@ -417,5 +416,5 @@ def api_split_block(block_id):
         identifier_ids=split_ids,
     )
 
-    sync_task_remaining_hours(task_id)
+    sync_task_remaining_minutes(task_id)
     return jsonify({'success': True, 'new_block': new_block})

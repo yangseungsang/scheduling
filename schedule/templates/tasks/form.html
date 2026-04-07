@@ -21,10 +21,11 @@
     <table class="table table-sm table-bordered" id="identifier-table">
       <thead>
         <tr>
-          <th style="width:25%">식별자 ID</th>
-          <th style="width:30%">작성자 (쉼표 구분)</th>
-          <th style="width:20%">예상시간 (분)</th>
-          <th style="width:25%"></th>
+          <th style="width:15%">식별자 ID</th>
+          <th style="width:25%">시험항목</th>
+          <th style="width:25%">작성자 (쉼표 구분)</th>
+          <th style="width:15%">예상시간 (분)</th>
+          <th style="width:20%"></th>
         </tr>
       </thead>
       <tbody id="identifier-body">
@@ -39,7 +40,7 @@
     <div id="identifier-error" class="text-danger mt-1" style="display:none"></div>
   </div>
   <input type="hidden" name="test_list_json" id="test_list_json">
-  <input type="hidden" name="estimated_hours" id="estimated_hours_hidden" value="{{ task.estimated_hours if task else 0 }}">
+  <input type="hidden" name="estimated_minutes" id="estimated_minutes_hidden" value="{{ task.estimated_minutes if task else 0 }}">
 
   {# ── 배정 정보 ── #}
   <div class="row mb-3">
@@ -77,8 +78,8 @@
   <div class="row mb-3">
     <div class="col">
       <label class="form-label">잔여 시간 (분)</label>
-      <input type="number" class="form-control" name="remaining_hours_min" min="0" step="1"
-             value="{{ (task.remaining_hours * 60)|int }}">
+      <input type="number" class="form-control" name="remaining_minutes" min="0" step="1"
+             value="{{ task.remaining_minutes|int }}">
     </div>
     <div class="col">
       <label class="form-label">상태</label>
@@ -110,7 +111,7 @@
   var tbody = document.getElementById('identifier-body');
   var totalDisplay = document.getElementById('total-est-display');
   var hiddenJson = document.getElementById('test_list_json');
-  var hiddenEst = document.getElementById('estimated_hours_hidden');
+  var hiddenEst = document.getElementById('estimated_minutes_hidden');
   var errDiv = document.getElementById('identifier-error');
 
   // Load existing test_list
@@ -118,19 +119,20 @@
   if (initialList && initialList.length) {
     initialList.forEach(function(item) {
       if (typeof item === 'string') {
-        addRow(item, [], 0);
+        addRow(item, '', [], 0);
       } else {
-        addRow(item.id, item.owners || [], Math.round((item.estimated_hours || 0) * 60));
+        addRow(item.id, item.name || '', item.owners || [], item.estimated_minutes || 0);
       }
     });
   }
   updateTotal();
 
-  function addRow(id, owners, minutes) {
+  function addRow(id, name, owners, minutes) {
     owners = owners || [];
     var tr = document.createElement('tr');
     tr.innerHTML =
       '<td><input type="text" class="form-control form-control-sm id-input" value="' + (id || '') + '" placeholder="TC-001" required></td>' +
+      '<td><input type="text" class="form-control form-control-sm name-input" value="' + (name || '') + '" placeholder="시험항목명"></td>' +
       '<td><input type="text" class="form-control form-control-sm owners-input" value="' + owners.join(', ') + '" placeholder="작성자 (쉼표 구분)"></td>' +
       '<td><input type="number" class="form-control form-control-sm min-input" value="' + (minutes || 0) + '" min="0" step="1"></td>' +
       '<td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-id">&times;</button></td>';
@@ -142,6 +144,7 @@
     });
     if (isExternal) {
       tr.querySelector('.id-input').readOnly = true;
+      tr.querySelector('.name-input').readOnly = true;
       tr.querySelector('.owners-input').readOnly = true;
       tr.querySelector('.min-input').readOnly = true;
       tr.querySelector('.btn-remove-id').style.display = 'none';
@@ -155,11 +158,11 @@
       total += parseInt(row.querySelector('.min-input').value) || 0;
     });
     totalDisplay.textContent = total;
-    hiddenEst.value = (total / 60.0).toFixed(4);
+    hiddenEst.value = total;
   }
 
   document.getElementById('btn-add-identifier').addEventListener('click', function() {
-    addRow('', [], 0);
+    addRow('', '', [], 0);
   });
 
   if (isExternal) {
@@ -174,12 +177,13 @@
     var hasEmpty = false;
     rows.forEach(function(row) {
       var idVal = row.querySelector('.id-input').value.trim();
+      var nameVal = row.querySelector('.name-input').value.trim();
       var ownersRaw = row.querySelector('.owners-input').value.trim();
       var ownersArr = ownersRaw ? ownersRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
       var minVal = parseInt(row.querySelector('.min-input').value) || 0;
       if (!idVal) { hasEmpty = true; return; }
       ids.push(idVal);
-      list.push({id: idVal, owners: ownersArr, estimated_hours: minVal / 60.0});
+      list.push({id: idVal, name: nameVal, owners: ownersArr, estimated_minutes: minVal});
     });
     if (hasEmpty) {
       e.preventDefault();

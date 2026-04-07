@@ -148,8 +148,8 @@ class TestSyncTestData:
                         'section_name': '3.1 시스템',
                         'version_id': 'VER-001',
                         'identifiers': [
-                            {'id': 'TC-001', 'estimated_hours': 2.0, 'owners': []},
-                            {'id': 'TC-002', 'estimated_hours': 1.5, 'owners': []},
+                            {'id': 'TC-001', 'estimated_minutes': 120, 'owners': []},
+                            {'id': 'TC-002', 'estimated_minutes': 90, 'owners': []},
                         ],
                     },
                 ]
@@ -165,7 +165,7 @@ class TestSyncTestData:
             t = tasks[0]
             assert t['source'] == 'external'
             assert t['external_key'] == '3.1 시스템::VER-001'
-            assert t['estimated_hours'] == 3.5
+            assert t['estimated_minutes'] == 210
             assert len(t['test_list']) == 2
 
     def test_sync_updates_existing_task_identifiers(self):
@@ -178,7 +178,7 @@ class TestSyncTestData:
                         'section_name': '3.1 시스템',
                         'version_id': 'VER-001',
                         'identifiers': [
-                            {'id': 'TC-001', 'estimated_hours': 5.0, 'owners': ['Alice']},
+                            {'id': 'TC-001', 'estimated_minutes': 300, 'owners': ['Alice']},
                         ],
                     },
                 ]
@@ -194,8 +194,8 @@ class TestSyncTestData:
                 location_id='loc_xyz',
                 section_name='3.1 시스템',
                 procedure_owner='Owner',
-                test_list=[{'id': 'TC-OLD', 'estimated_hours': 1.0, 'owners': []}],
-                estimated_hours=1.0,
+                test_list=[{'id': 'TC-OLD', 'estimated_minutes': 60, 'owners': []}],
+                estimated_minutes=60,
                 source='external',
                 external_key='3.1 시스템::VER-001',
             )
@@ -205,10 +205,10 @@ class TestSyncTestData:
             assert result['added'] == 0
 
             t = task.get_by_external_key('3.1 시스템::VER-001')
-            # test_list and estimated_hours should be updated
+            # test_list and estimated_minutes should be updated
             assert len(t['test_list']) == 1
             assert t['test_list'][0]['id'] == 'TC-001'
-            assert t['estimated_hours'] == 5.0
+            assert t['estimated_minutes'] == 300
             # assignee_ids and location_id should be preserved
             assert t['assignee_ids'] == ['u_abc']
             assert t['location_id'] == 'loc_xyz'
@@ -231,7 +231,7 @@ class TestSyncTestData:
                 section_name='3.1 시스템',
                 procedure_owner='',
                 test_list=[],
-                estimated_hours=0,
+                estimated_minutes=0,
                 source='external',
                 external_key='3.1 시스템::VER-001',
             )

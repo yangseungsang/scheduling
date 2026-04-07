@@ -19,8 +19,8 @@ def app(tmp_path):
                 'section_name': '3.1 시스템 초기화',
                 'procedure_owner': '김민수',
                 'test_list': [
-                    {'id': 'TC-001', 'estimated_hours': 0},
-                    {'id': 'TC-002', 'estimated_hours': 0},
+                    {'id': 'TC-001', 'estimated_minutes': 0},
+                    {'id': 'TC-002', 'estimated_minutes': 0},
                 ],
             }
         ], f)

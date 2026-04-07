@@ -10,7 +10,7 @@ class BaseProvider(ABC):
 
     @abstractmethod
     def get_test_data(self, version_id):
-        """Return test data for a version: [{section_name, version_id, identifiers: [{id, estimated_hours, owners}]}]"""
+        """Return test data for a version: [{section_name, version_id, identifiers: [{id, estimated_minutes, owners}]}]"""
 
     @abstractmethod
     def get_test_data_all(self):

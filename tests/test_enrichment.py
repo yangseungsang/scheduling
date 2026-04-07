@@ -97,4 +97,4 @@ class TestQueueTasks:
         queue = r.get_json()['queue_tasks']
         match = [q for q in queue if q['id'] == tid]
         assert len(match) == 1
-        assert match[0]['remaining_unscheduled_hours'] == 2.0
+        assert match[0]['remaining_unscheduled_minutes'] == 120

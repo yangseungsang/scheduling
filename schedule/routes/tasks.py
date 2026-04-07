@@ -18,8 +18,8 @@ def _parse_test_list_from_form():
     return []
 
 
-def _compute_estimated_hours(test_list):
-    return round(sum(item.get('estimated_hours', 0) for item in test_list if isinstance(item, dict)), 4)
+def _compute_estimated_minutes(test_list):
+    return sum(item.get('estimated_minutes', 0) for item in test_list if isinstance(item, dict))
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +120,7 @@ def task_new():
             return redirect(url_for('tasks.task_new'))
         assignee_ids = request.form.getlist('assignee_ids')
         test_list = _parse_test_list_from_form()
-        estimated_hours = _compute_estimated_hours(test_list) if test_list else float(request.form.get('estimated_hours', 0) or 0)
+        estimated_minutes = _compute_estimated_minutes(test_list) if test_list else int(request.form.get('estimated_minutes', 0) or 0)
 
         # Validate identifier uniqueness
         dupes = task.validate_unique_identifiers(test_list)
@@ -136,7 +136,7 @@ def task_new():
             section_name=request.form.get('section_name', '').strip(),
             procedure_owner=request.form.get('procedure_owner', '').strip(),
             test_list=test_list,
-            estimated_hours=estimated_hours,
+            estimated_minutes=estimated_minutes,
             memo=request.form.get('memo', '').strip(),
         )
         flash('시험 항목이 생성되었습니다.', 'success')
@@ -197,9 +197,8 @@ def task_edit(task_id):
             return redirect(url_for('tasks.task_edit', task_id=task_id))
         assignee_ids = request.form.getlist('assignee_ids')
         test_list = _parse_test_list_from_form()
-        estimated_hours = _compute_estimated_hours(test_list) if test_list else float(request.form.get('estimated_hours', 0) or 0)
-        remaining_hours_min = int(request.form.get('remaining_hours_min', 0) or 0)
-        remaining_hours = remaining_hours_min / 60.0
+        estimated_minutes = _compute_estimated_minutes(test_list) if test_list else int(request.form.get('estimated_minutes', 0) or 0)
+        remaining_minutes = int(request.form.get('remaining_minutes', 0) or 0)
 
         # Validate identifier uniqueness
         dupes = task.validate_unique_identifiers(test_list, exclude_task_id=task_id)
@@ -216,8 +215,8 @@ def task_edit(task_id):
             section_name=request.form.get('section_name', '').strip(),
             procedure_owner=request.form.get('procedure_owner', '').strip(),
             test_list=test_list,
-            estimated_hours=estimated_hours,
-            remaining_hours=remaining_hours,
+            estimated_minutes=estimated_minutes,
+            remaining_minutes=remaining_minutes,
             status=request.form.get('status', 'waiting'),
             memo=request.form.get('memo', '').strip(),
         )
@@ -277,7 +276,7 @@ def api_task_create():
     if not data or not data.get('procedure_id', '').strip():
         return jsonify({'error': '절차서 식별자를 입력해주세요.'}), 400
     test_list = data.get('test_list', [])
-    estimated_hours = _compute_estimated_hours(test_list) if test_list else float(data.get('estimated_hours', 0) or 0)
+    estimated_minutes = _compute_estimated_minutes(test_list) if test_list else int(data.get('estimated_minutes', 0) or 0)
 
     dupes = task.validate_unique_identifiers(test_list)
     if dupes:
@@ -291,7 +290,7 @@ def api_task_create():
         section_name=data.get('section_name', ''),
         procedure_owner=data.get('procedure_owner', ''),
         test_list=test_list,
-        estimated_hours=estimated_hours,
+        estimated_minutes=estimated_minutes,
         memo=data.get('memo', ''),
     )
     return jsonify(t), 201
@@ -306,7 +305,7 @@ def api_task_update(task_id):
     if not data or not data.get('procedure_id', '').strip():
         return jsonify({'error': '절차서 식별자를 입력해주세요.'}), 400
     test_list = data.get('test_list', [])
-    estimated_hours = _compute_estimated_hours(test_list) if test_list else float(data.get('estimated_hours', 0) or 0)
+    estimated_minutes = _compute_estimated_minutes(test_list) if test_list else int(data.get('estimated_minutes', 0) or 0)
 
     dupes = task.validate_unique_identifiers(test_list, exclude_task_id=task_id)
     if dupes:
@@ -321,8 +320,8 @@ def api_task_update(task_id):
         section_name=data.get('section_name', ''),
         procedure_owner=data.get('procedure_owner', ''),
         test_list=test_list,
-        estimated_hours=estimated_hours,
-        remaining_hours=float(data.get('remaining_hours', 0) or 0),
+        estimated_minutes=estimated_minutes,
+        remaining_minutes=int(data.get('remaining_minutes', 0) or 0),
         status=data.get('status', 'waiting'),
         memo=data.get('memo', ''),
     )

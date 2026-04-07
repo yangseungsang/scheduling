@@ -25,15 +25,15 @@ def app(tmp_path):
             'section_name': 'Navigation',
             'version_id': 'v_aaa',
             'identifiers': [
-                {'id': 'TC-001', 'estimated_hours': 2, 'owners': ['Alice']},
-                {'id': 'TC-002', 'estimated_hours': 1, 'owners': ['Bob']},
+                {'id': 'TC-001', 'estimated_minutes': 120, 'owners': ['Alice']},
+                {'id': 'TC-002', 'estimated_minutes': 60, 'owners': ['Bob']},
             ],
         },
         {
             'section_name': 'Communication',
             'version_id': 'v_bbb',
             'identifiers': [
-                {'id': 'TC-100', 'estimated_hours': 3, 'owners': ['Charlie']},
+                {'id': 'TC-100', 'estimated_minutes': 180, 'owners': ['Charlie']},
             ],
         },
     ]

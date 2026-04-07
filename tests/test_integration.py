@@ -28,11 +28,11 @@ class TestFullWorkflow:
         })
         assert r.status_code == 200
 
-        # Task estimated_hours should still be 4.0
+        # Task estimated_minutes should still be 240
         from schedule.models import task as task_model
         with app.app_context():
             t = task_model.get_by_id(tid)
-            assert t['estimated_hours'] == 4.0
+            assert t['estimated_minutes'] == 240
 
         # Delete with restore=1
         r = client.delete(f'/schedule/api/blocks/{block_id}?restore=1')

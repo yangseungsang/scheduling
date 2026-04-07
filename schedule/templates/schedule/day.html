@@ -88,7 +88,7 @@
                  data-section-name="{{ block.section_name }}"
                  data-assignee-name="{{ block.assignee_name }}"
                  data-location-name="{{ block.location_name }}"
-                 data-estimated-hours="{{ block.get('estimated_hours', 0) if block.get('task_id') else 0 }}"
+                 data-estimated-minutes="{{ block.get('estimated_minutes', 0) if block.get('task_id') else 0 }}"
                  data-identifier-ids='{{ block.identifier_ids|tojson if block.identifier_ids else "" }}'
                    style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }}; left: {{ col_left }}%; width: {{ col_width }}%; right: auto; ">
               <div class="resize-handle resize-handle-top"></div>

@@ -25,14 +25,14 @@
         var assigneeIds = item.dataset.assigneeIds ? item.dataset.assigneeIds.split(',').filter(Boolean) : [];
         var locationId = item.dataset.locationId || '';
         var versionId = item.dataset.versionId || '';
-        var remaining = parseFloat(item.dataset.remainingHours) || 1;
+        var remaining = parseFloat(item.dataset.remainingMinutes) || 1;
         var title = (item.querySelector('.queue-card-section-title') || item.querySelector('.queue-card-id') || {}).textContent || '';
 
         var testListRaw = item.dataset.testList || '[]';
         var testList = [];
         try { testList = JSON.parse(testListRaw); } catch(e2) {}
 
-        var blockMin = Math.round(remaining * 60);
+        var blockMin = Math.round(remaining);
         blockMin = Math.max(blockMin, 1);
         var expectedHeight = (blockMin / GRID_MINUTES) * SLOT_HEIGHT;
 
@@ -47,6 +47,7 @@
             function createBlock(selectedIds, overrideMin) {
               var bMin = overrideMin || blockMin;
               var identifierIds = selectedIds || null;
+              var isPartial = !!selectedIds; // 분할 배치 여부
               if (target.type === 'slot') {
                 var t = App.snapToBlockEdge(target.el);
                 var dropLocationId = target.locationId || locationId;
@@ -63,7 +64,7 @@
                     identifier_ids: identifierIds,
                   });
                 }).then(function () {
-                  return checkRemainingAfterPlace(taskId, title.trim(), prevRem);
+                  if (!isPartial) return checkRemainingAfterPlace(taskId, title.trim(), prevRem);
                 }).then(function () { location.reload(); })
                   .catch(function (err) { showToast(err.message, 'danger'); });
               } else if (target.type === 'month') {
@@ -81,7 +82,7 @@
                       identifier_ids: identifierIds,
                     });
                   }).then(function () {
-                    return checkRemainingAfterPlace(taskId, title.trim(), prevRem2);
+                    if (!isPartial) return checkRemainingAfterPlace(taskId, title.trim(), prevRem2);
                   }).then(function () { location.reload(); })
                     .catch(function (err) { showToast(err.message, 'danger'); });
                 }
@@ -116,7 +117,7 @@
                     createBlock(null, null);
                   } else {
                     var totalMin = 0;
-                    selected.forEach(function (s) { totalMin += typeof s === 'object' ? Math.round((s.estimated_hours || 0) * 60) : 0; });
+                    selected.forEach(function (s) { totalMin += typeof s === 'object' ? (s.estimated_minutes || 0) : 0; });
                     totalMin = Math.max(totalMin, 1);
                     createBlock(selectedIds, totalMin);
                   }
@@ -162,16 +163,18 @@
     testList.forEach(function (item, i) {
       var id = typeof item === 'object' ? item.id : item;
       var owners = (typeof item === 'object' && item.owners) ? item.owners : [];
-      var mins = typeof item === 'object' ? Math.round((item.estimated_hours || 0) * 60) : 0;
+      var mins = typeof item === 'object' ? (item.estimated_minutes || 0) : 0;
       var isScheduled = !!scheduledSet[id];
       var checked = isScheduled ? '' : ' checked';
       var badge = isScheduled
         ? ' <span class="badge bg-secondary" style="font-size:0.65rem;vertical-align:middle">배치됨</span>'
         : '';
+      var itemName = (typeof item === 'object' && item.name) ? item.name : '';
       var ownerStr = owners.length ? ' <span class="text-muted">작성: ' + owners.join(', ') + '</span>' : '';
+      var nameStr = itemName ? ' <span class="text-muted" style="font-size:0.78rem">- ' + itemName + '</span>' : '';
       rows += '<label class="d-flex align-items-center gap-2 mb-1" style="font-size:0.85rem' + (isScheduled ? ';opacity:0.55' : '') + '">' +
         '<input type="checkbox" class="form-check-input" value="' + i + '"' + checked + '> ' +
-        '<span>' + id + '</span>' + ownerStr +
+        '<span>' + id + '</span>' + nameStr + ownerStr +
         (mins > 0 ? ' <span class="text-muted">(' + mins + '분)</span>' : '') +
         badge +
         '</label>';
