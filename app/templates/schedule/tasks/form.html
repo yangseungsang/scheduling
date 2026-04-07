@@ -1,0 +1,236 @@
+{% extends "schedule/base.html" %}
+{% block title %}{{ '시험 항목 수정' if task else '시험 항목 추가' }} - 스케줄링{% endblock %}
+
+{% block content %}
+<h2>{{ '시험 항목 수정' if task else '시험 항목 추가' }}</h2>
+<form method="POST" class="mt-3" style="max-width: 700px;" id="task-form">
+
+  {# ── 장절 정보 (최상단) ── #}
+  <div class="mb-3">
+    <label class="form-label fw-bold">장절명</label>
+    <input type="text" class="form-control" name="section_name" id="section_name"
+           value="{{ task.section_name if task else '' }}" placeholder="예: 3.1 시스템 초기화" required
+           {% if task and task.get('source') == 'external' %}readonly{% endif %}>
+  </div>
+  <input type="hidden" name="procedure_id" id="procedure_id" value="{{ task.procedure_id if task else 'AUTO' }}">
+  <input type="hidden" name="procedure_owner" value="{{ task.procedure_owner if task else '' }}">
+
+  {# ── 시험 식별자 목록 ── #}
+  <div class="mb-3">
+    <label class="form-label fw-bold">시험 식별자 (시험항목)</label>
+    <table class="table table-sm table-bordered" id="identifier-table">
+      <thead>
+        <tr>
+          <th style="width:15%">식별자 ID</th>
+          <th style="width:25%">시험항목</th>
+          <th style="width:25%">작성자 (쉼표 구분)</th>
+          <th style="width:15%">예상시간 (분)</th>
+          <th style="width:20%"></th>
+        </tr>
+      </thead>
+      <tbody id="identifier-body">
+      </tbody>
+    </table>
+    <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-identifier">
+      <i class="bi bi-plus-lg"></i> 식별자 추가
+    </button>
+    <div class="mt-2">
+      <strong>합계 예상시간: <span id="total-est-display">0</span>분</strong>
+    </div>
+    <div id="identifier-error" class="text-danger mt-1" style="display:none"></div>
+  </div>
+  <input type="hidden" name="test_list_json" id="test_list_json">
+  <input type="hidden" name="estimated_minutes" id="estimated_minutes_hidden" value="{{ task.estimated_minutes if task else 0 }}">
+
+  {# ── 배정 정보 ── #}
+  <div class="row mb-3">
+    <div class="col">
+      {% if versions %}
+      <input type="hidden" name="version_id" value="{{ versions[0].id }}">
+      <label class="form-label">소프트웨어 버전</label>
+      <input type="text" class="form-control" value="{{ versions[0].name }}" readonly>
+      {% else %}
+      <input type="hidden" name="version_id" value="">
+      <label class="form-label">소프트웨어 버전</label>
+      <input type="text" class="form-control text-muted" value="버전 없음" readonly>
+      {% endif %}
+    </div>
+    <div class="col">
+      <label class="form-label">시험장소</label>
+      <select name="location_id" class="form-select">
+        <option value="">선택 안 함</option>
+        {% for loc in locations %}
+        <option value="{{ loc.id }}" {{ 'selected' if task and task.location_id == loc.id }}>{{ loc.name }}{% if loc.description %} ({{ loc.description }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">시험 담당자 (복수 선택 가능)</label>
+    <select name="assignee_ids" class="form-select" id="assignee-select" multiple size="4">
+      {% for u in users %}
+      <option value="{{ u.id }}" {{ 'selected' if task and u.id in task.assignee_ids }}>{{ u.name }}</option>
+      {% endfor %}
+    </select>
+    <div id="assignee-chips" class="mt-1"></div>
+  </div>
+
+  {# ── 상태/메모 ── #}
+  {% if task %}
+  <div class="row mb-3">
+    <div class="col">
+      <label class="form-label">잔여 시간 (분)</label>
+      <input type="number" class="form-control" name="remaining_minutes" min="0" step="1"
+             value="{{ task.remaining_minutes|int }}">
+    </div>
+    <div class="col">
+      <label class="form-label">상태</label>
+      <select name="status" class="form-select">
+        <option value="waiting" {{ 'selected' if task.status == 'waiting' }}>대기</option>
+        <option value="in_progress" {{ 'selected' if task.status == 'in_progress' }}>진행 중</option>
+        <option value="completed" {{ 'selected' if task.status == 'completed' }}>완료</option>
+      </select>
+    </div>
+  </div>
+  {% endif %}
+  <div class="mb-3">
+    <label class="form-label">메모</label>
+    <textarea class="form-control" name="memo" rows="3">{{ task.memo if task else '' }}</textarea>
+  </div>
+  <button type="submit" class="btn btn-primary">저장</button>
+  {% if task %}
+  <a href="{{ url_for('tasks.task_detail', task_id=task.id) }}" class="btn btn-secondary">취소</a>
+  {% else %}
+  <a href="{{ url_for('tasks.task_list') }}" class="btn btn-secondary">취소</a>
+  {% endif %}
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var isExternal = {{ 'true' if task and task.get('source') == 'external' else 'false' }};
+  var tbody = document.getElementById('identifier-body');
+  var totalDisplay = document.getElementById('total-est-display');
+  var hiddenJson = document.getElementById('test_list_json');
+  var hiddenEst = document.getElementById('estimated_minutes_hidden');
+  var errDiv = document.getElementById('identifier-error');
+
+  // Load existing test_list
+  var initialList = {{ (task.test_list if task else [])|tojson }};
+  if (initialList && initialList.length) {
+    initialList.forEach(function(item) {
+      if (typeof item === 'string') {
+        addRow(item, '', [], 0);
+      } else {
+        addRow(item.id, item.name || '', item.owners || [], item.estimated_minutes || 0);
+      }
+    });
+  }
+  updateTotal();
+
+  function addRow(id, name, owners, minutes) {
+    owners = owners || [];
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><input type="text" class="form-control form-control-sm id-input" value="' + (id || '') + '" placeholder="TC-001" required></td>' +
+      '<td><input type="text" class="form-control form-control-sm name-input" value="' + (name || '') + '" placeholder="시험항목명"></td>' +
+      '<td><input type="text" class="form-control form-control-sm owners-input" value="' + owners.join(', ') + '" placeholder="작성자 (쉼표 구분)"></td>' +
+      '<td><input type="number" class="form-control form-control-sm min-input" value="' + (minutes || 0) + '" min="0" step="1"></td>' +
+      '<td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-id">&times;</button></td>';
+    tbody.appendChild(tr);
+    tr.querySelector('.min-input').addEventListener('input', updateTotal);
+    tr.querySelector('.btn-remove-id').addEventListener('click', function() {
+      tr.remove();
+      updateTotal();
+    });
+    if (isExternal) {
+      tr.querySelector('.id-input').readOnly = true;
+      tr.querySelector('.name-input').readOnly = true;
+      tr.querySelector('.owners-input').readOnly = true;
+      tr.querySelector('.min-input').readOnly = true;
+      tr.querySelector('.btn-remove-id').style.display = 'none';
+    }
+  }
+
+  function updateTotal() {
+    var rows = tbody.querySelectorAll('tr');
+    var total = 0;
+    rows.forEach(function(row) {
+      total += parseInt(row.querySelector('.min-input').value) || 0;
+    });
+    totalDisplay.textContent = total;
+    hiddenEst.value = total;
+  }
+
+  document.getElementById('btn-add-identifier').addEventListener('click', function() {
+    addRow('', '', [], 0);
+  });
+
+  if (isExternal) {
+    document.getElementById('btn-add-identifier').style.display = 'none';
+  }
+
+  // Before submit: serialize test_list and validate
+  document.getElementById('task-form').addEventListener('submit', function(e) {
+    var rows = tbody.querySelectorAll('tr');
+    var list = [];
+    var ids = [];
+    var hasEmpty = false;
+    rows.forEach(function(row) {
+      var idVal = row.querySelector('.id-input').value.trim();
+      var nameVal = row.querySelector('.name-input').value.trim();
+      var ownersRaw = row.querySelector('.owners-input').value.trim();
+      var ownersArr = ownersRaw ? ownersRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+      var minVal = parseInt(row.querySelector('.min-input').value) || 0;
+      if (!idVal) { hasEmpty = true; return; }
+      ids.push(idVal);
+      list.push({id: idVal, name: nameVal, owners: ownersArr, estimated_minutes: minVal});
+    });
+    if (hasEmpty) {
+      e.preventDefault();
+      errDiv.textContent = '식별자 ID를 입력해주세요.';
+      errDiv.style.display = 'block';
+      return;
+    }
+    var seen = {};
+    for (var i = 0; i < ids.length; i++) {
+      if (seen[ids[i]]) {
+        e.preventDefault();
+        errDiv.textContent = '중복 식별자: ' + ids[i];
+        errDiv.style.display = 'block';
+        return;
+      }
+      seen[ids[i]] = true;
+    }
+    errDiv.style.display = 'none';
+    hiddenJson.value = JSON.stringify(list);
+  });
+
+  // Auto-generate procedure_id if hidden
+  document.getElementById('task-form').addEventListener('submit', function() {
+    var pidEl = document.getElementById('procedure_id');
+    if (!pidEl.value || pidEl.value === 'AUTO') {
+      pidEl.value = 'SEC-' + Date.now().toString(36).toUpperCase().slice(-4);
+    }
+  });
+
+  // Assignee chips
+  var sel = document.getElementById('assignee-select');
+  var chips = document.getElementById('assignee-chips');
+  function renderChips() {
+    chips.innerHTML = '';
+    Array.from(sel.selectedOptions).forEach(function(opt) {
+      var chip = document.createElement('span');
+      chip.className = 'badge bg-primary me-1 mb-1';
+      chip.style.cursor = 'pointer';
+      chip.textContent = opt.text + ' \u00d7';
+      chip.addEventListener('click', function() { opt.selected = false; renderChips(); });
+      chips.appendChild(chip);
+    });
+  }
+  sel.addEventListener('change', renderChips);
+  renderChips();
+})();
+</script>
+{% endblock %}

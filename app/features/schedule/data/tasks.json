@@ -1,0 +1,96 @@
+[
+  {
+    "procedure_id": "EXT-001",
+    "version_id": "",
+    "assignee_ids": [],
+    "location_id": "",
+    "section_name": "3.1 시스템 초기화",
+    "procedure_owner": "",
+    "test_list": [
+      {
+        "id": "TC-001",
+        "owners": [],
+        "estimated_minutes": 0
+      },
+      {
+        "id": "TC-002",
+        "owners": [],
+        "estimated_minutes": 0
+      },
+      {
+        "id": "TC-003",
+        "owners": [],
+        "estimated_minutes": 0
+      }
+    ],
+    "estimated_minutes": 0,
+    "remaining_minutes": 0,
+    "status": "waiting",
+    "memo": "",
+    "source": "external",
+    "external_key": "3.1 시스템 초기화::",
+    "created_at": "2026-04-07T23:53:54",
+    "id": "t_00b51008"
+  },
+  {
+    "procedure_id": "EXT-002",
+    "version_id": "",
+    "assignee_ids": [],
+    "location_id": "",
+    "section_name": "3.2 통신 기능",
+    "procedure_owner": "",
+    "test_list": [
+      {
+        "id": "TC-004",
+        "owners": [],
+        "estimated_minutes": 0
+      },
+      {
+        "id": "TC-005",
+        "owners": [],
+        "estimated_minutes": 0
+      }
+    ],
+    "estimated_minutes": 0,
+    "remaining_minutes": 0,
+    "status": "waiting",
+    "memo": "",
+    "source": "external",
+    "external_key": "3.2 통신 기능::",
+    "created_at": "2026-04-07T23:53:54",
+    "id": "t_2ae4fdce"
+  },
+  {
+    "procedure_id": "EXT-003",
+    "version_id": "",
+    "assignee_ids": [],
+    "location_id": "",
+    "section_name": "4.1 항법 연산",
+    "procedure_owner": "",
+    "test_list": [
+      {
+        "id": "TC-010",
+        "owners": [],
+        "estimated_minutes": 0
+      },
+      {
+        "id": "TC-011",
+        "owners": [],
+        "estimated_minutes": 0
+      },
+      {
+        "id": "TC-012",
+        "owners": [],
+        "estimated_minutes": 0
+      }
+    ],
+    "estimated_minutes": 0,
+    "remaining_minutes": 0,
+    "status": "waiting",
+    "memo": "",
+    "source": "external",
+    "external_key": "4.1 항법 연산::",
+    "created_at": "2026-04-07T23:53:54",
+    "id": "t_8f5ac796"
+  }
+]

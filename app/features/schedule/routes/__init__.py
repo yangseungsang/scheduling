@@ -1,0 +1,14 @@
+from app.features.schedule.routes.calendar_views import schedule_bp
+from app.features.schedule.routes.tasks import tasks_bp
+from app.features.schedule.routes.admin import admin_bp
+from app.features.schedule.routes.sync import sync_bp
+
+# Register API routes on the same blueprint
+import app.features.schedule.routes.calendar_api  # noqa: F401
+
+
+def register_routes(app):
+    app.register_blueprint(tasks_bp)
+    app.register_blueprint(schedule_bp)
+    app.register_blueprint(admin_bp)
+    app.register_blueprint(sync_bp)

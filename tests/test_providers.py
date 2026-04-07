@@ -2,7 +2,7 @@
 import json
 import os
 import pytest
-from schedule import create_app
+from app import create_app
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ def app(tmp_path):
 class TestJsonFileProvider:
     def test_get_versions(self, app):
         with app.app_context():
-            from schedule.providers.json_file import JsonFileProvider
+            from app.features.schedule.providers.json_file import JsonFileProvider
             provider = JsonFileProvider()
             versions = provider.get_versions()
             assert len(versions) == 2
@@ -71,7 +71,7 @@ class TestJsonFileProvider:
 
     def test_get_test_data_by_version(self, app):
         with app.app_context():
-            from schedule.providers.json_file import JsonFileProvider
+            from app.features.schedule.providers.json_file import JsonFileProvider
             provider = JsonFileProvider()
             data = provider.get_test_data('v_aaa')
             assert len(data) == 1
@@ -82,7 +82,7 @@ class TestJsonFileProvider:
 
     def test_get_test_data_all(self, app):
         with app.app_context():
-            from schedule.providers.json_file import JsonFileProvider
+            from app.features.schedule.providers.json_file import JsonFileProvider
             provider = JsonFileProvider()
             data = provider.get_test_data_all()
             assert len(data) == 2
@@ -91,7 +91,7 @@ class TestJsonFileProvider:
 
     def test_get_test_data_nonexistent_version(self, app):
         with app.app_context():
-            from schedule.providers.json_file import JsonFileProvider
+            from app.features.schedule.providers.json_file import JsonFileProvider
             provider = JsonFileProvider()
             data = provider.get_test_data('v_nonexistent')
             assert data == []

@@ -58,7 +58,7 @@ class TestQueueTasks:
         tid = _create_task(client, uid, version_id=vid)
 
         # Mark task completed via task patch (needs app context)
-        from schedule.models import task as task_model
+        from app.features.schedule.models import task as task_model
         with app.app_context():
             task_model.patch(tid, status='completed')
 

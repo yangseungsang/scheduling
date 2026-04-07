@@ -2,7 +2,7 @@
 import json
 import os
 import pytest
-from schedule import create_app
+from app import create_app
 
 
 @pytest.fixture
@@ -43,13 +43,13 @@ def app(tmp_path):
 class TestProcedureLookup:
     def test_lookup_existing(self, app):
         with app.app_context():
-            from schedule.services.procedure import lookup
+            from app.features.schedule.services.procedure import lookup
             result = lookup('SYS-001')
             assert result is not None
             assert result['section_name'] == '3.1 시스템 초기화'
 
     def test_lookup_missing(self, app):
         with app.app_context():
-            from schedule.services.procedure import lookup
+            from app.features.schedule.services.procedure import lookup
             result = lookup('NONEXIST-001')
             assert result is None

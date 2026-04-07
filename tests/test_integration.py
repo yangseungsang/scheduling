@@ -1,6 +1,7 @@
 """Integration tests — full workflows spanning task → block → queue lifecycle."""
 
 from tests.conftest import _create_block, _create_location, _create_task, _create_user, _create_version
+from app.features.schedule.models import task as task_model, schedule_block, version as version_model
 
 
 class TestFullWorkflow:
@@ -29,7 +30,7 @@ class TestFullWorkflow:
         assert r.status_code == 200
 
         # Task estimated_minutes should still be 240
-        from schedule.models import task as task_model
+        from app.features.schedule.models import task as task_model
         with app.app_context():
             t = task_model.get_by_id(tid)
             assert t['estimated_minutes'] == 240
@@ -117,3 +118,38 @@ class TestFullWorkflow:
         assert len(blocks) == 1
         assert blocks[0]['id'] != block1_id
         assert sorted(blocks[0].get('identifier_ids', [])) == ['TC-001', 'TC-002']
+
+
+class TestProjectReset:
+    """Project reset API tests."""
+
+    def test_reset_clears_all_data(self, app, client):
+        uid = _create_user(client)
+        loc_id = _create_location(client)
+        vid = _create_version(client)
+        _create_task(client, uid, loc_id=loc_id, version_id=vid, hours='2')
+
+        r = client.post('/admin/api/project-reset')
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['success'] is True
+
+        with app.app_context():
+            assert task_model.get_all() == []
+            assert schedule_block.get_all() == []
+            assert version_model.get_all() == []
+
+    def test_reset_with_new_version(self, app, client):
+        r = client.post('/admin/api/project-reset', json={
+            'version_name': 'v2.0.0',
+            'version_description': '2차 통합시험',
+        })
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['version'] is not None
+        assert data['version']['name'] == 'v2.0.0'
+
+        with app.app_context():
+            versions = version_model.get_all()
+            assert len(versions) == 1
+            assert versions[0]['name'] == 'v2.0.0'

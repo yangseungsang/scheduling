@@ -4,10 +4,10 @@ import os
 
 import pytest
 
-from schedule import create_app
-from schedule.models import version, task
-from schedule.providers.base import BaseProvider
-from schedule.services.sync import SyncService
+from app import create_app
+from app.features.schedule.models import version, task
+from app.features.schedule.providers.base import BaseProvider
+from app.features.schedule.services.sync import SyncService
 
 
 # ---------------------------------------------------------------------------

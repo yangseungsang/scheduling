@@ -1,0 +1,23 @@
+{% extends "schedule/base.html" %}
+{% block title %}{{ '버전 수정' if version else '버전 추가' }} - 스케줄링{% endblock %}
+{% block content %}
+<h2>{{ '버전 수정' if version else '버전 추가' }}</h2>
+<form method="POST" class="mt-3" style="max-width: 400px;">
+  <div class="mb-3">
+    <label class="form-label">버전명</label>
+    <input type="text" class="form-control" name="name" value="{{ version.name if version else '' }}" required>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">설명</label>
+    <textarea class="form-control" name="description" rows="2">{{ version.description if version else '' }}</textarea>
+  </div>
+  {% if version %}
+  <div class="mb-3 form-check">
+    <input type="checkbox" class="form-check-input" name="is_active" id="is_active" {{ 'checked' if version.is_active }}>
+    <label class="form-check-label" for="is_active">활성 버전</label>
+  </div>
+  {% endif %}
+  <button type="submit" class="btn btn-primary">저장</button>
+  <a href="{{ url_for('admin.versions') }}" class="btn btn-secondary">취소</a>
+</form>
+{% endblock %}

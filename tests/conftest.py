@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from schedule import create_app
+from app import create_app
 
 
 # ===========================================================================
@@ -74,13 +74,11 @@ def _create_location(client, name='A', color='#28a745', description='시험실')
 
 
 def _create_version(client, name='v1.0.0', description='테스트'):
-    """Helper: create a version via form and return the version_id."""
-    client.post('/admin/versions/new', data={
+    """Helper: create a version via API and return the version_id."""
+    r = client.post('/admin/api/versions', json={
         'name': name, 'description': description,
     })
-    r = client.get('/admin/versions')
-    ids = re.findall(r'/admin/versions/(v_\w+)/edit', r.data.decode())
-    return ids[-1]
+    return r.get_json()['id']
 
 
 def _create_task(client, uid_list, loc_id='', version_id='',
