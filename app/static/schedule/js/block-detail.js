@@ -1,6 +1,6 @@
 /**
- * Block detail popup (double-click).
- * Extracted from drag_drop.js
+ * 블록 상세 팝업 모듈 — 블록/큐 아이템 더블클릭 시 상세 정보를 표시한다.
+ * 식별자 목록, 예상 시간, 배치 정보, 메모 편집 기능을 제공한다.
  */
 (function () {
   'use strict';
@@ -12,13 +12,30 @@
   var isReadonly = App.isReadonly;
 
   // =====================================================================
-  // Block detail popup
+  // 블록 상세 팝업
   // =====================================================================
 
-
+  /**
+   * 태스크 상세 정보 팝업을 표시한다.
+   * 서버에서 태스크 정보와 해당 태스크의 모든 블록을 조회하여
+   * 식별자별 배치 현황, 시간, 상태 등을 테이블 형태로 보여준다.
+   * @param {string} taskId - 태스크 ID
+   * @param {Object} [opts={}] - 표시 옵션
+   * @param {string} [opts.blockId] - 현재 블록 ID
+   * @param {string} [opts.startTime] - 블록 시작 시간
+   * @param {string} [opts.endTime] - 블록 종료 시간
+   * @param {string} [opts.locationName] - 장소 이름
+   * @param {string} [opts.assigneeName] - 담당자 이름
+   * @param {string} [opts.memo] - 메모 내용
+   * @param {string} [opts.blockStatus] - 블록 상태 ('pending'|'in_progress'|'completed'|'cancelled')
+   * @param {string} [opts.color] - 블록 색상
+   * @param {Array<string>} [opts.identifierIds] - 현재 블록에 할당된 식별자 ID 목록
+   * @param {boolean} [opts.isQueued] - 큐 아이템 여부
+   */
   function showTaskDetailPopup(taskId, opts) {
     opts = opts || {};
     var blockId = opts.blockId || null;
+    // 태스크 정보와 해당 태스크의 모든 블록을 병렬로 조회
     Promise.all([
       api('GET', '/tasks/api/' + taskId),
       api('GET', '/schedule/api/blocks/by-task/' + taskId).catch(function() { return {blocks: []}; }),
@@ -27,6 +44,7 @@
       var allBlocks = (results[1] && results[1].blocks) || [];
       if (!task) { showToast('항목 정보를 불러올 수 없습니다.', 'danger'); return; }
 
+      // 표시할 기본 정보 구성
       var startTime = opts.startTime || '';
       var endTime = opts.endTime || '';
       var locationName = task.location_name || opts.locationName || '';
@@ -39,21 +57,25 @@
       var blockColor = opts.color || '#64748b';
       var isQueued = opts.isQueued || false;
 
+      // 현재 블록에 할당된 식별자 ID 집합 구성
       var blockIdentifierIds = opts.identifierIds || null;
       var blockIdSet = {};
       if (blockIdentifierIds) {
         blockIdentifierIds.forEach(function(id) { blockIdSet[id] = true; });
       }
+      // 분할 블록 여부: 현재 블록의 식별자 수 < 전체 식별자 수
       var isSplit = blockIdentifierIds && (task.test_list || []).length > blockIdentifierIds.length;
 
-      // Build identifier -> schedule mapping from allBlocks
+      // 식별자 → 배치 정보 매핑 구성 (모든 블록에서)
       var allTestList = task.test_list || [];
       var allTaskIds = allTestList.map(function(it) { return typeof it === 'object' ? it.id : it; });
-      var idScheduleMap = {};  // id → {time, status}
+      var idScheduleMap = {};  // id → {time, status, date}
+      // 블록을 날짜+시간 순으로 정렬
       allBlocks.sort(function(a,b) { return (a.date + a.start_time).localeCompare(b.date + b.start_time); });
       allBlocks.forEach(function(blk) {
         var bids = blk.identifier_ids || allTaskIds;
         bids.forEach(function(iid) {
+          // 각 식별자의 첫 번째 배치 정보만 기록
           if (!idScheduleMap[iid]) {
             idScheduleMap[iid] = {
               time: blk.date + ' ' + blk.start_time + '–' + blk.end_time,
@@ -64,8 +86,9 @@
         });
       });
 
+      // 식별자 목록 HTML 구성
       var testListHtml = '-';
-      var idTotalMin = 0;
+      var idTotalMin = 0; // 식별자별 시간 합계
       if (allTestList.length) {
         testListHtml = '<table style="width:100%;font-size:0.78rem;border-collapse:collapse;border-spacing:0">' +
           '<colgroup><col style="width:15%"><col style="width:22%"><col style="width:13%"><col style="width:20%"><col style="width:30%"></colgroup>' +
@@ -77,10 +100,12 @@
               var mins = item.estimated_minutes || 0;
               idTotalMin += mins;
               var ow = (item.owners || []).join(', ') || '-';
+              // 이 블록에 속한 식별자인지 여부 (분할 블록이 아니면 모두 해당)
               var inThisBlock = !isSplit || blockIdSet[item.id];
               var sched = idScheduleMap[item.id];
               var schedHtml;
               if (sched) {
+                // 배치된 식별자: 날짜/시간 링크 + 상태 배지 표시
                 var statusColors = {completed:'#16a34a', in_progress:'#2563eb', cancelled:'#dc2626', pending:'#6c757d'};
                 var statusLabels = {completed:'완료', in_progress:'진행', cancelled:'불가', pending:'대기'};
                 var sColor = statusColors[sched.status] || '#6c757d';
@@ -92,6 +117,7 @@
               } else {
                 schedHtml = '<span style="color:#adb5bd">미배치</span>';
               }
+              // 타 블록에 속한 식별자는 반투명 처리
               var rowStyle = inThisBlock
                 ? 'border-bottom:1px solid #f9fafb'
                 : 'border-bottom:1px solid #f9fafb;opacity:0.45';
@@ -112,28 +138,35 @@
             '<td colspan="2"></td></tr>' +
           '</table>';
       }
+      // 분할 블록일 때 (현재 블록 식별자 수 / 전체 식별자 수) 표시
       var splitInfo = '';
       var totalIdCount = (task.test_list || []).length;
       if (blockIdentifierIds && blockIdentifierIds.length < totalIdCount) {
         splitInfo = ' <span style="font-size:0.75rem;color:#6c757d">(분할 ' + blockIdentifierIds.length + '/' + totalIdCount + ')</span>';
       }
 
+      // 기존 팝업 제거
       var old = document.getElementById('block-detail-popup');
       if (old) old.remove();
 
+      // 오버레이 생성
       var overlay = document.createElement('div');
       overlay.id = 'block-detail-popup';
       overlay.className = 'block-detail-overlay';
 
+      // 상태 배지 (큐 아이템이면 '미배치', 아니면 블록 상태)
       var statusBadge = isQueued
         ? '<span class="bd-badge bd-badge-queued">미배치</span>'
         : '<span class="bd-badge bd-badge-' + status + '">' + statusLabel + '</span>';
 
+      // 메모 HTML 이스케이프
       var escapedMemo = memo.replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
+      // 태스크 전체 상태 (블록 상태와 별개)
       var taskStatus = task.status || 'waiting';
       var taskStatusLabel = { waiting: '대기', in_progress: '진행 중', completed: '완료' }[taskStatus] || taskStatus;
 
+      // 팝업 HTML 구성
       var html =
         '<div class="bd-box">' +
           '<div class="bd-header">' +
@@ -148,11 +181,13 @@
             '<tr><td class="bd-k">시험 식별자' + splitInfo + '</td><td class="bd-v">' + testListHtml + '</td></tr>' +
             '<tr><td class="bd-k">예상 시간</td><td class="bd-v">' +
               (task.estimated_minutes || 0) + '분' +
+              // 식별자 합계가 태스크 예상 시간과 다르면 별도 표시
               (idTotalMin && idTotalMin !== (task.estimated_minutes || 0) ? ' <span class="bd-sub">(식별자 합계 ' + idTotalMin + '분)</span>' : '') +
               ' <span class="bd-sub">(잔여 ' + (task.remaining_minutes || 0) + '분)</span>' +
             '</td></tr>' +
             '<tr><td class="bd-k">시험장소</td><td class="bd-v">' + (locationName || '-') + '</td></tr>' +
             (startTime ? '<tr><td class="bd-k">배치 시간</td><td class="bd-v">' + startTime + ' – ' + endTime +
+              // 배치 시간의 실제 소요 시간(분) 계산하여 표시
               (function() {
                 var s = App.timeToMin(startTime), e = App.timeToMin(endTime);
                 return (s >= 0 && e > s) ? ' <span class="bd-sub">(' + (e - s) + '분)</span>' : '';
@@ -173,13 +208,16 @@
       overlay.innerHTML = html;
       document.body.appendChild(overlay);
 
+      // 닫기 버튼 클릭 이벤트
       document.getElementById('block-detail-close').addEventListener('click', function () {
         overlay.remove();
       });
+      // 오버레이 바깥 클릭 시 닫기
       overlay.addEventListener('click', function (ev) {
         if (ev.target === overlay) overlay.remove();
       });
 
+      // 저장 버튼 클릭 — 메모를 서버에 저장
       document.getElementById('bd-save').addEventListener('click', function () {
         var newMemo = document.getElementById('bd-memo').value;
         var updates = { memo: newMemo };
@@ -195,8 +233,13 @@
     }).catch(function (err) { showToast(err.message || '팝업 로드 실패', 'danger'); });
   }
 
+  /**
+   * 스케줄 블록 및 큐 아이템에 더블클릭 이벤트를 등록하여 상세 팝업을 표시한다.
+   * - 스케줄 블록(.schedule-block) / 월간 블록(.month-block-item): 블록 상세 정보 팝업
+   * - 큐 아이템(.queue-task-item): 큐 상태 팝업
+   */
   function initBlockDetail() {
-    // Schedule blocks + month blocks
+    // 스케줄 블록 + 월간 블록에 더블클릭 이벤트 등록
     document.querySelectorAll('.schedule-block[data-block-id], .month-block-item[data-block-id]').forEach(function (block) {
       block.addEventListener('dblclick', function (e) {
         e.preventDefault();
@@ -204,6 +247,7 @@
 
         var taskId = block.dataset.taskId;
         if (!taskId || taskId === 'None') return;
+        // data-identifier-ids 속성에서 식별자 ID 배열 파싱
         var idIds = null;
         try { if (block.dataset.identifierIds) idIds = JSON.parse(block.dataset.identifierIds); } catch(ex) {}
         showTaskDetailPopup(taskId, {
@@ -220,7 +264,7 @@
       });
     });
 
-    // Queue items
+    // 큐 아이템에 더블클릭 이벤트 등록
     document.querySelectorAll('.queue-task-item[data-task-id]').forEach(function (item) {
       item.addEventListener('dblclick', function (e) {
         e.preventDefault();
@@ -237,7 +281,7 @@
     });
   }
 
-  // Register on App namespace
+  // App 네임스페이스에 등록
   App.showTaskDetailPopup = showTaskDetailPopup;
   App.initBlockDetail = initBlockDetail;
   window.ScheduleApp = App;
