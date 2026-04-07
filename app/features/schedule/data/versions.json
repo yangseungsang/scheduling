@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "id": "v_001",
+    "name": "v1.0.0",
+    "description": "1차 통합시험",
+    "is_active": true,
+    "created_at": "2026-04-01T09:00:00"
+  }
+]

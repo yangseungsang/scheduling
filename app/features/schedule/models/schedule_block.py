@@ -8,7 +8,7 @@ class ScheduleBlockRepository(BaseRepository):
     ALLOWED_FIELDS = {
         'date', 'start_time', 'end_time', 'is_locked',
         'block_status', 'task_id', 'assignee_ids', 'location_id',
-        'version_id', 'memo', 'identifier_ids', 'title', 'is_simple',
+        'memo', 'identifier_ids', 'title', 'is_simple',
         'overflow_minutes',
     }
 
@@ -24,10 +24,6 @@ class ScheduleBlockRepository(BaseRepository):
         ]
 
     @classmethod
-    def get_by_version(cls, version_id):
-        return [b for b in cls.get_all() if b.get('version_id') == version_id]
-
-    @classmethod
     def get_by_assignee(cls, assignee_id):
         return [b for b in cls.get_all()
                 if assignee_id in b.get('assignee_ids', [])]
@@ -40,16 +36,15 @@ class ScheduleBlockRepository(BaseRepository):
         ]
 
     @classmethod
-    def create(cls, task_id, assignee_ids, location_id, version_id,
+    def create(cls, task_id, assignee_ids, location_id,
                date, start_time, end_time,
                is_locked=False,
                block_status='pending', identifier_ids=None,
-               title='', is_simple=False, overflow_minutes=0):
+               title='', is_simple=False, overflow_minutes=0, **kwargs):
         data = {
             'task_id': task_id,
             'assignee_ids': assignee_ids or [],
             'location_id': location_id,
-            'version_id': version_id,
             'date': date,
             'start_time': start_time,
             'end_time': end_time,
@@ -74,7 +69,6 @@ get_all = ScheduleBlockRepository.get_all
 get_by_id = ScheduleBlockRepository.get_by_id
 get_by_date = ScheduleBlockRepository.get_by_date
 get_by_date_range = ScheduleBlockRepository.get_by_date_range
-get_by_version = ScheduleBlockRepository.get_by_version
 get_by_assignee = ScheduleBlockRepository.get_by_assignee
 get_by_location_and_date = ScheduleBlockRepository.get_by_location_and_date
 create = ScheduleBlockRepository.create

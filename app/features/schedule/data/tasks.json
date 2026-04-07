@@ -1,96 +1,354 @@
 [
   {
-    "procedure_id": "EXT-001",
-    "version_id": "",
-    "assignee_ids": [],
-    "location_id": "",
+    "id": "t_001",
+    "procedure_id": "SYS-001",
+    "assignee_ids": [
+      "u_001",
+      "u_002"
+    ],
+    "location_id": "loc_001",
     "section_name": "3.1 시스템 초기화",
-    "procedure_owner": "",
+    "procedure_owner": "김민수",
     "test_list": [
       {
         "id": "TC-001",
-        "owners": [],
-        "estimated_minutes": 0
+        "estimated_minutes": 27,
+        "owners": [
+          "김민수"
+        ]
       },
       {
         "id": "TC-002",
-        "owners": [],
-        "estimated_minutes": 0
+        "estimated_minutes": 43,
+        "owners": [
+          "김민수"
+        ]
       },
       {
         "id": "TC-003",
-        "owners": [],
-        "estimated_minutes": 0
+        "estimated_minutes": 31,
+        "owners": [
+          "이지은"
+        ]
       }
     ],
-    "estimated_minutes": 0,
+    "estimated_minutes": 101,
     "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
-    "source": "external",
-    "external_key": "3.1 시스템 초기화::",
-    "created_at": "2026-04-07T23:53:54",
-    "id": "t_00b51008"
+    "source": "local",
+    "external_key": "",
+    "created_at": "2026-04-01T09:00:00"
   },
   {
-    "procedure_id": "EXT-002",
-    "version_id": "",
-    "assignee_ids": [],
-    "location_id": "",
+    "id": "t_002",
+    "procedure_id": "SYS-002",
+    "assignee_ids": [
+      "u_002",
+      "u_003"
+    ],
+    "location_id": "loc_001",
     "section_name": "3.2 통신 기능",
-    "procedure_owner": "",
+    "procedure_owner": "이지은",
     "test_list": [
       {
         "id": "TC-004",
-        "owners": [],
-        "estimated_minutes": 0
+        "estimated_minutes": 38,
+        "owners": [
+          "이지은"
+        ]
       },
       {
         "id": "TC-005",
-        "owners": [],
-        "estimated_minutes": 0
+        "estimated_minutes": 22,
+        "owners": [
+          "박준혁"
+        ]
       }
     ],
-    "estimated_minutes": 0,
-    "remaining_minutes": 0,
+    "estimated_minutes": 60,
+    "remaining_minutes": 60,
     "status": "waiting",
     "memo": "",
-    "source": "external",
-    "external_key": "3.2 통신 기능::",
-    "created_at": "2026-04-07T23:53:54",
-    "id": "t_2ae4fdce"
+    "source": "local",
+    "external_key": "",
+    "created_at": "2026-04-01T09:00:00"
   },
   {
-    "procedure_id": "EXT-003",
-    "version_id": "",
-    "assignee_ids": [],
-    "location_id": "",
+    "id": "t_003",
+    "procedure_id": "NAV-001",
+    "assignee_ids": [
+      "u_003",
+      "u_004"
+    ],
+    "location_id": "loc_002",
     "section_name": "4.1 항법 연산",
-    "procedure_owner": "",
+    "procedure_owner": "박준혁",
     "test_list": [
       {
         "id": "TC-010",
-        "owners": [],
-        "estimated_minutes": 0
+        "estimated_minutes": 53,
+        "owners": [
+          "박준혁"
+        ]
       },
       {
         "id": "TC-011",
-        "owners": [],
-        "estimated_minutes": 0
+        "estimated_minutes": 47,
+        "owners": [
+          "박준혁"
+        ]
       },
       {
         "id": "TC-012",
-        "owners": [],
-        "estimated_minutes": 0
+        "estimated_minutes": 34,
+        "owners": [
+          "최수연"
+        ]
       }
     ],
-    "estimated_minutes": 0,
+    "estimated_minutes": 134,
+    "remaining_minutes": 134,
+    "status": "waiting",
+    "memo": "",
+    "source": "local",
+    "external_key": "",
+    "created_at": "2026-04-01T09:00:00"
+  },
+  {
+    "id": "t_004",
+    "procedure_id": "NAV-002",
+    "assignee_ids": [
+      "u_001",
+      "u_004"
+    ],
+    "location_id": "loc_002",
+    "section_name": "4.2 항법 데이터 출력",
+    "procedure_owner": "최수연",
+    "test_list": [
+      {
+        "id": "TC-013",
+        "estimated_minutes": 18,
+        "owners": [
+          "최수연"
+        ]
+      },
+      {
+        "id": "TC-014",
+        "estimated_minutes": 42,
+        "owners": [
+          "김민수"
+        ]
+      }
+    ],
+    "estimated_minutes": 60,
+    "remaining_minutes": 60,
+    "status": "waiting",
+    "memo": "",
+    "source": "local",
+    "external_key": "",
+    "created_at": "2026-04-01T09:00:00"
+  },
+  {
+    "id": "t_005",
+    "procedure_id": "COM-001",
+    "assignee_ids": [
+      "u_002"
+    ],
+    "location_id": "loc_003",
+    "section_name": "5.1 외부 통신 인터페이스",
+    "procedure_owner": "이지은",
+    "test_list": [
+      {
+        "id": "TC-020",
+        "estimated_minutes": 51,
+        "owners": [
+          "이지은"
+        ]
+      },
+      {
+        "id": "TC-021",
+        "estimated_minutes": 29,
+        "owners": [
+          "이지은"
+        ]
+      }
+    ],
+    "estimated_minutes": 80,
+    "remaining_minutes": 80,
+    "status": "waiting",
+    "memo": "",
+    "source": "local",
+    "external_key": "",
+    "created_at": "2026-04-01T09:00:00"
+  },
+  {
+    "id": "t_006",
+    "procedure_id": "SYS-003",
+    "assignee_ids": [
+      "u_001",
+      "u_003"
+    ],
+    "location_id": "",
+    "section_name": "3.3 자가진단",
+    "procedure_owner": "김민수",
+    "test_list": [
+      {
+        "id": "TC-006",
+        "estimated_minutes": 23,
+        "owners": [
+          "김민수"
+        ]
+      },
+      {
+        "id": "TC-007",
+        "estimated_minutes": 37,
+        "owners": [
+          "박준혁"
+        ]
+      }
+    ],
+    "estimated_minutes": 60,
+    "remaining_minutes": 60,
+    "status": "waiting",
+    "memo": "",
+    "source": "local",
+    "external_key": "",
+    "created_at": "2026-04-01T09:00:00"
+  },
+  {
+    "id": "t_007",
+    "procedure_id": "COM-002",
+    "assignee_ids": [
+      "u_003",
+      "u_004"
+    ],
+    "location_id": "loc_003",
+    "section_name": "5.2 내부 버스 통신",
+    "procedure_owner": "박준혁",
+    "test_list": [
+      {
+        "id": "TC-022",
+        "estimated_minutes": 41,
+        "owners": [
+          "박준혁"
+        ]
+      },
+      {
+        "id": "TC-023",
+        "estimated_minutes": 19,
+        "owners": [
+          "최수연"
+        ]
+      }
+    ],
+    "estimated_minutes": 60,
+    "remaining_minutes": 60,
+    "status": "waiting",
+    "memo": "",
+    "source": "local",
+    "external_key": "",
+    "created_at": "2026-04-01T09:00:00"
+  },
+  {
+    "id": "t_008",
+    "procedure_id": "SEC-001",
+    "assignee_ids": [
+      "u_004"
+    ],
+    "location_id": "loc_002",
+    "section_name": "6.1 보안 기능 검증",
+    "procedure_owner": "최수연",
+    "test_list": [
+      {
+        "id": "TC-030",
+        "estimated_minutes": 46,
+        "owners": [
+          "최수연"
+        ]
+      },
+      {
+        "id": "TC-031",
+        "estimated_minutes": 33,
+        "owners": [
+          "최수연"
+        ]
+      }
+    ],
+    "estimated_minutes": 79,
+    "remaining_minutes": 79,
+    "status": "waiting",
+    "memo": "",
+    "source": "local",
+    "external_key": "",
+    "created_at": "2026-04-01T09:00:00"
+  },
+  {
+    "id": "t_009",
+    "procedure_id": "SYS-004",
+    "assignee_ids": [
+      "u_001",
+      "u_002"
+    ],
+    "location_id": "loc_001",
+    "section_name": "3.4 모드 전환",
+    "procedure_owner": "김민수",
+    "test_list": [
+      {
+        "id": "TC-008",
+        "estimated_minutes": 36,
+        "owners": [
+          "김민수"
+        ]
+      },
+      {
+        "id": "TC-009",
+        "estimated_minutes": 28,
+        "owners": [
+          "이지은"
+        ]
+      }
+    ],
+    "estimated_minutes": 64,
     "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
-    "source": "external",
-    "external_key": "4.1 항법 연산::",
-    "created_at": "2026-04-07T23:53:54",
-    "id": "t_8f5ac796"
+    "source": "local",
+    "external_key": "",
+    "created_at": "2026-04-01T09:00:00"
+  },
+  {
+    "id": "t_010",
+    "procedure_id": "ENV-001",
+    "assignee_ids": [
+      "u_002",
+      "u_004"
+    ],
+    "location_id": "loc_003",
+    "section_name": "7.1 온도 시험",
+    "procedure_owner": "이지은",
+    "test_list": [
+      {
+        "id": "TC-040",
+        "estimated_minutes": 57,
+        "owners": [
+          "이지은"
+        ]
+      },
+      {
+        "id": "TC-041",
+        "estimated_minutes": 44,
+        "owners": [
+          "최수연"
+        ]
+      }
+    ],
+    "estimated_minutes": 101,
+    "remaining_minutes": 101,
+    "status": "waiting",
+    "memo": "",
+    "source": "local",
+    "external_key": "",
+    "created_at": "2026-04-01T09:00:00"
   }
 ]

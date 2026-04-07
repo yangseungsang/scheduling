@@ -115,10 +115,8 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
     return enriched
 
 
-def get_queue_tasks(users_map, locations_map, version_id):
+def get_queue_tasks(users_map, locations_map, version_id=None):
     tasks = task.get_all()
-    if version_id:
-        tasks = [t for t in tasks if t.get('version_id') == version_id]
     all_blocks = schedule_block.get_all()
     sttngs = settings.get()
 

@@ -45,15 +45,8 @@
   {# ── 배정 정보 ── #}
   <div class="row mb-3">
     <div class="col">
-      {% if versions %}
-      <input type="hidden" name="version_id" value="{{ versions[0].id }}">
       <label class="form-label">소프트웨어 버전</label>
-      <input type="text" class="form-control" value="{{ versions[0].name }}" readonly>
-      {% else %}
-      <input type="hidden" name="version_id" value="">
-      <label class="form-label">소프트웨어 버전</label>
-      <input type="text" class="form-control text-muted" value="버전 없음" readonly>
-      {% endif %}
+      <input type="text" class="form-control" value="{{ versions[0].name if versions else '버전 없음' }}" readonly>
     </div>
     <div class="col">
       <label class="form-label">시험장소</label>

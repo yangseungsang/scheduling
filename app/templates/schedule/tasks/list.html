@@ -28,9 +28,6 @@
 
   <form method="GET" id="filter-form" class="tl-filter">
     <div class="tl-filter-row">
-      {% if versions %}
-      <input type="hidden" name="version" value="{{ versions[0].id }}">
-      {% endif %}
       <select name="status" class="form-select form-select-sm tl-sel" onchange="this.form.submit()">
         <option value="">전체 상태</option>
         <option value="waiting" {{ 'selected' if filters.status == 'waiting' }}>대기</option>

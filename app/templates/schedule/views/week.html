@@ -16,11 +16,11 @@
   <div class="schedule-main">
     {# Navigation #}
     <div class="week-nav schedule-nav">
-      <a href="{{ url_for('schedule.week_view', date=prev_date.isoformat(), version=current_version_id) }}" class="btn btn-sm btn-outline-secondary">
+      <a href="{{ url_for('schedule.week_view', date=prev_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-chevron-left"></i>
       </a>
-      <a href="{{ url_for('schedule.week_view', version=current_version_id) }}" class="btn btn-sm btn-outline-primary">오늘</a>
-      <a href="{{ url_for('schedule.week_view', date=next_date.isoformat(), version=current_version_id) }}" class="btn btn-sm btn-outline-secondary">
+      <a href="{{ url_for('schedule.week_view') }}" class="btn btn-sm btn-outline-primary">오늘</a>
+      <a href="{{ url_for('schedule.week_view', date=next_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
         <i class="bi bi-chevron-right"></i>
       </a>
       <h5 class="mb-0 ms-2">

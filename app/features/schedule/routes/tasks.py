@@ -29,15 +29,11 @@ def _compute_estimated_minutes(test_list):
 @tasks_bp.route('/')
 def task_list():
     tasks_all = task.get_all()
-    version_filter = request.args.get('version')
     status = request.args.get('status')
     assignees = request.args.getlist('assignee')
     location_filter = request.args.get('location')
     procedure = request.args.get('procedure', '').strip()
     date_filter = request.args.get('date', '').strip()
-
-    if version_filter:
-        tasks_all = [t for t in tasks_all if t.get('version_id') == version_filter]
     if status:
         tasks_all = [t for t in tasks_all if t['status'] == status]
     if assignees:
@@ -102,7 +98,6 @@ def task_list():
                            schedule_status_map=schedule_status_map,
                            split_info_map=split_info_map,
                            filters={
-                               'version': version_filter or '',
                                'status': status or '',
                                'assignees': assignees,
                                'location': location_filter or '',
@@ -130,7 +125,6 @@ def task_new():
 
         task.create(
             procedure_id=procedure_id,
-            version_id=request.form.get('version_id', ''),
             assignee_ids=assignee_ids,
             location_id=request.form.get('location_id', ''),
             section_name=request.form.get('section_name', '').strip(),
@@ -157,7 +151,6 @@ def task_detail(task_id):
     user_map = {u['id']: u['name'] for u in users}
     assignee_names = [user_map.get(uid, uid) for uid in t.get('assignee_ids', [])]
     loc = location.get_by_id(t.get('location_id')) if t.get('location_id') else None
-    ver = version.get_by_id(t.get('version_id')) if t.get('version_id') else None
 
     # Build identifier → scheduled date mapping
     all_blocks = schedule_block.get_all()
@@ -182,7 +175,7 @@ def task_detail(task_id):
     return render_template('schedule/tasks/detail.html', task=t,
                            assignee_names=assignee_names,
                            identifier_schedule=identifier_schedule,
-                           location=loc, version=ver)
+                           location=loc)
 
 
 @tasks_bp.route('/<task_id>/edit', methods=['GET', 'POST'])
@@ -209,7 +202,6 @@ def task_edit(task_id):
         task.update(
             task_id=task_id,
             procedure_id=procedure_id,
-            version_id=request.form.get('version_id', ''),
             assignee_ids=assignee_ids,
             location_id=request.form.get('location_id', ''),
             section_name=request.form.get('section_name', '').strip(),
@@ -246,9 +238,6 @@ def task_delete(task_id):
 @tasks_bp.route('/api/list')
 def api_task_list():
     tasks_all = task.get_all()
-    ver = request.args.get('version')
-    if ver:
-        tasks_all = [t for t in tasks_all if t.get('version_id') == ver]
     return jsonify({'tasks': tasks_all})
 
 
@@ -261,12 +250,9 @@ def api_task_detail(task_id):
     user_map = {u['id']: u['name'] for u in users}
     locations = location.get_all()
     loc_map = {loc['id']: loc['name'] for loc in locations}
-    versions = version.get_all()
-    ver_map = {v['id']: v['name'] for v in versions}
     result = dict(t)
     result['assignee_names'] = [user_map.get(uid, uid) for uid in t.get('assignee_ids', [])]
     result['location_name'] = loc_map.get(t.get('location_id', ''), '')
-    result['version_name'] = ver_map.get(t.get('version_id', ''), '')
     return jsonify({'task': result})
 
 
@@ -284,7 +270,6 @@ def api_task_create():
 
     t = task.create(
         procedure_id=data['procedure_id'].strip(),
-        version_id=data.get('version_id', ''),
         assignee_ids=data.get('assignee_ids', []),
         location_id=data.get('location_id', ''),
         section_name=data.get('section_name', ''),
@@ -314,7 +299,6 @@ def api_task_update(task_id):
     updated = task.update(
         task_id=task_id,
         procedure_id=data['procedure_id'].strip(),
-        version_id=data.get('version_id', ''),
         assignee_ids=data.get('assignee_ids', []),
         location_id=data.get('location_id', ''),
         section_name=data.get('section_name', ''),

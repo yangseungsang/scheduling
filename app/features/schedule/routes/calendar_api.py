@@ -37,7 +37,6 @@ def api_create_block():
             task_id=None,
             assignee_ids=[],
             location_id=data.get('location_id', ''),
-            version_id=data.get('version_id', ''),
             date=data['date'],
             start_time=data['start_time'],
             end_time=data['end_time'],
@@ -54,14 +53,11 @@ def api_create_block():
     t = task.get_by_id(data['task_id'])
     assignee_ids = data.get('assignee_ids', [])
     location_id = data.get('location_id', '')
-    version_id = data.get('version_id', '')
 
     if not assignee_ids and t:
         assignee_ids = t.get('assignee_ids', [])
     if not location_id and t:
         location_id = t.get('location_id', '')
-    if not version_id and t:
-        version_id = t.get('version_id', '')
 
     sttngs = settings.get()
     adjusted_end = adjust_end_for_breaks(data['start_time'], data['end_time'], sttngs)
@@ -78,7 +74,6 @@ def api_create_block():
         task_id=data['task_id'],
         assignee_ids=assignee_ids,
         location_id=location_id,
-        version_id=version_id,
         date=data['date'],
         start_time=data['start_time'],
         end_time=adjusted_end,
@@ -200,10 +195,8 @@ def api_create_simple_block():
         return jsonify({'error': '제목을 입력해주세요.'}), 400
     title = data['title'].strip()
     minutes = int(data.get('estimated_minutes', 60))
-    version_id = data.get('version_id', '')
     t = task.create(
         procedure_id='BLK-' + str(int(__import__('time').time()))[-6:],
-        version_id=version_id,
         assignee_ids=[],
         location_id='',
         section_name=title,
@@ -292,7 +285,6 @@ def api_shift_blocks():
         return jsonify({'error': '요청 데이터가 없습니다.'}), 400
     from_date = data.get('from_date', '')
     direction = data.get('direction', 1)
-    version_id = data.get('version_id', '')
 
     if not from_date:
         return jsonify({'error': 'from_date는 필수입니다.'}), 400
@@ -301,8 +293,6 @@ def api_shift_blocks():
     shifted = 0
     for b in all_blocks:
         if b['date'] < from_date:
-            continue
-        if version_id and b.get('version_id') != version_id:
             continue
         if b.get('is_locked'):
             continue
@@ -411,7 +401,6 @@ def api_split_block(block_id):
         task_id=task_id,
         assignee_ids=block.get('assignee_ids', []),
         location_id=block.get('location_id', ''),
-        version_id=block.get('version_id', ''),
         date=block['date'],
         start_time=split_start,
         end_time=split_adjusted_end,

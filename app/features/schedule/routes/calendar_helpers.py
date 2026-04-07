@@ -1,24 +1,14 @@
-from flask import request
-
 from app.features.schedule.helpers.time_utils import (
     adjust_end_for_breaks,
     minutes_to_time,
     time_to_minutes,
     work_minutes_in_range,
 )
-from app.features.schedule.models import schedule_block, settings, task, version
+from app.features.schedule.models import schedule_block, settings, task
 
 DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일']
 
 VALID_BLOCK_STATUSES = {'pending', 'in_progress', 'completed', 'cancelled'}
-
-
-def get_current_version_id():
-    vid = request.args.get('version')
-    if vid:
-        return vid
-    active = version.get_active()
-    return active[0]['id'] if active else None
 
 
 def remove_identifiers_from_other_blocks(task_id, exclude_block_id,

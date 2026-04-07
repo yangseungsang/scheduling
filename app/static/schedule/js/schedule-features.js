@@ -171,11 +171,9 @@
         var fromDate = document.getElementById('shift-from-date').value;
         var direction = parseInt(document.getElementById('shift-direction').value);
         if (!fromDate) { showToast('날짜를 입력하세요.', 'danger'); return; }
-        var params = new URLSearchParams(window.location.search);
-        var versionId = params.get('version') || '';
         overlay.remove();
         api('POST', '/schedule/api/blocks/shift', {
-          from_date: fromDate, direction: direction, version_id: versionId
+          from_date: fromDate, direction: direction
         }).then(function (r) {
           showToast(r.shifted_count + '개 블록 이동 완료', 'success');
           setTimeout(function () { location.reload(); }, 500);
@@ -228,10 +226,8 @@
         var minutes = parseInt(document.getElementById('simple-minutes').value) || 60;
         if (!title) { showToast('제목을 입력하세요.', 'danger'); return; }
         overlay.remove();
-        var params = new URLSearchParams(window.location.search);
-        var versionId = params.get('version') || '';
         api('POST', '/schedule/api/simple-blocks', {
-          title: title, estimated_minutes: minutes, version_id: versionId,
+          title: title, estimated_minutes: minutes,
         }).then(function () {
           showToast('큐에 추가되었습니다.', 'success');
           setTimeout(function () { location.reload(); }, 300);

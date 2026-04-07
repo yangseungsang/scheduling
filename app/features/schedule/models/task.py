@@ -8,10 +8,6 @@ class TaskRepository(BaseRepository):
     ID_PREFIX = 't_'
 
     @classmethod
-    def get_by_version(cls, version_id):
-        return [t for t in cls.get_all() if t.get('version_id') == version_id]
-
-    @classmethod
     def validate_unique_identifiers(cls, test_list, exclude_task_id=None):
         """Check that identifier IDs in test_list are globally unique across all tasks.
 
@@ -43,12 +39,12 @@ class TaskRepository(BaseRepository):
         return total
 
     @classmethod
-    def create(cls, procedure_id, version_id, assignee_ids, location_id,
+    def create(cls, procedure_id, assignee_ids, location_id,
                section_name, procedure_owner, test_list,
-               estimated_minutes, memo='', source='local', external_key=''):
+               estimated_minutes, memo='', source='local', external_key='',
+               **kwargs):
         data = {
             'procedure_id': procedure_id,
-            'version_id': version_id,
             'assignee_ids': assignee_ids or [],
             'location_id': location_id,
             'section_name': section_name,
@@ -65,13 +61,12 @@ class TaskRepository(BaseRepository):
         return super().create(data)
 
     @classmethod
-    def update(cls, task_id, procedure_id, version_id, assignee_ids, location_id,
+    def update(cls, task_id, procedure_id, assignee_ids, location_id,
                section_name, procedure_owner, test_list,
                estimated_minutes, remaining_minutes, status, memo=''):
         return cls.patch(
             task_id,
             procedure_id=procedure_id,
-            version_id=version_id,
             assignee_ids=assignee_ids or [],
             location_id=location_id,
             section_name=section_name,
@@ -95,7 +90,6 @@ class TaskRepository(BaseRepository):
 # Backward-compatible module-level aliases
 get_all = TaskRepository.get_all
 get_by_id = TaskRepository.get_by_id
-get_by_version = TaskRepository.get_by_version
 create = TaskRepository.create
 update = TaskRepository.update
 patch = TaskRepository.patch

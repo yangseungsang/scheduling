@@ -24,7 +24,6 @@
         var taskId = item.dataset.taskId;
         var assigneeIds = item.dataset.assigneeIds ? item.dataset.assigneeIds.split(',').filter(Boolean) : [];
         var locationId = item.dataset.locationId || '';
-        var versionId = item.dataset.versionId || '';
         var remaining = parseFloat(item.dataset.remainingMinutes) || 1;
         var title = (item.querySelector('.queue-card-section-title') || item.querySelector('.queue-card-id') || {}).textContent || '';
 
@@ -66,7 +65,7 @@
                   prevRem = r;
                   var payload = {
                     task_id: taskId, assignee_ids: assigneeIds,
-                    location_id: dropLocationId, version_id: versionId,
+                    location_id: dropLocationId,
                     date: target.date,
                     start_time: minToTime(startMin),
                     end_time: minToTime(endMin),

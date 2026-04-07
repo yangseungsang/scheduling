@@ -44,7 +44,7 @@ class SyncService:
         warnings = []
 
         for item in external:
-            key = item['section_name'] + '::' + item['version_id']
+            key = item['section_name']
             external_keys.add(key)
             existing = task.get_by_external_key(key)
 
@@ -60,7 +60,6 @@ class SyncService:
             else:
                 task.create(
                     procedure_id='EXT-' + str(len(task.get_all()) + 1).zfill(3),
-                    version_id=item['version_id'],
                     assignee_ids=[],
                     location_id='',
                     section_name=item['section_name'],
