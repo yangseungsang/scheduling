@@ -2,164 +2,112 @@
 
 ## Context
 
-소프트웨어 시험 절차를 장소·버전별로 관리하고, 캘린더 형태로 스케줄링하는 웹 서비스. 자동 스케줄링 기능을 제공하며, JSON 파일 기반 데이터 저장소를 사용한다. 인증 없이 팀원 이름 선택만으로 사용할 수 있다.
+소프트웨어 시험 절차를 장소/버전별로 관리하고, 캘린더 형태로 스케줄링하는 웹 서비스. 드래그앤드롭으로 수동 배치하며, JSON 파일 기반 데이터 저장소를 사용한다.
 
 ## 기술 스택
 
 - **Backend:** Flask + Jinja2
-- **Frontend:** Bootstrap 5 + 바닐라 JavaScript
-- **데이터 저장:** JSON 파일 (DB 없음)
+- **Frontend:** Bootstrap 5 + 바닐라 JavaScript (10개 모듈)
+- **데이터 저장:** JSON 파일 (DB 없음, portalocker 파일 잠금)
 - **포트:** 5001
+- **테스트:** pytest (149개)
 
 ---
 
-## 1. 핵심 기능
+## 1. 데이터 계층
 
-### 1.1 시험 항목(Task) 관리
+```
+장절명 (section_name)           ← 최상단 그룹
+  └─ 시험식별자 (test_list[].id)    ← N개, 각각 예상시간 보유
+       └─ 작성자 (test_list[].owners) ← N개, 해당 식별자를 작성한 인원
+```
 
-- 시험 항목 CRUD (생성/조회/수정/삭제)
-- 시험 항목 속성:
-  - 절차서 식별자 (`procedure_id`)
-  - 소프트웨어 버전 (`version_id`)
-  - 시험 담당자 (`assignee_ids`) — 복수 배정 가능
-  - 시험 장소 (`location_id`)
-  - 섹션명 (`section_name`)
-  - 절차서 담당자 (`procedure_owner`)
-  - 시험 목록 (`test_list`) — 개별 테스트 항목 배열
-  - 예상 소요시간 (`estimated_hours`)
-  - 남은 시간 (`remaining_hours`) — 스케줄 블록 배치 시 차감
-  - 상태 (`status`: waiting / in_progress / completed / cancelled)
-  - 메모 (`memo`)
-- 시험 항목 목록 필터링 (상태, 버전)
-- 절차서 외부 조회 API 연동 (현재 mock)
-
-### 1.2 캘린더 뷰
-
-- **일간 뷰:** 장소별 컬럼 레이아웃으로 시간대별 블록 표시
-- **주간 뷰:** 7일 × 시간대 그리드 (장소 필터 바)
-- **월간 뷰:** 날짜별 업무 요약 표시
-- 뷰 간 자유로운 전환
-- 날짜 네비게이션 (이전/다음, 오늘로 이동)
-- **소프트웨어 버전 선택:** 버전별로 캘린더 필터링
-- **색상 표시 옵션:** 블록 색상을 담당자 색상 또는 장소 색상 중 선택 가능
-
-### 1.3 드래그앤드랍
-
-- 캘린더 위에서 업무 블록을 드래그하여 시간/날짜/장소 변경
-- mousedown/mousemove/mouseup 기반 커스텀 드래그 시스템
-- 드래그 시 시각적 피드백 (ghost 요소, 하이라이트)
-- **Grid Snap:** 15분 단위로 스냅
-- **장소 이동:** 일간 뷰에서 장소 간 드래그 이동 지원
-
-### 1.4 자동 스케줄링
-
-- 미배치 업무들을 절차서ID 순으로 자동 배치
-- `remaining_hours`가 남아있는 업무만 대상으로 블록 생성
-- 스케줄링 규칙:
-  - 업무시간 내에만 배치 (actual_work_start~actual_work_end: 08:30~16:30)
-  - 점심시간/쉬는시간 자동 skip
-  - **장소 충돌 방지:** 같은 장소+시간에 2개 시험 불가
-  - **당일 완료 제약:** 시험은 한번 시작하면 같은 날 끝나야 함
-  - **잠금된 블록(`is_locked`)은 이동하지 않음**
-- **초안/확정 워크플로우:**
-  - 자동 스케줄링 결과를 "초안"으로 먼저 표시 (점선 테두리)
-  - 사용자가 확인/수정 후 "확정" 처리
-  - 초안 폐기 가능
-- **오버플로우 처리:** 배치 못한 업무는 "미배치 업무" 리스트로 표시
-
-### 1.5 블록 상세 팝업
-
-- 스케줄 블록 또는 큐 아이템 더블클릭 시 상세 정보 팝업
-- 소요시간 및 메모 인라인 편집
-- 소요시간 변경 시 task의 estimated_hours와 블록의 end_time 동시 업데이트
-
-### 1.6 사용자/설정 관리
-
-- 로그인 없이 사용
-- 관리자 페이지:
-  - 팀원 관리 (이름, 역할, 색상)
-  - 시험 장소 관리 (이름, 색상, 설명)
-  - 소프트웨어 버전 관리 (이름, 설명, 활성 상태)
-  - 업무 시간 설정 (표시 범위, 실제 배치 범위, 점심/쉬는시간)
-  - 블록 색상 기준 설정 (담당자 / 장소)
-
-### 1.7 내보내기
-
-- 날짜 범위 + 포맷(CSV/Excel) 선택하여 스케줄 데이터 다운로드
+- **시험 담당자** (assignee_ids) = 테스트를 수행하는 사람 (등록된 팀원 목록에서 선택)
+- **작성자** (owners) = 시험식별자를 작성/개발한 사람 (자유 텍스트)
+- 두 그룹은 겹치지 않음 (작성한 사람과 테스트하는 사람은 별개)
 
 ---
 
-## 2. 데이터 모델 (JSON 파일 기반)
+## 2. 핵심 기능
 
-### ID 생성 전략
+### 2.1 시험 항목(Task) 관리
 
-- `uuid4` 사용 (예: `"t_a1b2c3d4"`)
-- `store.py`에 `generate_id(prefix)` 유틸리티 함수 정의
-- 접두사로 엔티티 구분: `u_` (user), `loc_` (location), `v_` (version), `t_` (task), `sb_` (schedule_block)
+속성:
+- `section_name` — 장절명 (최상단 표시명)
+- `procedure_id` — 내부 식별자 (UI에서 미노출, 자동 생성)
+- `version_id` — 소프트웨어 버전
+- `assignee_ids` — 시험 담당자 (복수)
+- `location_id` — 시험 장소
+- `test_list` — 시험 식별자 배열:
+  ```json
+  [{"id": "TC-001", "estimated_hours": 1.0, "owners": ["김민수", "이지은"]}]
+  ```
+- `estimated_hours` — 식별자 시간 합 (불변, 리사이즈로 바뀌지 않음)
+- `remaining_hours` — 잔여 시간
+- `status` — waiting / in_progress / completed
+- `memo`
+- `is_simple` — 단순 블록 여부 (시험 준비, 회의 등)
 
-### `data/users.json`
+필터링: 버전, 상태, 담당자, 장소, 날짜
 
-```json
-[{ "id": "u_a1b2c3d4", "name": "홍길동", "role": "시험원", "color": "#4A90D9" }]
-```
+### 2.2 스케줄 블록 관리
 
-### `data/locations.json`
+속성:
+- `task_id` — 연결된 시험항목 (단순 블록은 null)
+- `assignee_ids`, `location_id`, `version_id`
+- `date`, `start_time`, `end_time`
+- `is_locked` — 잠금 (이동/리사이즈 불가)
+- `block_status` — pending / in_progress / completed / cancelled
+- `identifier_ids` — 이 블록에 할당된 식별자 (null = 전체)
+- `title` — 단순 블록용 제목
+- `is_simple` — 단순 블록 여부
+- `memo`
 
-```json
-[{ "id": "loc_00000001", "name": "시험실 A", "color": "#E74C3C", "description": "1층 좌측" }]
-```
+### 2.3 캘린더 뷰
 
-### `data/versions.json`
+| 뷰 | URL | 특징 |
+|----|-----|------|
+| 일간 | `/schedule/` | 장소별 컬럼, 리사이즈/이동 |
+| 주간 | `/schedule/week` | 7일 그리드, 초기 진입 페이지 |
+| 월간 | `/schedule/month` | 달력, 장소 필터 없음, 3개 초과 시 펼침/접기 |
 
-```json
-[{ "id": "v_00000001", "name": "v2.1.0", "description": "2차 통합 시험", "is_active": true, "created_at": "2026-03-28T09:00:00" }]
-```
+공통: 버전 필터, 장소 필터 (복수 선택, localStorage 유지), 주말 토글
 
-### `data/tasks.json`
+### 2.4 드래그앤드롭
 
-```json
-[
-  {
-    "id": "t_a1b2c3d4",
-    "procedure_id": "STP-001",
-    "version_id": "v_00000001",
-    "assignee_ids": ["u_a1b2c3d4"],
-    "location_id": "loc_00000001",
-    "section_name": "통신 시험",
-    "procedure_owner": "김철수",
-    "test_list": ["TC-001", "TC-002"],
-    "estimated_hours": 2.0,
-    "remaining_hours": 1.5,
-    "status": "waiting",
-    "memo": "",
-    "created_at": "2026-03-28T09:50:00"
-  }
-]
-```
+- **큐→시간표**: 항목을 드래그하여 시간대에 배치
+- **블록 이동**: 같은날/다른날/큐복귀
+- **블록 리사이즈**: 상/하 핸들, 시간 축소 시 경고 모달
+- **월간→월간**: 날짜 변경
 
-### `data/schedule_blocks.json`
+### 2.5 분할 배치
 
-```json
-[
-  {
-    "id": "sb_a1b2c3d4",
-    "task_id": "t_a1b2c3d4",
-    "assignee_ids": ["u_a1b2c3d4"],
-    "location_id": "loc_00000001",
-    "version_id": "v_00000001",
-    "date": "2026-03-09",
-    "start_time": "09:00",
-    "end_time": "12:00",
-    "is_draft": false,
-    "is_locked": false,
-    "origin": "manual",
-    "block_status": "pending",
-    "memo": ""
-  }
-]
-```
+- 하나의 장절에 여러 식별자가 있을 때, 일부만 선택하여 배치 가능
+- 큐에서 드래그 시 식별자 선택 피커 표시
+- 이미 배치된 식별자는 비활성 표시 + "배치됨" 뱃지
+- 배치된 식별자를 다시 선택하면 기존 블록에서 자동 제거
+- 우클릭 → "분리"로 배치된 블록을 식별자 단위로 분리 가능
+- 분할 뱃지: `2/5` — 부분 배치(나머지 큐)는 빨간색, 전체 배치는 기본색
+- 상세 팝업에서 전체 식별자 표시 (타 블록 것은 흐리게 + 진행 상태)
+- 같은 task 항목 호버 시 빨간 내부 테두리로 관련 블록 강조
 
-### `data/settings.json`
+### 2.6 시간 관리 규칙
+
+- `estimated_hours` = 식별자 시간 합 (불변)
+- **리사이즈** = 실제 시간 변경 (remaining 변경 안 됨, 큐 미노출)
+- **큐 복귀** (블록 삭제) = remaining 재계산
+- 분할 안 된 블록이 있으면 해당 task는 큐에서 제거
+- 분할된 블록만 있으면 미배치 식별자의 시간만 큐에 표시
+
+### 2.7 추가 기능
+
+- **간단 블록**: 시험 외 일정 (시험 준비, 회의 등), 제목+시간만으로 큐에 추가
+- **일정 밀기/당기기**: 특정 날짜 이후 블록을 +1/-1일 이동, 주말 건너뛰기
+- **내보내기**: CSV/Excel, 날짜 범위 지정
+
+---
+
+## 3. 설정
 
 ```json
 {
@@ -169,146 +117,79 @@
   "actual_work_end": "16:30",
   "lunch_start": "12:00",
   "lunch_end": "13:00",
-  "breaks": [
-    { "start": "09:45", "end": "10:00" },
-    { "start": "14:45", "end": "15:00" }
-  ],
-  "grid_interval_minutes": 15,
+  "breaks": [{"start": "10:00", "end": "10:00"}],
+  "grid_interval_minutes": 10,
   "max_schedule_days": 14,
-  "block_color_by": "assignee"
+  "block_color_by": "location"
 }
 ```
 
-### `data/procedures.json`
+---
 
-```json
-[
-  { "procedure_id": "STP-001", "section_name": "통신 시험", "procedure_owner": "김철수", "test_list": ["TC-001", "TC-002"] }
-]
-```
+## 4. URL 구조
+
+### 페이지
+- `/` → 리다이렉트 → `/schedule/week`
+- `/schedule/`, `/schedule/week`, `/schedule/month`
+- `/tasks/`, `/tasks/new`, `/tasks/<id>`, `/tasks/<id>/edit`
+- `/admin/settings`, `/admin/users`, `/admin/locations`, `/admin/versions`
+
+### API
+- `POST/PUT/DELETE /schedule/api/blocks`, `/schedule/api/blocks/<id>/lock|status|memo`
+- `POST /schedule/api/simple-blocks` — 간단 블록 생성
+- `GET /schedule/api/blocks/by-task/<task_id>`
+- `POST /schedule/api/blocks/shift` — 일정 이동
+- `POST /schedule/api/blocks/<id>/split` — 블록 분리
+- `GET /schedule/api/export`
+- `GET /schedule/api/day|week|month` — 뷰 데이터
+- `GET/POST/PUT/DELETE /tasks/api/*` — 시험항목 CRUD
+- `GET /tasks/api/check-identifier` — 식별자 중복 검사
+- `GET/PUT /admin/api/settings`
+- `GET/POST/PUT/DELETE /admin/api/users|locations|versions`
 
 ---
 
-## 3. URL 구조
-
-| URL | 설명 |
-| --- | --- |
-| `/` | → `/schedule/` 리다이렉트 |
-| `/schedule/` | 일간 뷰 (장소별 컬럼) |
-| `/schedule/week` | 주간 뷰 |
-| `/schedule/month` | 월간 뷰 |
-| `/tasks/` | 시험 항목 목록 |
-| `/tasks/new` | 시험 항목 생성 |
-| `/tasks/<id>` | 시험 항목 상세 |
-| `/tasks/<id>/edit` | 시험 항목 수정 |
-| `/admin/settings` | 설정 관리 |
-| `/admin/users` | 팀원 관리 |
-| `/admin/locations` | 장소 관리 |
-| `/admin/versions` | 버전 관리 |
-
-### API 엔드포인트
-
-| Method | URL | 설명 |
-| ------ | --- | --- |
-| POST | `/schedule/api/blocks` | 스케줄 블록 생성 |
-| PUT | `/schedule/api/blocks/<id>` | 블록 수정 (드래그/리사이즈/소요시간 변경) |
-| DELETE | `/schedule/api/blocks/<id>` | 블록 삭제 |
-| PUT | `/schedule/api/blocks/<id>/lock` | 블록 잠금/해제 토글 |
-| PUT | `/schedule/api/blocks/<id>/status` | 블록 상태 변경 |
-| PUT | `/schedule/api/blocks/<id>/memo` | 블록 메모 수정 |
-| POST | `/schedule/api/draft/generate` | 자동 스케줄링 초안 생성 |
-| POST | `/schedule/api/draft/approve` | 초안 확정 |
-| POST | `/schedule/api/draft/discard` | 초안 폐기 |
-| GET | `/schedule/api/export` | CSV/Excel 내보내기 |
-| GET | `/tasks/api/list` | 시험 항목 목록 |
-| GET | `/tasks/api/<id>` | 시험 항목 상세 |
-| POST | `/tasks/api/create` | 시험 항목 생성 |
-| PUT | `/tasks/api/<id>/update` | 시험 항목 수정 |
-| DELETE | `/tasks/api/<id>/delete` | 시험 항목 삭제 |
-| GET | `/tasks/api/procedure/<id>` | 절차서 정보 조회 |
-
----
-
-## 4. 프로젝트 구조
+## 5. 프로젝트 구조
 
 ```
 scheduling/
-├── run.py
-├── requirements.txt
-├── data/                          # JSON 데이터 파일
-│   ├── users.json
-│   ├── locations.json
-│   ├── versions.json
-│   ├── tasks.json
-│   ├── schedule_blocks.json
-│   ├── settings.json
-│   └── procedures.json
+├── run.py                          # 서버 실행
+├── config.py
+├── migrate_data.py                 # 데이터 마이그레이션
+├── data/                           # JSON 데이터
+│   ├── tasks.json, schedule_blocks.json, settings.json
+│   ├── users.json, locations.json, versions.json, procedures.json
 ├── schedule/
-│   ├── __init__.py                # create_app (인라인 config 포함)
-│   ├── store.py                   # JSON 읽기/쓰기 + generate_id() + 파일 잠금 + .bak 백업
-│   ├── models/                    # 데이터 접근 계층
-│   │   ├── user.py
-│   │   ├── location.py
-│   │   ├── version.py
-│   │   ├── task.py
-│   │   ├── schedule_block.py
-│   │   └── settings.py
-│   ├── routes/                    # Blueprint 라우팅
-│   │   ├── calendar.py            # 캘린더 뷰 + 블록 CRUD API
-│   │   ├── tasks.py               # 시험 항목 CRUD
-│   │   └── admin.py               # 설정/사용자/장소/버전 관리
-│   ├── helpers/                   # 헬퍼 유틸리티
-│   │   ├── enrichment.py          # 블록 enrichment, 큐 계산, 날짜 유틸
-│   │   ├── overlap.py             # 겹침 감지 + 컬럼 레이아웃 계산
-│   │   └── time_utils.py          # 시간 변환, 휴식시간 조정, 근무시간 계산
-│   ├── services/                  # 비즈니스 로직
-│   │   ├── scheduler.py           # 자동 스케줄링 엔진
-│   │   ├── procedure.py           # 절차서 조회 서비스
-│   │   └── export.py              # CSV/Excel 내보내기
+│   ├── __init__.py                 # create_app()
+│   ├── store.py                    # JSON I/O + 파일 잠금
+│   ├── models/
+│   │   ├── base.py                 # BaseRepository 공통 클래스
+│   │   ├── task.py, schedule_block.py, user.py, location.py, version.py, settings.py
+│   ├── routes/
+│   │   ├── calendar_views.py       # 일간/주간/월간 뷰
+│   │   ├── calendar_api.py         # 블록 CRUD API
+│   │   ├── calendar_helpers.py     # 공통 헬퍼 함수
+│   │   ├── tasks.py, admin.py
+│   ├── helpers/
+│   │   ├── enrichment.py           # 블록/큐 데이터 가공
+│   │   ├── overlap.py, time_utils.py
+│   ├── services/
+│   │   ├── export.py, procedure.py
+│   ├── static/
+│   │   ├── css/style.css           # CSS 변수 기반
+│   │   ├── js/                     # 10개 모듈
+│   │       ├── utils.js, modals.js, drag-core.js
+│   │       ├── block-move.js, block-resize.js, queue-drag.js
+│   │       ├── context-menu.js, block-detail.js
+│   │       ├── schedule-features.js, schedule-app.js
 │   ├── templates/
-│   │   ├── base.html
-│   │   ├── schedule/              # day.html, week.html, month.html, _task_queue.html, ...
-│   │   ├── tasks/                 # list.html, detail.html, form.html
-│   │   └── admin/                 # settings.html, users.html, locations.html, versions.html, ...
-│   └── static/
-│       ├── css/style.css
-│       └── js/drag_drop.js        # 바닐라 JS 이벤트 엔진 (드래그, 리사이즈, 상세 팝업 등)
-└── tests/
-    ├── conftest.py
-    ├── test_helpers.py
-    ├── test_models.py
-    ├── test_routes_admin.py
-    ├── test_routes_calendar.py
-    ├── test_routes_tasks.py
-    └── test_services.py
+│       ├── base.html
+│       ├── schedule/ (day, week, month, _task_queue, _version_selector, _location_filter)
+│       ├── tasks/ (list, form, detail)
+│       ├── admin/ (settings, users, locations, versions + forms)
+├── tests/                          # 149개 테스트
+│   ├── conftest.py
+│   ├── test_models.py, test_helpers.py, test_services.py
+│   ├── test_routes_calendar.py, test_routes_tasks.py, test_routes_admin.py
+│   ├── test_calendar_api.py, test_enrichment.py, test_integration.py
 ```
-
----
-
-## 5. UI 일관성 요구사항
-
-모든 사용자 액션(생성/수정/삭제/드래그 등) 후 UI가 반드시 최신 상태를 반영해야 한다.
-
-- API 호출 후 성공 응답을 받으면 전체 페이지를 새로고침하여 서버 상태와 동기화
-- 실패 시 Toast 알림으로 에러 피드백 표시
-- 서버가 항상 진실의 원천(source of truth)
-
----
-
-## 6. 비기능 요구사항
-
-- **파일 잠금:** `portalocker` 라이브러리로 JSON 동시 접근 시 데이터 무결성 보장
-- **백업:** 매 쓰기 작업 전 `.bak` 파일 자동 생성 (store.py에서 처리)
-- Bootstrap 5 반응형 레이아웃
-- CDN으로 Bootstrap/Bootstrap Icons 로드
-
----
-
-## 7. 구현 순서
-
-1. **Phase 1 - 기반:** 프로젝트 구조 + store.py (ID 생성, 파일 잠금, 백업) + 설정/유저/장소/버전 관리
-2. **Phase 2 - 시험 항목:** Task CRUD (remaining_hours 포함) + 절차서 조회 연동
-3. **Phase 3 - 캘린더:** 일간(장소별 컬럼)/주간/월간 뷰 + 버전 선택 + 장소 필터
-4. **Phase 4 - 스케줄링:** 자동 스케줄링 엔진 (당일 완료, 장소 충돌 방지) + 초안/확정 워크플로우
-5. **Phase 5 - 인터랙션:** 드래그앤드랍 (15분 그리드 스냅) + 리사이즈 + 컨텍스트 메뉴 + 상세 팝업
-6. **Phase 6 - 마감:** 테스트 + 내보내기 + 버그 수정 + UI 다듬기

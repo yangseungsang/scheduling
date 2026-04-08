@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}스케줄링{% endblock %}</title>
+  <link href="{{ url_for('static', filename='schedule/vendor/bootstrap.min.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='schedule/vendor/bootstrap-icons.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='schedule/css/style.css') }}?v={{ cache_bust }}" rel="stylesheet">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="app-toolbar">
+    <div class="toolbar-left">
+      <div class="toolbar-tabs">
+        <a href="{{ url_for('schedule.day_view') }}" class="toolbar-tab">
+          <i class="bi bi-calendar-day"></i> 일간
+        </a>
+        <a href="{{ url_for('schedule.week_view') }}" class="toolbar-tab">
+          <i class="bi bi-calendar-week"></i> 주간
+        </a>
+        <a href="{{ url_for('schedule.month_view') }}" class="toolbar-tab">
+          <i class="bi bi-calendar-month"></i> 월간
+        </a>
+        <span class="toolbar-divider"></span>
+        <a href="{{ url_for('tasks.task_list') }}" class="toolbar-tab">
+          <i class="bi bi-list-check"></i> 시험 항목
+        </a>
+      </div>
+      {% block toolbar_extra %}{% endblock %}
+    </div>
+    <div class="toolbar-right">
+      <div class="export-dropdown">
+        <button class="toolbar-btn" id="btn-export-toggle" title="내보내기">
+          <i class="bi bi-download"></i>
+        </button>
+        <div class="export-dropdown-menu" id="export-menu" style="display:none">
+          <div class="export-dropdown-title">스케줄 내보내기</div>
+          <label class="export-label">시작일</label>
+          <input type="date" class="form-control form-control-sm" id="export-start">
+          <label class="export-label">종료일</label>
+          <input type="date" class="form-control form-control-sm" id="export-end">
+          <label class="export-label">형식</label>
+          <select class="form-select form-select-sm" id="export-format">
+            <option value="xlsx" selected>Excel (xlsx)</option>
+            <option value="csv">CSV</option>
+          </select>
+          <button class="btn btn-sm btn-primary w-100 mt-2" id="btn-export-download">
+            <i class="bi bi-download"></i> 다운로드
+          </button>
+        </div>
+      </div>
+      <button class="toolbar-btn" id="mode-toggle" title="편집/읽기 모드 전환">
+        <i class="bi bi-pencil-fill" id="mode-icon"></i>
+        <span id="mode-label">편집</span>
+      </button>
+      <div class="toolbar-admin-menu">
+        <button class="toolbar-btn" id="admin-menu-toggle" title="관리">
+          <i class="bi bi-gear"></i>
+        </button>
+        <div class="toolbar-admin-dropdown" id="admin-dropdown" style="display:none">
+          <a href="{{ url_for('admin.users') }}"><i class="bi bi-people"></i> 팀원 관리</a>
+          <a href="{{ url_for('admin.locations') }}"><i class="bi bi-geo-alt"></i> 시험장소 관리</a>
+          <a href="{{ url_for('admin.settings') }}"><i class="bi bi-sliders"></i> 설정</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+  (function() {
+    var path = window.location.pathname.replace(/\/$/, '');
+    document.querySelectorAll('.toolbar-tab').forEach(function(tab) {
+      var href = tab.getAttribute('href').replace(/\/$/, '');
+      if (path === href) {
+        tab.classList.add('active');
+      }
+    });
+  })();
+  </script>
+  <script>
+  (function() {
+    var adminBtn = document.getElementById('admin-menu-toggle');
+    var adminDrop = document.getElementById('admin-dropdown');
+    var adminWrap = adminBtn.parentElement;
+    adminBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      adminDrop.style.display = adminDrop.style.display === 'none' ? 'block' : 'none';
+    });
+    document.addEventListener('click', function(e) {
+      if (!adminWrap.contains(e.target)) adminDrop.style.display = 'none';
+    });
+  })();
+  </script>
+  <script>
+  (function() {
+    var mode = localStorage.getItem('scheduleMode') || 'edit';
+    function applyMode() {
+      if (mode === 'readonly') {
+        document.body.classList.add('readonly-mode');
+        document.getElementById('mode-icon').className = 'bi bi-eye-fill';
+        document.getElementById('mode-label').textContent = '읽기모드';
+      } else {
+        document.body.classList.remove('readonly-mode');
+        document.getElementById('mode-icon').className = 'bi bi-pencil-fill';
+        document.getElementById('mode-label').textContent = '편집모드';
+      }
+    }
+    document.addEventListener('DOMContentLoaded', applyMode);
+    document.getElementById('mode-toggle').addEventListener('click', function() {
+      mode = mode === 'edit' ? 'readonly' : 'edit';
+      localStorage.setItem('scheduleMode', mode);
+      applyMode();
+    });
+  })();
+  </script>
+  <script>
+  (function() {
+    var menu = document.getElementById('export-menu');
+    var btn = document.getElementById('btn-export-toggle');
+    var wrapper = btn.parentElement;
+    var startInput = document.getElementById('export-start');
+    var endInput = document.getElementById('export-end');
+
+    // Default dates: current week
+    var d = new Date();
+    var dayOfWeek = d.getDay() || 7;
+    var mon = new Date(d);
+    mon.setDate(d.getDate() - dayOfWeek + 1);
+    var sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    startInput.value = mon.toISOString().slice(0, 10);
+    endInput.value = sun.toISOString().slice(0, 10);
+
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    });
+    document.addEventListener('click', function(e) {
+      if (!wrapper.contains(e.target)) menu.style.display = 'none';
+    });
+    menu.addEventListener('click', function(e) { e.stopPropagation(); });
+
+    document.getElementById('btn-export-download').addEventListener('click', function() {
+      var s = startInput.value, en = endInput.value;
+      if (!s || !en) { alert('시작일과 종료일을 입력하세요.'); return; }
+      if (s > en) { alert('시작일이 종료일보다 클 수 없습니다.'); return; }
+      var fmt = document.getElementById('export-format').value;
+      window.location.href = '/schedule/api/export?start_date=' + s + '&end_date=' + en + '&format=' + fmt;
+      menu.style.display = 'none';
+    });
+  })();
+  </script>
+
+  <main class="{% block main_class %}container mt-3{% endblock %}" {% block main_attrs %}{% endblock %}>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  <script src="{{ url_for('static', filename='schedule/vendor/bootstrap.bundle.min.js') }}"></script>
+  {% block scripts %}{% endblock %}
+  <script src="{{ url_for('static', filename='schedule/js/utils.js') }}?v={{ cache_bust }}"></script>
+  <script src="{{ url_for('static', filename='schedule/js/modals.js') }}?v={{ cache_bust }}"></script>
+  <script src="{{ url_for('static', filename='schedule/js/drag-core.js') }}?v={{ cache_bust }}"></script>
+  <script src="{{ url_for('static', filename='schedule/js/block-move.js') }}?v={{ cache_bust }}"></script>
+  <script src="{{ url_for('static', filename='schedule/js/block-resize.js') }}?v={{ cache_bust }}"></script>
+  <script src="{{ url_for('static', filename='schedule/js/queue-drag.js') }}?v={{ cache_bust }}"></script>
+  <script src="{{ url_for('static', filename='schedule/js/context-menu.js') }}?v={{ cache_bust }}"></script>
+  <script src="{{ url_for('static', filename='schedule/js/block-detail.js') }}?v={{ cache_bust }}"></script>
+  <script src="{{ url_for('static', filename='schedule/js/schedule-features.js') }}?v={{ cache_bust }}"></script>
+  <script src="{{ url_for('static', filename='schedule/js/schedule-app.js') }}?v={{ cache_bust }}"></script>
+</body>
+</html>

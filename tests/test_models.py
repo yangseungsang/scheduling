@@ -2,7 +2,7 @@
 import json
 import os
 import pytest
-from schedule import create_app
+from app import create_app
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def app(tmp_path):
 class TestLocationModel:
     def test_create_location(self, app):
         with app.app_context():
-            from schedule.models import location
+            from app.features.schedule.models import location
             loc = location.create(name='A', color='#28a745', description='1층 시험실')
             assert loc['id'].startswith('loc_')
             assert loc['name'] == 'A'
@@ -41,14 +41,14 @@ class TestLocationModel:
 
     def test_get_all_locations(self, app):
         with app.app_context():
-            from schedule.models import location
+            from app.features.schedule.models import location
             location.create(name='A', color='#28a745')
             location.create(name='B', color='#6f42c1')
             assert len(location.get_all()) == 2
 
     def test_update_location(self, app):
         with app.app_context():
-            from schedule.models import location
+            from app.features.schedule.models import location
             loc = location.create(name='A', color='#28a745')
             updated = location.update(loc['id'], name='A-1', color='#ff0000', description='updated')
             assert updated['name'] == 'A-1'
@@ -56,7 +56,7 @@ class TestLocationModel:
 
     def test_delete_location(self, app):
         with app.app_context():
-            from schedule.models import location
+            from app.features.schedule.models import location
             loc = location.create(name='A', color='#28a745')
             location.delete(loc['id'])
             assert len(location.get_all()) == 0
@@ -69,7 +69,7 @@ class TestLocationModel:
 class TestVersionModel:
     def test_create_version(self, app):
         with app.app_context():
-            from schedule.models import version
+            from app.features.schedule.models import version
             v = version.create(name='v1.0.0', description='Initial')
             assert v['id'].startswith('v_')
             assert v['name'] == 'v1.0.0'
@@ -77,14 +77,14 @@ class TestVersionModel:
 
     def test_get_all_versions(self, app):
         with app.app_context():
-            from schedule.models import version
+            from app.features.schedule.models import version
             version.create(name='v1.0.0', description='')
             version.create(name='v2.0.0', description='')
             assert len(version.get_all()) == 2
 
     def test_get_by_id(self, app):
         with app.app_context():
-            from schedule.models import version
+            from app.features.schedule.models import version
             v = version.create(name='v1.0.0', description='test')
             found = version.get_by_id(v['id'])
             assert found['name'] == 'v1.0.0'
@@ -92,7 +92,7 @@ class TestVersionModel:
 
     def test_update_version(self, app):
         with app.app_context():
-            from schedule.models import version
+            from app.features.schedule.models import version
             v = version.create(name='v1.0.0', description='old')
             updated = version.update(v['id'], name='v1.1.0', description='new', is_active=False)
             assert updated['name'] == 'v1.1.0'
@@ -100,14 +100,14 @@ class TestVersionModel:
 
     def test_delete_version(self, app):
         with app.app_context():
-            from schedule.models import version
+            from app.features.schedule.models import version
             v = version.create(name='v1.0.0', description='')
             version.delete(v['id'])
             assert len(version.get_all()) == 0
 
     def test_get_active_versions(self, app):
         with app.app_context():
-            from schedule.models import version
+            from app.features.schedule.models import version
             version.create(name='v1.0.0', description='')
             v2 = version.create(name='v2.0.0', description='')
             version.update(v2['id'], name='v2.0.0', description='', is_active=False)
@@ -123,7 +123,7 @@ class TestVersionModel:
 class TestTaskModel:
     def test_create_task_new_fields(self, app):
         with app.app_context():
-            from schedule.models import task
+            from app.features.schedule.models import task
             t = task.create(
                 procedure_id='ABC-001',
                 version_id='v_test1234',
@@ -132,7 +132,7 @@ class TestTaskModel:
                 section_name='3.2 통신 기능',
                 procedure_owner='홍길동',
                 test_list=['TC-001', 'TC-002'],
-                estimated_hours=4.0,
+                estimated_minutes=240,
                 memo='테스트 메모',
             )
             assert t['id'].startswith('t_')
@@ -143,18 +143,18 @@ class TestTaskModel:
             assert t['section_name'] == '3.2 통신 기능'
             assert t['procedure_owner'] == '홍길동'
             assert t['test_list'] == ['TC-001', 'TC-002']
-            assert t['remaining_hours'] == 4.0
+            assert t['remaining_minutes'] == 240
             assert t['status'] == 'waiting'
             assert t['memo'] == '테스트 메모'
 
     def test_update_task_new_fields(self, app):
         with app.app_context():
-            from schedule.models import task
+            from app.features.schedule.models import task
             t = task.create(
                 procedure_id='ABC-001', version_id='v_1',
                 assignee_ids=['u_aaa'], location_id='loc_1',
                 section_name='sec', procedure_owner='owner',
-                test_list=['TC-001'], estimated_hours=4.0,
+                test_list=['TC-001'], estimated_minutes=240,
                 memo='',
             )
             updated = task.update(
@@ -162,22 +162,22 @@ class TestTaskModel:
                 procedure_id='ABC-002', version_id='v_2',
                 assignee_ids=['u_bbb', 'u_ccc'], location_id='loc_2',
                 section_name='new sec', procedure_owner='new owner',
-                test_list=['TC-003'], estimated_hours=6.0,
-                remaining_hours=3.0,
+                test_list=['TC-003'], estimated_minutes=360,
+                remaining_minutes=180,
                 status='in_progress', memo='updated',
             )
             assert updated['procedure_id'] == 'ABC-002'
             assert updated['assignee_ids'] == ['u_bbb', 'u_ccc']
-            assert updated['remaining_hours'] == 3.0
+            assert updated['remaining_minutes'] == 180
 
     def test_patch_task(self, app):
         with app.app_context():
-            from schedule.models import task
+            from app.features.schedule.models import task
             t = task.create(
                 procedure_id='ABC-001', version_id='v_1',
                 assignee_ids=['u_aaa'], location_id='loc_1',
                 section_name='sec', procedure_owner='owner',
-                test_list=[], estimated_hours=4.0,
+                test_list=[], estimated_minutes=240,
                 memo='',
             )
             patched = task.patch(t['id'], memo='patched memo')
@@ -186,19 +186,19 @@ class TestTaskModel:
 
     def test_get_by_version(self, app):
         with app.app_context():
-            from schedule.models import task
+            from app.features.schedule.models import task
             task.create(
                 procedure_id='ABC-001', version_id='v_1',
                 assignee_ids=[], location_id='',
                 section_name='', procedure_owner='',
-                test_list=[], estimated_hours=2.0,
+                test_list=[], estimated_minutes=120,
                 memo='',
             )
             task.create(
                 procedure_id='ABC-002', version_id='v_2',
                 assignee_ids=[], location_id='',
                 section_name='', procedure_owner='',
-                test_list=[], estimated_hours=3.0,
+                test_list=[], estimated_minutes=180,
                 memo='',
             )
             v1_tasks = task.get_by_version('v_1')
@@ -213,7 +213,7 @@ class TestTaskModel:
 class TestScheduleBlockModel:
     def test_create_block_new_fields(self, app):
         with app.app_context():
-            from schedule.models import schedule_block
+            from app.features.schedule.models import schedule_block
             block = schedule_block.create(
                 task_id='t_test',
                 assignee_ids=['u_aaa', 'u_bbb'],
@@ -230,7 +230,7 @@ class TestScheduleBlockModel:
 
     def test_get_by_version(self, app):
         with app.app_context():
-            from schedule.models import schedule_block
+            from app.features.schedule.models import schedule_block
             schedule_block.create(
                 task_id='t_1', assignee_ids=['u_a'], location_id='loc_1',
                 version_id='v_1', date='2026-04-01',
@@ -246,7 +246,7 @@ class TestScheduleBlockModel:
 
     def test_get_by_location_and_date(self, app):
         with app.app_context():
-            from schedule.models import schedule_block
+            from app.features.schedule.models import schedule_block
             schedule_block.create(
                 task_id='t_1', assignee_ids=['u_a'], location_id='loc_1',
                 version_id='v_1', date='2026-04-01',
@@ -262,7 +262,7 @@ class TestScheduleBlockModel:
 
     def test_update_block_allowed_fields(self, app):
         with app.app_context():
-            from schedule.models import schedule_block
+            from app.features.schedule.models import schedule_block
             block = schedule_block.create(
                 task_id='t_1', assignee_ids=['u_a'], location_id='loc_1',
                 version_id='v_1', date='2026-04-01',

@@ -1,0 +1,103 @@
+{% extends "schedule/base.html" %}
+{% block title %}설정 - 스케줄링{% endblock %}
+
+{% block content %}
+<h2>설정</h2>
+<form method="POST" class="mt-3">
+  <div class="card mb-3">
+    <div class="card-header">업무 시간</div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-3">
+          <label class="form-label">시작 시간</label>
+          <input type="time" class="form-control" name="work_start" step="900" value="{{ settings.work_start }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">종료 시간</label>
+          <input type="time" class="form-control" name="work_end" step="900" value="{{ settings.work_end }}">
+        </div>
+      </div>
+      <div class="row mt-3">
+        <div class="col-md-3">
+          <label class="form-label">실제 업무 시작</label>
+          <input type="time" class="form-control" name="actual_work_start" value="{{ settings.actual_work_start|default('08:30') }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">실제 업무 종료</label>
+          <input type="time" class="form-control" name="actual_work_end" value="{{ settings.actual_work_end|default('16:30') }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">점심 시작</label>
+          <input type="time" class="form-control" name="lunch_start" step="900" value="{{ settings.lunch_start }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">점심 종료</label>
+          <input type="time" class="form-control" name="lunch_end" step="900" value="{{ settings.lunch_end }}">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">쉬는 시간</div>
+    <div class="card-body" id="breaks-container">
+      {% for brk in settings.breaks %}
+      <div class="row mb-2 break-row">
+        <div class="col-md-4">
+          <input type="time" class="form-control" name="break_start" step="900" value="{{ brk.start }}">
+        </div>
+        <div class="col-md-4">
+          <input type="time" class="form-control" name="break_end" step="900" value="{{ brk.end }}">
+        </div>
+        <div class="col-md-4">
+          <button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.break-row').remove()">삭제</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="card-footer">
+      <button type="button" class="btn btn-outline-primary btn-sm" onclick="addBreak()">쉬는 시간 추가</button>
+    </div>
+  </div>
+
+  <div class="card mb-3">
+    <div class="card-header">기타</div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-4">
+          <label class="form-label">그리드 간격 (분)</label>
+          <input type="number" class="form-control" name="grid_interval_minutes" value="{{ settings.grid_interval_minutes }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">최대 스케줄 기간 (일)</label>
+          <input type="number" class="form-control" name="max_schedule_days" value="{{ settings.max_schedule_days }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">블록 색상 기준</label>
+          <select class="form-select" name="block_color_by">
+            <option value="assignee" {{ 'selected' if settings.block_color_by == 'assignee' }}>담당자</option>
+            <option value="category" {{ 'selected' if settings.block_color_by == 'category' }}>카테고리</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button type="submit" class="btn btn-primary">저장</button>
+  <a href="{{ url_for('schedule.day_view') }}" class="btn btn-secondary">취소</a>
+</form>
+
+<script>
+function addBreak() {
+  const container = document.getElementById('breaks-container');
+  const row = document.createElement('div');
+  row.className = 'row mb-2 break-row';
+  row.innerHTML = `
+    <div class="col-md-4"><input type="time" class="form-control" name="break_start" step="900"></div>
+    <div class="col-md-4"><input type="time" class="form-control" name="break_end" step="900"></div>
+    <div class="col-md-4"><button type="button" class="btn btn-outline-danger btn-sm" onclick="this.closest('.break-row').remove()">삭제</button></div>
+  `;
+  container.appendChild(row);
+}
+</script>
+{% endblock %}

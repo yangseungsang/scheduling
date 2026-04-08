@@ -1,0 +1,245 @@
+{% extends "schedule/base.html" %}
+{% block title %}시험 항목 목록 - 스케줄링{% endblock %}
+
+{% block content %}
+<div class="task-list-page">
+  <div class="task-list-header">
+    <div class="d-flex align-items-center gap-2">
+      <h4 class="mb-0">시험 항목 목록</h4>
+      {% if versions %}
+      <span class="badge bg-secondary" style="font-size:0.75rem; font-weight:500">
+        <i class="bi bi-tag-fill me-1"></i>{{ versions[0].name }}{% if versions|length > 1 %} 외 {{ versions|length - 1 }}건{% endif %}
+      </span>
+      {% else %}
+      <span class="badge bg-warning text-dark" style="font-size:0.75rem; font-weight:500">
+        <i class="bi bi-tag me-1"></i>버전 없음
+      </span>
+      {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-sync" onclick="runSync()">
+        <i class="bi bi-arrow-repeat"></i> 동기화
+      </button>
+      <a href="{{ url_for('tasks.task_new') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg"></i> 새 항목
+      </a>
+    </div>
+  </div>
+
+  <form method="GET" id="filter-form" class="tl-filter">
+    <div class="tl-filter-row">
+      <select name="status" class="form-select form-select-sm tl-sel" onchange="this.form.submit()">
+        <option value="">전체 상태</option>
+        <option value="waiting" {{ 'selected' if filters.status == 'waiting' }}>대기</option>
+        <option value="in_progress" {{ 'selected' if filters.status == 'in_progress' }}>진행 중</option>
+        <option value="completed" {{ 'selected' if filters.status == 'completed' }}>완료</option>
+      </select>
+      <select name="location" class="form-select form-select-sm tl-sel" onchange="this.form.submit()">
+        <option value="">전체 장소</option>
+        {% for loc in locations %}
+        <option value="{{ loc.id }}" {{ 'selected' if filters.location == loc.id }}>{{ loc.name }}</option>
+        {% endfor %}
+      </select>
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+          담당자{% if filters.assignees %} ({{ filters.assignees|length }}){% endif %}
+        </button>
+        <ul class="dropdown-menu p-2" style="min-width: 180px;">
+          {% for u in users %}
+          <li>
+            <label class="dropdown-item py-1" style="font-size:0.82rem">
+              <input type="checkbox" name="assignee" value="{{ u.id }}"
+                     {{ 'checked' if u.id in filters.assignees }}
+                     onchange="document.getElementById('filter-form').submit()">
+              {{ u.name }}
+            </label>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      <input type="text" name="procedure" class="form-control form-control-sm tl-sel"
+             placeholder="절차서 검색" value="{{ filters.procedure }}"
+             onchange="this.form.submit()">
+      <input type="date" name="date" class="form-control form-control-sm tl-sel"
+             value="{{ filters.date }}" title="날짜 필터"
+             onchange="this.form.submit()">
+    </div>
+    {% set has_filter = filters.status or filters.assignees or filters.location or filters.procedure or filters.date %}
+    {% if has_filter %}
+    <div class="tl-filter-chips">
+      {% if filters.status %}
+        <span class="tl-chip">{{ {'waiting':'대기','in_progress':'진행 중','completed':'완료'}.get(filters.status, filters.status) }} <a href="?{{ 'location=' ~ filters.location ~ '&' if filters.location }}{% for a in filters.assignees %}assignee={{ a }}&{% endfor %}{{ 'procedure=' ~ filters.procedure ~ '&' if filters.procedure }}">&times;</a></span>
+      {% endif %}
+      {% if filters.location %}
+        <span class="tl-chip">장소:{{ location_map.get(filters.location, filters.location) }} <a href="?{{ 'status=' ~ filters.status ~ '&' if filters.status }}{% for a in filters.assignees %}assignee={{ a }}&{% endfor %}{{ 'procedure=' ~ filters.procedure ~ '&' if filters.procedure }}">&times;</a></span>
+      {% endif %}
+      {% for uid in filters.assignees %}
+        <span class="tl-chip">{{ user_map.get(uid, uid) }} <a href="?{{ 'status=' ~ filters.status ~ '&' if filters.status }}{{ 'location=' ~ filters.location ~ '&' if filters.location }}{% for a in filters.assignees if a != uid %}assignee={{ a }}&{% endfor %}{{ 'procedure=' ~ filters.procedure ~ '&' if filters.procedure }}">&times;</a></span>
+      {% endfor %}
+      {% if filters.procedure %}
+        <span class="tl-chip">"{{ filters.procedure }}" <a href="?{{ 'status=' ~ filters.status ~ '&' if filters.status }}{{ 'location=' ~ filters.location ~ '&' if filters.location }}{% for a in filters.assignees %}assignee={{ a }}&{% endfor %}">&times;</a></span>
+      {% endif %}
+      <a href="{{ url_for('tasks.task_list') }}" class="tl-chip-clear">초기화</a>
+    </div>
+    {% endif %}
+  </form>
+
+  <div class="task-table-wrap">
+    <table class="task-table">
+      <colgroup>
+        <col style="width:30%">
+        <col style="width:15%">
+        <col style="width:10%">
+        <col style="width:15%">
+        <col style="width:8%">
+        <col style="width:22%">
+      </colgroup>
+      <thead>
+        <tr>
+          <th>장절명</th>
+          <th>담당자</th>
+          <th>장소</th>
+          <th>시간</th>
+          <th>상태</th>
+          <th>배치</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for task in tasks %}
+        <tr class="task-row" onclick="location.href='{{ url_for('tasks.task_detail', task_id=task.id) }}'">
+          <td class="task-cell-title fw-bold">
+            {{ task.section_name or '-' }}
+            {% if task.get('source') == 'external' %}
+            <span class="badge bg-info" style="font-size:0.6rem;vertical-align:middle">외부</span>
+            {% endif %}
+          </td>
+          <td>
+            {% for uid in task.assignee_ids %}
+              {{ user_map.get(uid, uid) }}{% if not loop.last %}, {% endif %}
+            {% endfor %}
+            {% if not task.assignee_ids %}-{% endif %}
+          </td>
+          <td>{{ location_map.get(task.location_id, '-') }}</td>
+          <td class="text-nowrap">{{ task.remaining_minutes }}분 / {{ task.estimated_minutes }}분</td>
+          <td>
+            {% if task.status == 'waiting' %}
+            <span class="task-status-chip status-waiting">대기</span>
+            {% elif task.status == 'in_progress' %}
+            <span class="task-status-chip status-progress">진행 중</span>
+            {% else %}
+            <span class="task-status-chip status-done">완료</span>
+            {% endif %}
+          </td>
+          <td>
+            {% set sched_status = schedule_status_map.get(task.id, 'queue') %}
+            {% set split = split_info_map.get(task.id, {}) %}
+            {% if sched_status == 'scheduled' %}
+              {% if split.get('has_split') %}
+              <span class="task-sched-chip sched-split" data-toggle-blocks="{{ task.id }}" onclick="event.stopPropagation()"><i class="bi bi-scissors"></i> 분할 ({{ split.get('block_count', 0) }}건)</span>
+              {% elif split.get('block_count', 0) > 1 %}
+              <span class="task-sched-chip sched-scheduled" data-toggle-blocks="{{ task.id }}" onclick="event.stopPropagation()"><i class="bi bi-calendar-check"></i> 배치 ({{ split.get('block_count', 0) }}건)</span>
+              {% else %}
+              <span class="task-sched-chip sched-scheduled" data-toggle-blocks="{{ task.id }}" onclick="event.stopPropagation()"><i class="bi bi-calendar-check"></i> 배치됨</span>
+              {% endif %}
+              {% if split.get('blocks') %}
+              <div class="task-block-dropdown" id="blocks-{{ task.id }}" style="display:none">
+                {% for blk in split.get('blocks', []) %}
+                <a href="{{ url_for('schedule.day_view', date=blk.date) }}" class="task-block-link" onclick="event.stopPropagation()">
+                  {{ blk.date }} {{ blk.start_time }}–{{ blk.end_time }}
+                  {% if blk.location_name %}<span class="text-muted">@ {{ blk.location_name }}</span>{% endif %}
+                  {% if blk.identifier_ids %}<span class="task-block-ids">{{ blk.identifier_ids|join(', ') }}</span>{% endif %}
+                </a>
+                {% endfor %}
+              </div>
+              {% endif %}
+            {% else %}
+            <span class="task-sched-chip sched-queue"><i class="bi bi-inbox"></i> 큐</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not tasks %}
+        <tr>
+          <td colspan="6" class="task-empty-cell">등록된 시험 항목이 없습니다.</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 동기화 경고 모달 -->
+<div class="modal fade" id="syncConfirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white py-2">
+        <h6 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-1"></i> 데이터 초기화 경고</h6>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-2 fw-bold">동기화를 실행하면 다음 데이터가 <span class="text-danger">모두 삭제</span>됩니다:</p>
+        <ul class="mb-3" style="font-size:0.88rem">
+          <li>배치된 모든 <strong>시간표 블록</strong></li>
+          <li>등록된 모든 <strong>시험 항목</strong></li>
+          <li>등록된 모든 <strong>버전 정보</strong></li>
+        </ul>
+        <p class="mb-0" style="font-size:0.85rem; color:#64748b">삭제 후 데이터 소스에서 새로운 데이터를 불러옵니다. 이 작업은 되돌릴 수 없습니다.</p>
+      </div>
+      <div class="modal-footer py-2">
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">취소</button>
+        <button type="button" class="btn btn-sm btn-danger" id="btn-sync-confirm">
+          <i class="bi bi-arrow-repeat"></i> 초기화 후 동기화
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var syncModal = new bootstrap.Modal(document.getElementById('syncConfirmModal'));
+
+function runSync() {
+  syncModal.show();
+}
+
+document.getElementById('btn-sync-confirm').addEventListener('click', function() {
+  var confirmBtn = this;
+  var icon = confirmBtn.querySelector('i');
+  confirmBtn.disabled = true;
+  icon.classList.add('spin');
+
+  fetch('/api/sync/reset-and-sync', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({})
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+      var v = result.versions;
+      var t = result.tasks;
+      var msgs = [];
+      msgs.push('버전: +' + v.added + ' / 갱신 ' + v.updated + ' / 비활성 ' + v.deactivated);
+      msgs.push('항목: +' + t.added + ' / 갱신 ' + t.updated + ' / 취소 ' + t.cancelled);
+      syncModal.hide();
+      alert('동기화 완료\n' + msgs.join('\n'));
+      location.reload();
+    })
+    .catch(function(err) {
+      alert('동기화 실패: ' + err.message);
+      confirmBtn.disabled = false;
+      icon.classList.remove('spin');
+    });
+});
+
+document.querySelectorAll('[data-toggle-blocks]').forEach(function(el) {
+  el.style.cursor = 'pointer';
+  el.addEventListener('click', function(e) {
+    e.stopPropagation();
+    var dd = document.getElementById('blocks-' + el.dataset.toggleBlocks);
+    if (dd) dd.style.display = dd.style.display === 'none' ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}

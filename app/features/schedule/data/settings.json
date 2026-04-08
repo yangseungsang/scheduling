@@ -1,0 +1,21 @@
+{
+  "work_start": "08:00",
+  "work_end": "17:00",
+  "actual_work_start": "08:30",
+  "actual_work_end": "16:30",
+  "lunch_start": "12:00",
+  "lunch_end": "13:00",
+  "breaks": [
+    {
+      "start": "10:00",
+      "end": "10:00"
+    },
+    {
+      "start": "15:00",
+      "end": "15:00"
+    }
+  ],
+  "grid_interval_minutes": 10,
+  "max_schedule_days": 14,
+  "block_color_by": "location"
+}

@@ -1,0 +1,116 @@
+{% if locations %}
+<div class="loc-filter">
+  <span class="loc-filter-label">장소</span>
+  <button class="loc-filter-btn active" data-loc-id="" style="--loc-color:#64748b" title="전체">전체</button>
+  {% for loc in locations %}
+  <button class="loc-filter-btn" data-loc-id="{{ loc.id }}" style="--loc-color:{{ loc.color }}" title="{{ loc.description or loc.name }}">
+    <span class="loc-filter-dot" style="background:{{ loc.color }}"></span>{{ loc.name }}
+  </button>
+  {% endfor %}
+</div>
+<script>
+(function() {
+  var STORAGE_KEY = 'locFilter';
+  var locIds = [];
+  document.querySelectorAll('.loc-filter-btn[data-loc-id]').forEach(function(b) {
+    if (b.dataset.locId) locIds.push(b.dataset.locId);
+  });
+
+  var allBtn = document.querySelector('.loc-filter-btn[data-loc-id=""]');
+  var locBtns = document.querySelectorAll('.loc-filter-btn[data-loc-id]:not([data-loc-id=""])');
+
+  function saveState() {
+    var active = getActiveLocs();
+    if (allBtn.classList.contains('active') || active.length === 0) {
+      localStorage.removeItem(STORAGE_KEY);
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(active));
+    }
+  }
+
+  function restoreState() {
+    var saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return;
+    try {
+      var ids = JSON.parse(saved);
+      if (!ids.length) return;
+      allBtn.classList.remove('active');
+      locBtns.forEach(function(b) {
+        b.classList.toggle('active', ids.indexOf(b.dataset.locId) !== -1);
+      });
+    } catch(e) {}
+  }
+
+  function getActiveLocs() {
+    var active = [];
+    locBtns.forEach(function(b) {
+      if (b.classList.contains('active')) active.push(b.dataset.locId);
+    });
+    return active;
+  }
+
+  function setAllMode() {
+    allBtn.classList.add('active');
+    locBtns.forEach(function(b) { b.classList.remove('active'); });
+    layoutBlocks(locIds);
+    saveState();
+  }
+
+  function layoutBlocks(visibleLocs) {
+    if (!visibleLocs.length) visibleLocs = locIds;
+    var locCount = visibleLocs.length || 1;
+    var visibleSet = {};
+    visibleLocs.forEach(function(id) { visibleSet[id] = true; });
+
+    var blocks = document.querySelectorAll('.week-block[data-location-id], .schedule-block[data-location-id]');
+    blocks.forEach(function(el) {
+      if (el.closest('.day-loc-body')) return;
+      var blockLoc = el.dataset.locationId;
+      var locIndex = visibleLocs.indexOf(blockLoc);
+      if (locIndex === -1) {
+        el.style.display = 'none';
+        return;
+      }
+      el.style.display = '';
+      var subWidth = 100.0 / locCount;
+      el.style.left = (subWidth * locIndex) + '%';
+      el.style.width = subWidth + '%';
+      el.style.right = 'auto';
+    });
+
+    document.querySelectorAll('.month-block-item[data-location-id]').forEach(function(el) {
+      el.style.display = visibleSet[el.dataset.locationId] ? '' : 'none';
+    });
+  }
+
+  allBtn.addEventListener('click', function() {
+    setAllMode();
+  });
+
+  locBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      allBtn.classList.remove('active');
+      btn.classList.toggle('active');
+      var active = getActiveLocs();
+      if (active.length === 0) {
+        setAllMode();
+      } else {
+        layoutBlocks(active);
+        saveState();
+      }
+    });
+  });
+
+  function init() {
+    restoreState();
+    var active = getActiveLocs();
+    layoutBlocks(active.length ? active : locIds);
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+</script>
+{% endif %}

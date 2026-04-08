@@ -1,0 +1,164 @@
+{% extends "schedule/base.html" %}
+
+{% block title %}일간 뷰 — {{ current_date.strftime('%Y-%m-%d') }}{% endblock %}
+
+{% block main_class %}container-fluid p-0{% endblock %}
+
+{% block toolbar_extra %}
+{% include "schedule/views/_version_selector.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="schedule-layout">
+  {# Task queue sidebar #}
+  {% include "schedule/views/_task_queue.html" %}
+
+  <div class="schedule-main">
+    {# Navigation bar #}
+    <div class="day-nav schedule-nav">
+      <a href="{{ url_for('schedule.day_view', date=prev_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+      <a href="{{ url_for('schedule.day_view') }}" class="btn btn-sm btn-outline-primary">오늘</a>
+      <a href="{{ url_for('schedule.day_view', date=next_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+      <h5 class="mb-0 ms-2">{{ current_date.strftime('%Y년 %m월 %d일') }}
+        {% set weekdays = ['월','화','수','목','금','토','일'] %}
+        ({{ weekdays[current_date.weekday()] }}요일)
+      </h5>
+    </div>
+
+    {# Timeline body — location columns #}
+    <div class="schedule-body">
+      <div class="day-columns-layout">
+        {# Time gutter #}
+        <div class="time-gutter">
+          <div class="time-gutter-header"></div>
+          {% for slot in time_slots %}
+          <div class="time-gutter-label">{{ slot if loop.index0 % 2 == 0 else '' }}</div>
+          {% endfor %}
+          <div class="time-gutter-label">{{ settings.work_end }}</div>
+        </div>
+
+        {# Location columns #}
+        {% for loc in locations %}
+        <div class="day-loc-col">
+          <div class="day-loc-header" style="border-bottom-color: {{ loc.color }}">
+            <span class="day-loc-dot" style="background: {{ loc.color }}"></span>
+            {{ loc.name }}
+            {% if loc.description %}<span class="day-loc-desc">{{ loc.description }}</span>{% endif %}
+          </div>
+          <div class="day-loc-body">
+            {# Time slot grid #}
+            {% for slot in time_slots %}
+            <div class="time-slot{% if slot in break_slots %} break-slot{% endif %}"
+                 data-date="{{ current_date.isoformat() }}"
+                 data-time="{{ slot }}"
+                 data-location-id="{{ loc.id }}">
+            </div>
+            {% endfor %}
+            <div class="time-slot" data-date="{{ current_date.isoformat() }}" data-time="{{ settings.work_end }}" data-location-id="{{ loc.id }}"></div>
+
+            {# Blocks for this location #}
+            {% set loc_blocks = blocks_by_location.get(loc.id, []) %}
+            {% for block in loc_blocks %}
+            {% set slot_height = 24 %}
+            {% set interval = settings.grid_interval_minutes %}
+            {% set work_start_parts = settings.work_start.split(':') %}
+            {% set work_start_min = work_start_parts[0]|int * 60 + work_start_parts[1]|int %}
+            {% set start_parts = block.start_time.split(':') %}
+            {% set start_min = start_parts[0]|int * 60 + start_parts[1]|int %}
+            {% set end_parts = block.end_time.split(':') %}
+            {% set end_min = end_parts[0]|int * 60 + end_parts[1]|int %}
+            {% set top_px = ((start_min - work_start_min) / interval * slot_height)|int %}
+            {% set height_px = ((end_min - start_min) / interval * slot_height)|int %}
+            {% set col_index = block.col_index|default(0) %}
+            {% set col_total = block.col_total|default(1) %}
+            {% set col_width = 100.0 / col_total %}
+            {% set col_left = col_width * col_index %}
+            <div class="schedule-block block-status-{{ block.block_status }}"
+                 data-block-id="{{ block.id }}"
+                 data-task-id="{{ block.task_id }}"
+                 data-block-status="{{ block.block_status }}"
+                 data-memo="{{ block.memo }}"
+                 data-start-time="{{ block.start_time }}"
+                 data-end-time="{{ block.end_time }}"
+                 data-procedure-id="{{ block.procedure_id }}"
+                 data-section-name="{{ block.section_name }}"
+                 data-assignee-name="{{ block.assignee_name }}"
+                 data-location-name="{{ block.location_name }}"
+                 data-estimated-minutes="{{ block.get('estimated_minutes', 0) if block.get('task_id') else 0 }}"
+                 data-identifier-ids='{{ block.identifier_ids|tojson if block.identifier_ids else "" }}'
+                   style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }}; left: {{ col_left }}%; width: {{ col_width }}%; right: auto; ">
+              <div class="resize-handle resize-handle-top"></div>
+              <div class="block-title">
+                {{ block.section_name or block.procedure_id }}
+                {% if block.is_split %}
+                <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}" title="{% if block.split_status == 'partial' %}부분 배치 (나머지 큐){% else %}분할 배치 (전체 배치됨){% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>
+                {% endif %}
+                <span class="block-status-badge badge-status-{{ block.block_status }}">
+                  {% if block.block_status == 'in_progress' %}진행
+                  {% elif block.block_status == 'completed' %}완료
+                  {% elif block.block_status == 'cancelled' %}불가
+                  {% endif %}
+                </span>
+              </div>
+              <div class="block-info">
+                <span class="block-time">{{ block.start_time }}–{{ block.end_time }}</span>
+              </div>
+              {% if block.memo %}
+              <span class="memo-icon" title="{{ block.memo }}"><i class="bi bi-sticky-fill"></i></span>
+              {% endif %}
+              {% if block.is_locked %}
+              <span class="lock-icon"><i class="bi bi-lock-fill"></i></span>
+              {% endif %}
+              <button class="btn-to-queue" data-block-id="{{ block.id }}" title="큐로 보내기">
+                <i class="bi bi-arrow-left-square"></i>
+              </button>
+              <div class="resize-handle resize-handle-bottom"></div>
+              {# Break overlays #}
+              {% set block_start_min = block.start_time.split(':')[0]|int * 60 + block.start_time.split(':')[1]|int %}
+              {% set block_end_min = block.end_time.split(':')[0]|int * 60 + block.end_time.split(':')[1]|int %}
+              {% set lunch_start_min = settings.lunch_start.split(':')[0]|int * 60 + settings.lunch_start.split(':')[1]|int %}
+              {% set lunch_end_min = settings.lunch_end.split(':')[0]|int * 60 + settings.lunch_end.split(':')[1]|int %}
+              {% set ov_start = [block_start_min, lunch_start_min]|max %}
+              {% set ov_end = [block_end_min, lunch_end_min]|min %}
+              {% if ov_start < ov_end %}
+              {% set ov_top = ((ov_start - block_start_min) / interval * slot_height)|int %}
+              {% set ov_height = ((ov_end - ov_start) / interval * slot_height)|int %}
+              <div class="block-break-overlay" style="top:{{ ov_top }}px;height:{{ ov_height }}px;"></div>
+              {% endif %}
+              {% for brk in settings.breaks %}
+              {% set brk_start_min = brk.start.split(':')[0]|int * 60 + brk.start.split(':')[1]|int %}
+              {% set brk_end_min = brk.end.split(':')[0]|int * 60 + brk.end.split(':')[1]|int %}
+              {% set ov_start = [block_start_min, brk_start_min]|max %}
+              {% set ov_end = [block_end_min, brk_end_min]|min %}
+              {% if ov_start < ov_end %}
+              {% set ov_top = ((ov_start - block_start_min) / interval * slot_height)|int %}
+              {% set ov_height = ((ov_end - ov_start) / interval * slot_height)|int %}
+              <div class="block-break-overlay" style="top:{{ ov_top }}px;height:{{ ov_height }}px;"></div>
+              {% endif %}
+              {% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.SCHEDULE_BREAKS = [
+    {start: '{{ settings.lunch_start }}', end: '{{ settings.lunch_end }}'}
+    {% for brk in settings.breaks %},
+    {start: '{{ brk.start }}', end: '{{ brk.end }}'}
+    {% endfor %}
+  ];
+  window.GRID_INTERVAL = {{ settings.grid_interval_minutes }};
+</script>
+{% endblock %}

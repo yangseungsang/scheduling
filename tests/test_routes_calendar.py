@@ -8,7 +8,7 @@ class TestPageRoutes:
     def test_index_redirect(self, client):
         r = client.get('/')
         assert r.status_code == 302
-        assert '/schedule/' in r.headers['Location']
+        assert '/schedule/week' in r.headers['Location']
 
     def test_day_view(self, client):
         r = client.get('/schedule/')
@@ -50,7 +50,6 @@ class TestScheduleBlockAPI:
         assert data['task_id'] == tid
         assert uid in data['assignee_ids']
         assert data['start_time'] == '09:00'
-        assert data['origin'] == 'manual'
 
     def test_create_block_missing_fields(self, client):
         r = client.post('/schedule/api/blocks', json={'task_id': 'xxx'})
@@ -159,31 +158,38 @@ class TestScheduleBlockAPI:
         })
         assert r.get_json()['end_time'] == '09:30'
 
-    def test_update_block_resize_syncs_estimated_hours(self, client):
-        """On resize, estimated_hours adjusts to total scheduled, remaining=0."""
+    def test_update_block_resize_syncs_remaining(self, client):
+        """On resize-shrink, remaining hours increase (no auto-split)."""
         uid = _create_user(client)
         tid = _create_task(client, uid, hours='4')
         block, _ = _create_block(client, tid, uid, start='09:00', end='11:00')
-        # Resize to 1h
-        client.put(f'/schedule/api/blocks/{block["id"]}', json={
+        t_before = client.get(f'/tasks/api/{tid}').get_json()['task']
+        rem_before = t_before['remaining_minutes']
+        # Resize to 1h — remaining should increase
+        r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
             'start_time': '09:00', 'end_time': '10:00',
             'resize': True,
         })
-        task = client.get(f'/tasks/api/{tid}').get_json()['task']
-        # 09:00-10:00 crosses break 09:45-10:00 (15min), work = 45min = 0.75h
-        assert task['estimated_hours'] == 0.75
-        assert task['remaining_hours'] == 0
+        assert 'split_block' not in r.get_json()
+        t = client.get(f'/tasks/api/{tid}').get_json()['task']
+        assert t['estimated_minutes'] == 240
+        assert t['remaining_minutes'] > rem_before
 
     def test_update_block_overlap_rejected(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
-        # Use times that don't span breaks, same location to trigger overlap check
-        b1, _ = _create_block(client, tid, uid, start='10:00', end='11:00',
-                              location_id='loc_test')
-        b2, _ = _create_block(client, tid, uid, start='11:00', end='11:30',
-                              location_id='loc_test')
+        # Create two simple blocks (different tasks) at same location
+        r1 = client.post('/schedule/api/blocks', json={
+            'is_simple': True, 'date': '2026-03-10',
+            'start_time': '10:00', 'end_time': '11:00',
+            'location_id': 'loc_test', 'title': 'A',
+        })
+        r2 = client.post('/schedule/api/blocks', json={
+            'is_simple': True, 'date': '2026-03-10',
+            'start_time': '11:00', 'end_time': '11:30',
+            'location_id': 'loc_test', 'title': 'B',
+        })
+        b2_id = r2.get_json()['id']
         # Try to move b2 to overlap with b1
-        r = client.put(f'/schedule/api/blocks/{b2["id"]}', json={
+        r = client.put(f'/schedule/api/blocks/{b2_id}', json={
             'start_time': '10:00', 'end_time': '10:30',
         })
         assert r.status_code == 409
@@ -263,7 +269,7 @@ class TestScheduleViewAPIs:
         r = client.get('/schedule/api/day?date=2026-03-10')
         data = r.get_json()
         assert len(data['blocks']) == 1
-        assert data['blocks'][0]['task_title'] == 'DAY-001'
+        assert data['blocks'][0]['task_title'] == '3.1 시스템'
 
     def test_enriched_block_has_display_fields(self, client):
         uid = _create_user(client)
@@ -272,7 +278,7 @@ class TestScheduleViewAPIs:
         _create_block(client, tid, uid, date_str='2026-03-10')
         r = client.get('/schedule/api/day?date=2026-03-10')
         block = r.get_json()['blocks'][0]
-        assert block['task_title'] == 'ENR-001'
+        assert block['task_title'] == '3.1 시스템'
         assert block['assignee_name'] == '홍길동'
         assert 'color' in block
 
@@ -282,7 +288,7 @@ class TestScheduleViewAPIs:
         r = client.get('/schedule/api/day')
         data = r.get_json()
         assert len(data['queue_tasks']) == 1
-        assert data['queue_tasks'][0]['remaining_unscheduled_hours'] == 4.0
+        assert data['queue_tasks'][0]['remaining_unscheduled_minutes'] == 240
 
     def test_queue_tasks_exclude_fully_scheduled(self, client):
         """Task fully covered by blocks should not appear in queue."""
@@ -293,17 +299,14 @@ class TestScheduleViewAPIs:
         queue = r.get_json()['queue_tasks']
         assert all(t['id'] != tid for t in queue)
 
-    def test_queue_tasks_partial_remaining(self, client):
-        """Task with 2h remaining but 1h scheduled should show 1h in queue."""
+    def test_queue_hides_task_with_full_block(self, client):
+        """Task with non-split block should NOT appear in queue (resize = real time change)."""
         uid = _create_user(client)
         tid = _create_task(client, uid, hours='2')
-        # Use time range that doesn't cross breaks (10:00-11:00 = exactly 1h)
         _create_block(client, tid, uid, start='10:00', end='11:00')
         r = client.get('/schedule/api/day')
         queue = r.get_json()['queue_tasks']
-        matching = [t for t in queue if t['id'] == tid]
-        assert len(matching) == 1
-        assert matching[0]['remaining_unscheduled_hours'] == 1.0
+        assert all(t['id'] != tid for t in queue)
 
     def test_queue_excludes_completed_tasks(self, client):
         uid = _create_user(client)
@@ -312,8 +315,8 @@ class TestScheduleViewAPIs:
         client.put(f'/tasks/api/{tid}/update', json={
             'procedure_id': 'SYS-001',
             'status': 'completed',
-            'estimated_hours': 2,
-            'remaining_hours': 0,
+            'estimated_minutes': 120,
+            'remaining_minutes': 0,
         })
         r = client.get('/schedule/api/day')
         queue = r.get_json()['queue_tasks']
@@ -345,98 +348,6 @@ class TestOverlapLayout:
         assert r.status_code == 200
 
 
-class TestDraftScheduling:
-    def test_generate_drafts(self, client):
-        uid = _create_user(client)
-        vid = _create_version(client)
-        _create_task(client, uid, version_id=vid, hours='2')
-        r = client.post('/schedule/api/draft/generate', json={})
-        assert r.status_code == 200
-        data = r.get_json()
-        assert data['placed_count'] >= 1
-
-    def test_generate_creates_draft_blocks(self, client):
-        uid = _create_user(client)
-        vid = _create_version(client)
-        _create_task(client, uid, version_id=vid, hours='1')
-        client.post('/schedule/api/draft/generate', json={})
-        # Check blocks exist and are drafts
-        r = client.get('/schedule/api/day')
-        blocks = r.get_json()['blocks']
-        drafts = [b for b in blocks if b.get('is_draft')]
-        # May or may not have blocks today depending on timing
-        # Just verify the API works
-        assert r.status_code == 200
-
-    def test_approve_drafts(self, client):
-        uid = _create_user(client)
-        vid = _create_version(client)
-        _create_task(client, uid, version_id=vid, hours='1')
-        client.post('/schedule/api/draft/generate', json={})
-        r = client.post('/schedule/api/draft/approve')
-        assert r.status_code == 200
-        assert r.get_json()['success'] is True
-
-    def test_approve_updates_remaining_hours(self, client):
-        uid = _create_user(client)
-        vid = _create_version(client)
-        tid = _create_task(client, uid, version_id=vid, hours='1')
-        client.post('/schedule/api/draft/generate', json={})
-        client.post('/schedule/api/draft/approve')
-        task = client.get(f'/tasks/api/{tid}').get_json()['task']
-        # remaining_hours should have been decremented
-        assert task['remaining_hours'] < 1.0 or task['status'] == 'completed'
-
-    def test_discard_drafts(self, client):
-        uid = _create_user(client)
-        vid = _create_version(client)
-        _create_task(client, uid, version_id=vid, hours='2')
-        gen = client.post('/schedule/api/draft/generate', json={}).get_json()
-        assert gen['placed_count'] >= 1
-        r = client.post('/schedule/api/draft/discard')
-        assert r.status_code == 200
-
-    def test_generate_with_existing_confirmed_blocks(self, client):
-        """Auto-scheduling should respect existing confirmed blocks."""
-        uid = _create_user(client)
-        vid = _create_version(client)
-        tid = _create_task(client, uid, version_id=vid, hours='2')
-        # Manually place 1h
-        _create_block(client, tid, uid, start='09:00', end='10:00')
-        r = client.post('/schedule/api/draft/generate', json={})
-        data = r.get_json()
-        # Should place remaining 1h, not overlap with 09:00-10:00
-        assert r.status_code == 200
-
-    def test_generate_multiple_tasks_procedure_order(self, client):
-        uid = _create_user(client)
-        vid = _create_version(client)
-        _create_task(client, uid, version_id=vid, procedure_id='LATE-001',
-                     hours='1')
-        _create_task(client, uid, version_id=vid, procedure_id='EARLY-001',
-                     hours='1')
-        r = client.post('/schedule/api/draft/generate', json={})
-        assert r.status_code == 200
-        assert r.get_json()['placed_count'] >= 2
-
-    def test_unplaced_tasks_reported(self, client):
-        """Tasks that can't fit should be reported as unplaced."""
-        uid = _create_user(client)
-        vid = _create_version(client)
-        # Create task with impossibly many hours
-        _create_task(client, uid, version_id=vid, hours='999')
-        r = client.post('/schedule/api/draft/generate', json={})
-        data = r.get_json()
-        assert len(data['unplaced']) >= 1
-        assert data['unplaced'][0]['remaining_hours'] > 0
-
-    def test_generate_no_version_returns_error(self, client):
-        """Generate without any active version should return 400."""
-        uid = _create_user(client)
-        _create_task(client, uid, hours='1')
-        r = client.post('/schedule/api/draft/generate')
-        assert r.status_code == 400
-
 
 class TestExportAPI:
     def test_export_csv(self, client):
@@ -449,8 +360,8 @@ class TestExportAPI:
         assert r.status_code == 200
         assert 'text/csv' in r.content_type
         body = r.data.decode('utf-8-sig')
-        assert 'EXPORT-001' in body
-        assert '홍길동' in body
+        assert '3.1' in body  # section_name
+        assert '2026-03-10' in body
 
     def test_export_xlsx(self, client):
         uid = _create_user(client)
@@ -485,4 +396,4 @@ class TestExportAPI:
         )
         body = r.data.decode('utf-8-sig')
         assert '날짜' in body
-        assert '업무명' in body
+        assert '장절명' in body

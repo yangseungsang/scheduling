@@ -1,0 +1,102 @@
+{% extends "schedule/base.html" %}
+
+{% block title %}월간 뷰 — {{ year }}년 {{ month }}월{% endblock %}
+
+{% block main_class %}container-fluid p-0{% endblock %}
+
+{% block toolbar_extra %}
+{% include "schedule/views/_version_selector.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="schedule-layout">
+  {# Task queue sidebar #}
+  {% include "schedule/views/_task_queue.html" %}
+
+  <div class="schedule-main">
+    {# Navigation #}
+    <div class="month-nav schedule-nav">
+      <a href="{{ url_for('schedule.month_view', date=prev_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-chevron-left"></i>
+      </a>
+      <a href="{{ url_for('schedule.month_view') }}" class="btn btn-sm btn-outline-primary">오늘</a>
+      <a href="{{ url_for('schedule.month_view', date=next_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-chevron-right"></i>
+      </a>
+      <h5 class="mb-0 ms-2">{{ year }}년 {{ month }}월</h5>
+      <button class="btn btn-sm btn-outline-secondary ms-2" id="btn-toggle-weekends" title="주말 표시/숨기기">
+        <i class="bi bi-calendar-x"></i> 주말
+      </button>
+    </div>
+
+    {# Calendar grid #}
+    <div class="schedule-body month-body">
+      <table class="month-table">
+        <thead>
+          <tr>
+            {% for name in day_names %}
+            <th data-weekday="{{ loop.index0 }}">{{ name }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for week in weeks %}
+          <tr>
+            {% for day_data in week %}
+            {% if day_data is none %}
+            <td class="empty-cell"></td>
+            {% else %}
+            <td class="month-day-cell{% if day_data.date == today %} today-cell{% endif %}"
+                data-date="{{ day_data.date.isoformat() }}">
+              <div class="day-number">
+                <a href="{{ url_for('schedule.day_view', date=day_data.date.isoformat()) }}">
+                  {{ day_data.day }}
+                </a>
+              </div>
+              {% for block in day_data.blocks %}
+              <div class="month-block-item block-status-{{ block.block_status }}{% if loop.index > 3 %} month-block-hidden{% endif %}"
+                   data-block-id="{{ block.id }}"
+                   data-task-id="{{ block.task_id }}"
+                   data-block-status="{{ block.block_status }}"
+                   data-location-id="{{ block.location_id }}"
+                   data-procedure-id="{{ block.procedure_id }}"
+                   data-section-name="{{ block.section_name }}"
+                   data-assignee-name="{{ block.assignee_name }}"
+                   data-location-name="{{ block.location_name }}"
+                   data-start-time="{{ block.start_time }}"
+                   data-end-time="{{ block.end_time }}"
+                   data-identifier-ids='{{ block.identifier_ids|tojson if block.identifier_ids else "" }}'
+                   style="background-color: {{ block.color }};"
+                   title="{{ block.task_title }} ({{ block.assignee_name }}) {{ block.start_time }}–{{ block.end_time }}">
+                {% if block.block_status == 'in_progress' %}<i class="bi bi-play-circle-fill month-status-icon"></i>
+                {% elif block.block_status == 'completed' %}<i class="bi bi-check-circle-fill month-status-icon"></i>
+                {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-circle-fill month-status-icon"></i>
+                {% endif %}{{ block.section_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %} <span class="month-block-time">{{ block.start_time }}–{{ block.end_time }}</span>
+              </div>
+              {% endfor %}
+              {% if day_data.blocks|length > 3 %}
+              <div class="month-more-toggle" data-date="{{ day_data.date.isoformat() }}">+{{ day_data.blocks|length - 3 }}개 더</div>
+              {% endif %}
+            </td>
+            {% endif %}
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.SCHEDULE_BREAKS = [
+    {start: '{{ settings.lunch_start }}', end: '{{ settings.lunch_end }}'}
+    {% for brk in settings.breaks %},
+    {start: '{{ brk.start }}', end: '{{ brk.end }}'}
+    {% endfor %}
+  ];
+  window.GRID_INTERVAL = {{ settings.grid_interval_minutes }};
+</script>
+{% endblock %}

@@ -4,7 +4,7 @@ import re
 
 import pytest
 
-from schedule import create_app
+from app import create_app
 
 
 # ===========================================================================
@@ -74,13 +74,11 @@ def _create_location(client, name='A', color='#28a745', description='시험실')
 
 
 def _create_version(client, name='v1.0.0', description='테스트'):
-    """Helper: create a version via form and return the version_id."""
-    client.post('/admin/versions/new', data={
+    """Helper: create a version via API and return the version_id."""
+    r = client.post('/admin/api/versions', json={
         'name': name, 'description': description,
     })
-    r = client.get('/admin/versions')
-    ids = re.findall(r'/admin/versions/(v_\w+)/edit', r.data.decode())
-    return ids[-1]
+    return r.get_json()['id']
 
 
 def _create_task(client, uid_list, loc_id='', version_id='',
@@ -88,6 +86,11 @@ def _create_task(client, uid_list, loc_id='', version_id='',
     """Helper: create a task via form and return the task_id."""
     if isinstance(uid_list, str):
         uid_list = [uid_list]
+    total_minutes = round(float(hours) * 60)
+    test_list = [
+        {'id': 'TC-001', 'estimated_minutes': total_minutes // 2, 'owners': []},
+        {'id': 'TC-002', 'estimated_minutes': total_minutes - total_minutes // 2, 'owners': []},
+    ]
     data = {
         'procedure_id': procedure_id,
         'version_id': version_id,
@@ -95,8 +98,8 @@ def _create_task(client, uid_list, loc_id='', version_id='',
         'location_id': loc_id,
         'section_name': '3.1 시스템',
         'procedure_owner': '담당자',
-        'test_list': 'TC-001, TC-002',
-        'estimated_hours': hours,
+        'test_list_json': json.dumps(test_list),
+        'estimated_minutes': str(total_minutes),
         'memo': '',
     }
     client.post('/tasks/new', data=data)
