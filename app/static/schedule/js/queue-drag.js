@@ -266,7 +266,7 @@
       var itemName = (typeof item === 'object' && item.name) ? item.name : '';
       var ownerStr = owners.length ? ' <span class="text-muted">작성: ' + owners.join(', ') + '</span>' : '';
       var nameStr = itemName ? ' <span class="text-muted" style="font-size:0.78rem">- ' + itemName + '</span>' : '';
-      rows += '<label class="d-flex align-items-center gap-2 mb-1" style="font-size:0.85rem' + (isScheduled ? ';opacity:0.55' : '') + '">' +
+      rows += '<label class="d-flex align-items-center gap-2 mb-1" style="font-size:0.85rem;white-space:nowrap' + (isScheduled ? ';opacity:0.55' : '') + '">' +
         '<input type="checkbox" class="form-check-input" value="' + i + '"' + checked + '> ' +
         '<span>' + id + '</span>' + nameStr + ownerStr +
         (mins > 0 ? ' <span class="text-muted">(' + mins + '분)</span>' : '') +
@@ -274,7 +274,7 @@
         '</label>';
     });
     overlay.innerHTML =
-      '<div class="bd-box" style="max-width:340px">' +
+      '<div class="bd-box">' +
         '<div class="bd-header"><div class="bd-header-left"><span class="bd-id">식별자 선택</span></div>' +
           '<button class="bd-x" id="picker-close">&times;</button></div>' +
         '<div class="bd-divider"></div>' +
