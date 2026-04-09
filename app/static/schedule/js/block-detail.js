@@ -90,11 +90,10 @@
       var testListHtml = '-';
       var idTotalMin = 0; // 식별자별 시간 합계
       if (allTestList.length) {
-        testListHtml = '<table style="width:100%;font-size:0.78rem;border-collapse:collapse;border-spacing:0">' +
-          '<colgroup><col style="width:15%"><col style="width:22%"><col style="width:13%"><col style="width:20%"><col style="width:30%"></colgroup>' +
+        testListHtml = '<table style="font-size:0.78rem;border-collapse:collapse;border-spacing:0;white-space:nowrap">' +
           '<tr style="color:#9ca3af;font-size:0.68rem;border-bottom:1px solid #f3f4f6">' +
-            '<td style="padding:3px 4px">식별자</td><td style="padding:3px 4px">시험항목</td><td style="padding:3px 4px">시간</td>' +
-            '<td style="padding:3px 4px">작성자</td><td style="padding:3px 4px">배치</td></tr>' +
+            '<td style="padding:3px 10px 3px 4px">식별자</td><td style="padding:3px 10px 3px 4px">시험항목</td><td style="padding:3px 10px 3px 4px">시간</td>' +
+            '<td style="padding:3px 10px 3px 4px">작성자</td><td style="padding:3px 4px">배치</td></tr>' +
           allTestList.map(function(item) {
             if (typeof item === 'object' && item.id) {
               var mins = item.estimated_minutes || 0;
@@ -124,10 +123,10 @@
               var marker = inThisBlock ? '' : ' <span style="font-size:0.6rem;color:#9ca3af">타 블록</span>';
               var itemName = item.name || '-';
               return '<tr style="' + rowStyle + '">' +
-                '<td style="padding:3px 4px;font-weight:600;white-space:nowrap">' + item.id + marker + '</td>' +
-                '<td style="padding:3px 4px;color:#475569">' + itemName + '</td>' +
-                '<td style="padding:3px 4px;white-space:nowrap">' + mins + '분</td>' +
-                '<td style="padding:3px 4px;color:#6c757d">' + ow + '</td>' +
+                '<td style="padding:3px 10px 3px 4px;font-weight:600;white-space:nowrap">' + item.id + marker + '</td>' +
+                '<td style="padding:3px 10px 3px 4px;color:#475569">' + itemName + '</td>' +
+                '<td style="padding:3px 10px 3px 4px;white-space:nowrap">' + mins + '분</td>' +
+                '<td style="padding:3px 10px 3px 4px;color:#6c757d">' + ow + '</td>' +
                 '<td style="padding:3px 4px">' + schedHtml + '</td></tr>';
             }
             return '<tr><td colspan="5" style="padding:3px 4px">' + item + '</td></tr>';
