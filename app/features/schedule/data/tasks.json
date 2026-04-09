@@ -50,7 +50,7 @@
       "u_002",
       "u_003"
     ],
-    "location_id": "loc_001",
+    "location_id": "",
     "section_name": "3.2 통신 기능",
     "procedure_owner": "이지은",
     "test_list": [
@@ -72,7 +72,7 @@
       }
     ],
     "estimated_minutes": 60,
-    "remaining_minutes": 0,
+    "remaining_minutes": 38,
     "status": "waiting",
     "memo": "",
     "source": "local",
@@ -130,29 +130,29 @@
       "u_001",
       "u_004"
     ],
-    "location_id": "loc_002",
+    "location_id": "",
     "section_name": "4.2 항법 데이터 출력",
     "procedure_owner": "최수연",
     "test_list": [
       {
         "id": "TC-013",
         "name": "항법 데이터 출력 형식 검증",
-        "estimated_minutes": 18,
         "owners": [
           "최수연"
-        ]
+        ],
+        "estimated_minutes": 18
       },
       {
         "id": "TC-014",
         "name": "출력 정확도 시험",
-        "estimated_minutes": 42,
         "owners": [
           "김민수"
-        ]
+        ],
+        "estimated_minutes": 42
       }
     ],
     "estimated_minutes": 60,
-    "remaining_minutes": 60,
+    "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
     "source": "local",
@@ -237,7 +237,7 @@
       "u_003",
       "u_004"
     ],
-    "location_id": "loc_003",
+    "location_id": "",
     "section_name": "5.2 내부 버스 통신",
     "procedure_owner": "박준혁",
     "test_list": [
@@ -308,7 +308,7 @@
       "u_001",
       "u_002"
     ],
-    "location_id": "loc_001",
+    "location_id": "",
     "section_name": "3.4 모드 전환",
     "procedure_owner": "김민수",
     "test_list": [
@@ -330,7 +330,7 @@
       }
     ],
     "estimated_minutes": 64,
-    "remaining_minutes": 0,
+    "remaining_minutes": 64,
     "status": "waiting",
     "memo": "",
     "source": "local",
@@ -344,7 +344,7 @@
       "u_002",
       "u_004"
     ],
-    "location_id": "loc_003",
+    "location_id": "",
     "section_name": "7.1 온도 시험",
     "procedure_owner": "이지은",
     "test_list": [
