@@ -1,7 +1,7 @@
 {% extends "schedule/base.html" %}
 {% block title %}시험 항목 목록 - 스케줄링{% endblock %}
 
-{% block content %}
+{% block content_sub %}
 <div class="task-list-page">
   <div class="task-list-header">
     <div class="d-flex align-items-center gap-2">
@@ -196,7 +196,7 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block scripts_sub %}
 <script>
 var syncModal = new bootstrap.Modal(document.getElementById('syncConfirmModal'));
 

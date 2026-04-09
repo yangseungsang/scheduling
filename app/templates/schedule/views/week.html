@@ -8,7 +8,7 @@
 {% include "schedule/views/_version_selector.html" %}
 {% endblock %}
 
-{% block content %}
+{% block content_sub %}
 <div class="schedule-layout">
   {# Task queue sidebar #}
   {% include "schedule/views/_task_queue.html" %}
@@ -159,7 +159,7 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block scripts_sub %}
 <script>
   window.SCHEDULE_BREAKS = [
     {start: '{{ settings.lunch_start }}', end: '{{ settings.lunch_end }}'}

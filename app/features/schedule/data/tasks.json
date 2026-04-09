@@ -12,6 +12,7 @@
     "test_list": [
       {
         "id": "TC-001",
+        "name": "시스템 전원 투입 시험",
         "estimated_minutes": 27,
         "owners": [
           "김민수"
@@ -19,6 +20,7 @@
       },
       {
         "id": "TC-002",
+        "name": "초기화 절차 검증",
         "estimated_minutes": 43,
         "owners": [
           "김민수"
@@ -26,6 +28,7 @@
       },
       {
         "id": "TC-003",
+        "name": "자체점검 결과 확인",
         "estimated_minutes": 31,
         "owners": [
           "이지은"
@@ -53,6 +56,7 @@
     "test_list": [
       {
         "id": "TC-004",
+        "name": "통신 링크 설정 시험",
         "estimated_minutes": 38,
         "owners": [
           "이지은"
@@ -60,6 +64,7 @@
       },
       {
         "id": "TC-005",
+        "name": "데이터 송수신 검증",
         "estimated_minutes": 22,
         "owners": [
           "박준혁"
@@ -67,7 +72,7 @@
       }
     ],
     "estimated_minutes": 60,
-    "remaining_minutes": 60,
+    "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
     "source": "local",
@@ -87,6 +92,7 @@
     "test_list": [
       {
         "id": "TC-010",
+        "name": "항법 데이터 입력 시험",
         "estimated_minutes": 53,
         "owners": [
           "박준혁"
@@ -94,6 +100,7 @@
       },
       {
         "id": "TC-011",
+        "name": "연산 정확도 검증",
         "estimated_minutes": 47,
         "owners": [
           "박준혁"
@@ -101,6 +108,7 @@
       },
       {
         "id": "TC-012",
+        "name": "항법 오류 처리 시험",
         "estimated_minutes": 34,
         "owners": [
           "최수연"
@@ -108,7 +116,7 @@
       }
     ],
     "estimated_minutes": 134,
-    "remaining_minutes": 134,
+    "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
     "source": "local",
@@ -128,6 +136,7 @@
     "test_list": [
       {
         "id": "TC-013",
+        "name": "항법 데이터 출력 형식 검증",
         "estimated_minutes": 18,
         "owners": [
           "최수연"
@@ -135,6 +144,7 @@
       },
       {
         "id": "TC-014",
+        "name": "출력 정확도 시험",
         "estimated_minutes": 42,
         "owners": [
           "김민수"
@@ -161,6 +171,7 @@
     "test_list": [
       {
         "id": "TC-020",
+        "name": "외부 인터페이스 연결 시험",
         "estimated_minutes": 51,
         "owners": [
           "이지은"
@@ -168,6 +179,7 @@
       },
       {
         "id": "TC-021",
+        "name": "프로토콜 호환성 검증",
         "estimated_minutes": 29,
         "owners": [
           "이지은"
@@ -175,7 +187,7 @@
       }
     ],
     "estimated_minutes": 80,
-    "remaining_minutes": 80,
+    "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
     "source": "local",
@@ -195,6 +207,7 @@
     "test_list": [
       {
         "id": "TC-006",
+        "name": "자가진단 실행 시험",
         "estimated_minutes": 23,
         "owners": [
           "김민수"
@@ -202,6 +215,7 @@
       },
       {
         "id": "TC-007",
+        "name": "진단 결과 보고 검증",
         "estimated_minutes": 37,
         "owners": [
           "박준혁"
@@ -209,7 +223,7 @@
       }
     ],
     "estimated_minutes": 60,
-    "remaining_minutes": 60,
+    "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
     "source": "local",
@@ -229,6 +243,7 @@
     "test_list": [
       {
         "id": "TC-022",
+        "name": "내부 버스 통신 시험",
         "estimated_minutes": 41,
         "owners": [
           "박준혁"
@@ -236,6 +251,7 @@
       },
       {
         "id": "TC-023",
+        "name": "버스 오류 처리 검증",
         "estimated_minutes": 19,
         "owners": [
           "최수연"
@@ -262,6 +278,7 @@
     "test_list": [
       {
         "id": "TC-030",
+        "name": "접근 제어 시험",
         "estimated_minutes": 46,
         "owners": [
           "최수연"
@@ -269,6 +286,7 @@
       },
       {
         "id": "TC-031",
+        "name": "암호화 기능 검증",
         "estimated_minutes": 33,
         "owners": [
           "최수연"
@@ -296,6 +314,7 @@
     "test_list": [
       {
         "id": "TC-008",
+        "name": "운용 모드 전환 시험",
         "estimated_minutes": 36,
         "owners": [
           "김민수"
@@ -303,6 +322,7 @@
       },
       {
         "id": "TC-009",
+        "name": "모드 전환 안전성 검증",
         "estimated_minutes": 28,
         "owners": [
           "이지은"
@@ -330,6 +350,7 @@
     "test_list": [
       {
         "id": "TC-040",
+        "name": "고온 환경 동작 시험",
         "estimated_minutes": 57,
         "owners": [
           "이지은"
@@ -337,6 +358,7 @@
       },
       {
         "id": "TC-041",
+        "name": "저온 환경 동작 시험",
         "estimated_minutes": 44,
         "owners": [
           "최수연"

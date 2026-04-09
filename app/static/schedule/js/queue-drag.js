@@ -92,8 +92,29 @@
                */
               function doCreate(startMin, endMin, overflowMin, locOverride) {
                 var prevRem;
-                // 드롭 위치의 장소 결정 (오버라이드 > 슬롯 장소 > 태스크 기본 장소)
+                // 드롭 위치의 장소 결정 (오버라이드 > 슬롯 장소 > 태스크 기본 장소 > 활성 필터 장소)
                 var dropLocationId = locOverride || (target.type === 'slot' ? (target.locationId || locationId) : locationId);
+                // 장소가 여전히 비어있으면 활성 장소 필터에서 추론
+                if (!dropLocationId) {
+                  var activeLocs = [];
+                  var allBtn = document.querySelector('.loc-filter-btn.active[data-loc-id=""]');
+                  if (!allBtn) {
+                    document.querySelectorAll('.loc-filter-btn.active[data-loc-id]').forEach(function (b) {
+                      if (b.dataset.locId) activeLocs.push(b.dataset.locId);
+                    });
+                  }
+                  if (activeLocs.length === 1) {
+                    dropLocationId = activeLocs[0];
+                  }
+                }
+                // 시간표 배치 시 장소는 필수
+                if (!dropLocationId) {
+                  App.showLocationPicker(function (pickedLocId) {
+                    if (!pickedLocId) { showToast('장소를 선택해야 배치할 수 있습니다.', 'danger'); return; }
+                    doCreate(startMin, endMin, overflowMin, pickedLocId);
+                  });
+                  return;
+                }
                 getTaskRemaining(taskId).then(function (r) {
                   prevRem = r;
                   var payload = {

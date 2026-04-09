@@ -179,7 +179,7 @@ body {
    ================================================================== */
 .schedule-layout {
   display: flex;
-  height: calc(100vh - 42px);
+  height: calc(100vh - 42px - var(--top-banner-height, 0px));
   overflow: hidden;
 }
 
@@ -1014,7 +1014,8 @@ i.spin { animation: spin 0.8s linear infinite; }
   border: 1px solid #d1d5db;
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  width: 700px;
+  width: fit-content;
+  min-width: 340px;
   max-width: 95vw;
   max-height: 85vh;
   overflow-y: auto;
