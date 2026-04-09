@@ -6,16 +6,19 @@
     "identifiers": [
       {
         "id": "TC-001",
+        "name": "시스템 전원 투입 시험",
         "owners": [],
         "estimated_minutes": 0
       },
       {
         "id": "TC-002",
+        "name": "초기화 절차 검증",
         "owners": [],
         "estimated_minutes": 0
       },
       {
         "id": "TC-003",
+        "name": "자체점검 결과 확인",
         "owners": [],
         "estimated_minutes": 0
       }
@@ -29,11 +32,13 @@
     "identifiers": [
       {
         "id": "TC-004",
+        "name": "통신 링크 설정 시험",
         "owners": [],
         "estimated_minutes": 0
       },
       {
         "id": "TC-005",
+        "name": "데이터 송수신 검증",
         "owners": [],
         "estimated_minutes": 0
       }
@@ -47,16 +52,19 @@
     "identifiers": [
       {
         "id": "TC-010",
+        "name": "항법 데이터 입력 시험",
         "owners": [],
         "estimated_minutes": 0
       },
       {
         "id": "TC-011",
+        "name": "연산 정확도 검증",
         "owners": [],
         "estimated_minutes": 0
       },
       {
         "id": "TC-012",
+        "name": "항법 오류 처리 시험",
         "owners": [],
         "estimated_minutes": 0
       }

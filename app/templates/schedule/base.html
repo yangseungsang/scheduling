@@ -163,11 +163,11 @@
     {% endif %}
     {% endwith %}
 
-    {% block content %}{% endblock %}
+    {% block content_sub %}{% endblock %}
   </main>
 
   <script src="{{ url_for('static', filename='schedule/vendor/bootstrap.bundle.min.js') }}"></script>
-  {% block scripts %}{% endblock %}
+  {% block scripts_sub %}{% endblock %}
   <script src="{{ url_for('static', filename='schedule/js/utils.js') }}?v={{ cache_bust }}"></script>
   <script src="{{ url_for('static', filename='schedule/js/modals.js') }}?v={{ cache_bust }}"></script>
   <script src="{{ url_for('static', filename='schedule/js/drag-core.js') }}?v={{ cache_bust }}"></script>

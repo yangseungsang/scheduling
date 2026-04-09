@@ -34,8 +34,8 @@ class BaseProvider(ABC):
         Returns:
             list: 시험 데이터 딕셔너리 목록.
                 각 항목은 {'section_name': str, 'version_id': str,
-                'identifiers': [{'id': str, 'estimated_minutes': int,
-                'owners': list}]} 형태.
+                'identifiers': [{'id': str, 'name': str,
+                'estimated_minutes': int, 'owners': list}]} 형태.
         """
 
     @abstractmethod

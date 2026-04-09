@@ -1,7 +1,7 @@
 {% extends "schedule/base.html" %}
 {% block title %}{{ task.section_name or task.procedure_id }} - 스케줄링{% endblock %}
 
-{% block content %}
+{% block content_sub %}
 <div class="d-flex justify-content-between align-items-center mb-3">
   <h2>{{ task.section_name or '' }}</h2>
   <div>
