@@ -26,17 +26,37 @@ DEFAULT_DATA_DIR = os.path.join(
 
 
 def read_csv(csv_path):
-    """CSV 파일을 읽어 행 리스트로 반환한다."""
+    """CSV 파일을 읽어 행 리스트로 반환한다.
+
+    담당자 열은 콤마로 구분된 여러 명이 올 수 있다.
+    열 구조: 장절명, 시험식별자, 시험항목, 담당자1[, 담당자2, ...], 시험 예상시간
+    마지막 열은 항상 숫자(예상시간)이므로, 그 사이의 모든 열을 담당자 목록으로 처리한다.
+    """
     rows = []
     with open(csv_path, 'r', encoding='utf-8') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
+        reader = csv.reader(f)
+        next(reader)  # 헤더 행 건너뜀
+        for line_no, cols in enumerate(reader, start=2):
+            cols = [c.strip() for c in cols]
+            if len(cols) < 5:
+                print(f"  경고: {line_no}행 열 수 부족 ({len(cols)}개), 건너뜀: {cols}")
+                continue
+            # 마지막 열 = 예상시간, 앞 3열 고정, 나머지 중간 = 담당자 목록
+            section_name = cols[0]
+            test_id = cols[1]
+            test_name = cols[2]
+            owners = [o for o in cols[3:-1] if o]
+            try:
+                estimated_minutes = int(cols[-1])
+            except ValueError:
+                print(f"  경고: {line_no}행 예상시간 변환 실패 ({cols[-1]!r}), 건너뜀")
+                continue
             rows.append({
-                'section_name': row['장절명'].strip(),
-                'test_id': row['시험식별자'].strip(),
-                'test_name': row['시험항목'].strip(),
-                'owner': row['담당자'].strip(),
-                'estimated_minutes': int(row['시험 예상시간'].strip()),
+                'section_name': section_name,
+                'test_id': test_id,
+                'test_name': test_name,
+                'owners': owners,
+                'estimated_minutes': estimated_minutes,
             })
     return rows
 
@@ -101,7 +121,7 @@ def build_tasks_and_procedures(sections, existing_tasks=None):
                 'id': row['test_id'],
                 'name': row['test_name'],
                 'estimated_minutes': row['estimated_minutes'],
-                'owners': [row['owner']],
+                'owners': row['owners'],
             })
 
         total_minutes = sum(r['estimated_minutes'] for r in rows)
@@ -115,7 +135,7 @@ def build_tasks_and_procedures(sections, existing_tasks=None):
         procedure_id = f"{prefix}-{proc_counter[prefix]:03d}"
 
         # 장절의 첫 번째 담당자를 procedure_owner로 사용
-        procedure_owner = rows[0]['owner']
+        procedure_owner = rows[0]['owners'][0] if rows[0]['owners'] else ''
 
         task_id = f"t_{next_id:03d}"
         next_id += 1
