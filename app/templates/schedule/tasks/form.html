@@ -125,12 +125,17 @@
   function addRow(id, name, owners, minutes) {
     owners = owners || [];
     var tr = document.createElement('tr');
+    // innerHTML 대신 DOM API로 생성하여 특수문자가 포함된 값에서도 안전하게 동작
     tr.innerHTML =
-      '<td><input type="text" class="form-control form-control-sm id-input" value="' + (id || '') + '" placeholder="TC-001" required></td>' +
-      '<td><input type="text" class="form-control form-control-sm name-input" value="' + (name || '') + '" placeholder="시험항목명"></td>' +
-      '<td><input type="text" class="form-control form-control-sm owners-input" value="' + owners.join(', ') + '" placeholder="작성자 (쉼표 구분)"></td>' +
-      '<td><input type="number" class="form-control form-control-sm min-input" value="' + (minutes || 0) + '" min="0" step="1"></td>' +
+      '<td><input type="text" class="form-control form-control-sm id-input" placeholder="TC-001" required></td>' +
+      '<td><input type="text" class="form-control form-control-sm name-input" placeholder="시험항목명"></td>' +
+      '<td><input type="text" class="form-control form-control-sm owners-input" placeholder="작성자 (쉼표 구분)"></td>' +
+      '<td><input type="number" class="form-control form-control-sm min-input" min="0" step="1"></td>' +
       '<td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-id">&times;</button></td>';
+    tr.querySelector('.id-input').value = id || '';
+    tr.querySelector('.name-input').value = name || '';
+    tr.querySelector('.owners-input').value = owners.join(', ');
+    tr.querySelector('.min-input').value = minutes || 0;
     tbody.appendChild(tr);
     tr.querySelector('.min-input').addEventListener('input', updateTotal);
     tr.querySelector('.btn-remove-id').addEventListener('click', function() {

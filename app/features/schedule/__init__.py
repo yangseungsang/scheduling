@@ -10,17 +10,17 @@ from app.features.schedule.routes import (
     tasks_bp,
     admin_bp,
     sync_bp,
-    register_routes,
+    register_schedule_routes,
 )
 
 
 def register_blueprints(app):
     """스케줄 관련 모든 블루프린트를 Flask 앱에 등록한다.
 
-    routes 패키지의 register_routes 함수에 위임하여
+    routes 패키지의 register_schedule_routes 함수에 위임하여
     schedule_bp, tasks_bp, admin_bp, sync_bp를 일괄 등록한다.
 
     Args:
         app (Flask): 블루프린트를 등록할 Flask 앱 인스턴스
     """
-    register_routes(app)
+    register_schedule_routes(app)

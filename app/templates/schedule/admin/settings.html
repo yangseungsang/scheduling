@@ -75,8 +75,8 @@
         <div class="col-md-4">
           <label class="form-label">블록 색상 기준</label>
           <select class="form-select" name="block_color_by">
+            <option value="location" {{ 'selected' if settings.block_color_by == 'location' }}>장소</option>
             <option value="assignee" {{ 'selected' if settings.block_color_by == 'assignee' }}>담당자</option>
-            <option value="category" {{ 'selected' if settings.block_color_by == 'category' }}>카테고리</option>
           </select>
         </div>
       </div>

@@ -35,7 +35,7 @@
          data-assignee-name="{{ task.assignee_name }}"
          data-queue-color="{{ queue_color }}"
          data-test-list='{{ task.test_list|tojson }}'>
-      <div class="queue-card-color" style="background:{{ task.location_color if not task.get('is_simple') else '#94a3b8' }}"></div>
+      <div class="queue-card-color" style="background:{{ queue_color if not task.get('is_simple') else '#94a3b8' }}"></div>
       <div class="queue-card-body">
         <div class="queue-card-top">
           <span class="queue-card-section-title">{{ task.section_name }}</span>

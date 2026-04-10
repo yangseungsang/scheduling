@@ -14,7 +14,7 @@
   var timeToMin = App.timeToMin;
   var minToTime = App.minToTime;
   var snapMin = App.snapMin;
-  var GRID_MINUTES = App.GRID_MINUTES;
+  // GRID_MINUTES는 App.GRID_MINUTES를 직접 참조 (initAll에서 갱신되므로 캡처하지 않음)
   var SLOT_HEIGHT = App.SLOT_HEIGHT;
 
   // =====================================================================
@@ -45,7 +45,7 @@
         var blockMin = Math.round(remaining);
         blockMin = Math.max(blockMin, 1); // 최소 1분
         // 고스트 요소 높이 계산 (시간 비례)
-        var expectedHeight = (blockMin / GRID_MINUTES) * SLOT_HEIGHT;
+        var expectedHeight = (blockMin / App.GRID_MINUTES) * SLOT_HEIGHT;
 
         startDrag(e, {
           sourceEl: item,

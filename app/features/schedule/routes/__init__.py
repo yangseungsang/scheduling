@@ -15,7 +15,7 @@ from app.features.schedule.routes.sync import sync_bp
 import app.features.schedule.routes.calendar_api  # noqa: F401
 
 
-def register_routes(app):
+def register_schedule_routes(app):
     """모든 스케줄 관련 블루프린트를 Flask 앱에 등록한다.
 
     Args:

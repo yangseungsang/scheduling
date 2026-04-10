@@ -185,12 +185,10 @@
               ' <span class="bd-sub">(잔여 ' + (task.remaining_minutes || 0) + '분)</span>' +
             '</td></tr>' +
             '<tr><td class="bd-k">시험장소</td><td class="bd-v">' + (locationName || '-') + '</td></tr>' +
-            (startTime ? '<tr><td class="bd-k">배치 시간</td><td class="bd-v">' + startTime + ' – ' + endTime +
-              // 배치 시간의 실제 소요 시간(분) 계산하여 표시
-              (function() {
-                var s = App.timeToMin(startTime), e = App.timeToMin(endTime);
-                return (s >= 0 && e > s) ? ' <span class="bd-sub">(' + (e - s) + '분)</span>' : '';
-              })() +
+            (startTime ? '<tr><td class="bd-k">배치 시간</td><td class="bd-v" style="white-space:nowrap">' +
+              '<input type="time" id="bd-start-time" value="' + startTime + '" style="font-size:0.82rem;border:1px solid #d1d5db;border-radius:3px;padding:1px 3px;width:90px"> – ' +
+              '<input type="time" id="bd-end-time" value="' + endTime + '" style="font-size:0.82rem;border:1px solid #d1d5db;border-radius:3px;padding:1px 3px;width:90px">' +
+              ' <span class="bd-sub" id="bd-time-dur"></span>' +
             '</td></tr>' : '') +
             '<tr><td class="bd-k">시험 담당자</td><td class="bd-v">' + (assigneeName || '-') + '</td></tr>' +
             '<tr><td class="bd-k">상태</td><td class="bd-v">' + taskStatusLabel + '</td></tr>' +
@@ -216,16 +214,43 @@
         if (ev.target === overlay) overlay.remove();
       });
 
-      // 저장 버튼 클릭 — 메모를 서버에 저장
+      // 배치 시간 인풋이 있으면 실시간 소요시간 표시
+      var startInput = document.getElementById('bd-start-time');
+      var endInput = document.getElementById('bd-end-time');
+      var durSpan = document.getElementById('bd-time-dur');
+      function updateDurDisplay() {
+        if (!startInput || !endInput || !durSpan) return;
+        var s = App.timeToMin(startInput.value), e = App.timeToMin(endInput.value);
+        durSpan.textContent = (s >= 0 && e > s) ? '(' + (e - s) + '분)' : '';
+      }
+      if (startInput) { startInput.addEventListener('input', updateDurDisplay); endInput.addEventListener('input', updateDurDisplay); updateDurDisplay(); }
+
+      // 저장 버튼 클릭 — 메모 및 배치 시간 저장
       document.getElementById('bd-save').addEventListener('click', function () {
         var newMemo = document.getElementById('bd-memo').value;
-        var updates = { memo: newMemo };
+        var newStart = startInput ? startInput.value : startTime;
+        var newEnd = endInput ? endInput.value : endTime;
 
-        api('PUT', '/tasks/api/' + taskId + '/update', Object.assign({}, task, updates))
+        // 배치 시간 유효성 확인
+        if (newStart && newEnd && App.timeToMin(newStart) >= App.timeToMin(newEnd)) {
+          showToast('종료 시간은 시작 시간보다 늦어야 합니다.', 'danger');
+          return;
+        }
+
+        // 블록 시간 변경 (blockId가 있고 시간이 바뀐 경우)
+        var timeChanged = blockId && newStart && newEnd && (newStart !== startTime || newEnd !== endTime);
+        var blockSave = timeChanged
+          ? api('PUT', '/schedule/api/blocks/' + blockId, { start_time: newStart, end_time: newEnd })
+          : Promise.resolve();
+
+        // 메모 저장
+        var memoSave = api('PUT', '/tasks/api/' + taskId + '/update', Object.assign({}, task, { memo: newMemo }));
+
+        Promise.all([blockSave, memoSave])
           .then(function () {
             showToast('저장되었습니다.', 'success');
             overlay.remove();
-            setTimeout(function () { location.reload(); }, 300);
+            App.softReload();
           })
           .catch(function (err) { showToast(err.message, 'danger'); });
       });

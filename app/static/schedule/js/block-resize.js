@@ -13,7 +13,7 @@
   var timeToMin = App.timeToMin;
   var minToTime = App.minToTime;
   var workMinutes = App.workMinutes;
-  var GRID_MINUTES = App.GRID_MINUTES;
+  // GRID_MINUTES는 App.GRID_MINUTES를 직접 참조 (initAll에서 갱신되므로 캡처하지 않음)
   var SLOT_HEIGHT = App.SLOT_HEIGHT;
 
   // =====================================================================
@@ -90,8 +90,8 @@
           // 픽셀 위치 → 슬롯 수 → 시간(분)으로 변환
           var slotFromTop = Math.round(finalTop / SLOT_HEIGHT);
           var slotCount = Math.round(finalH / SLOT_HEIGHT);
-          var newStartMin = wsMin + slotFromTop * GRID_MINUTES;
-          var durMin = slotCount * GRID_MINUTES;
+          var newStartMin = wsMin + slotFromTop * App.GRID_MINUTES;
+          var durMin = slotCount * App.GRID_MINUTES;
 
           var newStart = minToTime(newStartMin);
           var newEnd = minToTime(newStartMin + durMin);

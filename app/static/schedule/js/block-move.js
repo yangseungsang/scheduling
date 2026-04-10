@@ -16,7 +16,7 @@
   var minToTime = App.minToTime;
   var workMinutes = App.workMinutes;
   var snapMin = App.snapMin;
-  var GRID_MINUTES = App.GRID_MINUTES;
+  // GRID_MINUTES는 App.GRID_MINUTES를 직접 참조 (initAll에서 갱신되므로 캡처하지 않음)
   var SLOT_HEIGHT = App.SLOT_HEIGHT;
 
   // =====================================================================
@@ -41,7 +41,7 @@
         // 휴식 시간 제외한 실제 업무 시간 계산
         var durationMin = workMinutes(timeToMin(startTime), timeToMin(endTime));
         // 고스트 높이: 블록의 실제 높이 또는 시간 비례 계산
-        var ghostH = block.offsetHeight || (durationMin / GRID_MINUTES) * SLOT_HEIGHT;
+        var ghostH = block.offsetHeight || (durationMin / App.GRID_MINUTES) * SLOT_HEIGHT;
 
         startDrag(e, {
           sourceEl: block,

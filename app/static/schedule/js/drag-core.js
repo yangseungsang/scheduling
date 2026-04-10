@@ -19,7 +19,7 @@
   var highlightedZone = null;
 
   // utils.js에서 가져온 단축 참조
-  var GRID_MINUTES = App.GRID_MINUTES;
+  // GRID_MINUTES는 App.GRID_MINUTES를 직접 참조 (initAll에서 갱신되므로 캡처하지 않음)
   var SLOT_HEIGHT = App.SLOT_HEIGHT;
   var isReadonly = App.isReadonly;
 
