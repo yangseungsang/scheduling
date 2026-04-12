@@ -145,7 +145,8 @@ class TestSyncTestData:
             def get_test_data_all(self):
                 return [
                     {
-                        'section_name': '3.1 시스템',
+                        'doc_id': 1,
+                        'doc_name': '시스템',
                         'version_id': 'VER-001',
                         'identifiers': [
                             {'id': 'TC-001', 'estimated_minutes': 120, 'owners': []},
@@ -163,10 +164,10 @@ class TestSyncTestData:
             tasks = task.get_all()
             assert len(tasks) == 1
             t = tasks[0]
-            assert t['source'] == 'external'
-            assert t['external_key'] == '3.1 시스템::VER-001'
+            assert t['doc_id'] == 1
+            assert t['doc_name'] == '시스템'
             assert t['estimated_minutes'] == 210
-            assert len(t['test_list']) == 2
+            assert len(t['identifiers']) == 2
 
     def test_sync_updates_existing_task_identifiers(self):
         class MockProvider(BaseProvider):
@@ -175,7 +176,8 @@ class TestSyncTestData:
             def get_test_data(self, version_id):
                 return [
                     {
-                        'section_name': '3.1 시스템',
+                        'doc_id': 1,
+                        'doc_name': '시스템',
                         'version_id': 'VER-001',
                         'identifiers': [
                             {'id': 'TC-001', 'estimated_minutes': 300, 'owners': ['Alice']},
@@ -188,29 +190,26 @@ class TestSyncTestData:
         with self.app.app_context():
             # Pre-create a task with assignee and location set
             task.create(
-                procedure_id='EXT-001',
+                doc_id=1,
                 version_id='VER-001',
-                assignee_ids=['u_abc'],
+                assignee_names=['홍길동'],
                 location_id='loc_xyz',
-                section_name='3.1 시스템',
-                procedure_owner='Owner',
-                test_list=[{'id': 'TC-OLD', 'estimated_minutes': 60, 'owners': []}],
+                doc_name='시스템',
+                identifiers=[{'id': 'TC-OLD', 'estimated_minutes': 60, 'owners': []}],
                 estimated_minutes=60,
-                source='external',
-                external_key='3.1 시스템::VER-001',
             )
 
             result = SyncService.sync_test_data(MockProvider(), version_id='VER-001')
             assert result['updated'] == 1
             assert result['added'] == 0
 
-            t = task.get_by_external_key('3.1 시스템::VER-001')
-            # test_list and estimated_minutes should be updated
-            assert len(t['test_list']) == 1
-            assert t['test_list'][0]['id'] == 'TC-001'
+            t = task.get_by_doc_id(1)
+            # identifiers and estimated_minutes should be updated
+            assert len(t['identifiers']) == 1
+            assert t['identifiers'][0]['id'] == 'TC-001'
             assert t['estimated_minutes'] == 300
-            # assignee_ids and location_id should be preserved
-            assert t['assignee_ids'] == ['u_abc']
+            # assignee_names and location_id should be preserved
+            assert t['assignee_names'] == ['홍길동']
             assert t['location_id'] == 'loc_xyz'
 
     def test_sync_cancels_removed_task(self):
@@ -224,22 +223,19 @@ class TestSyncTestData:
 
         with self.app.app_context():
             task.create(
-                procedure_id='EXT-001',
+                doc_id=1,
                 version_id='VER-001',
-                assignee_ids=[],
+                assignee_names=[],
                 location_id='',
-                section_name='3.1 시스템',
-                procedure_owner='',
-                test_list=[],
+                doc_name='시스템',
+                identifiers=[],
                 estimated_minutes=0,
-                source='external',
-                external_key='3.1 시스템::VER-001',
             )
 
             result = SyncService.sync_test_data(MockProvider())
             assert result['cancelled'] == 1
 
-            t = task.get_by_external_key('3.1 시스템::VER-001')
+            t = task.get_by_doc_id(1)
             assert t['status'] == 'cancelled'
 
 
@@ -277,4 +273,4 @@ class TestSyncAPI:
             assert resp.status_code == 200
             data = resp.get_json()
             assert 'versions' in data
-            assert 'external_tasks' in data
+            assert 'tasks' in data

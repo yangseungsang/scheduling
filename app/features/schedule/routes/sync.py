@@ -87,19 +87,11 @@ def reset_and_sync():
 def sync_status():
     """현재 동기화 상태를 조회한다.
 
-    로컬에 저장된 버전 수, 외부 동기화된 태스크 수,
-    로컬 생성 태스크 수를 반환한다.
-
     Returns:
-        JSON: {versions: int, external_tasks: int, local_tasks: int}
+        JSON: {versions: int, tasks: int}
     """
     from app.features.schedule.models import version, task
-    versions = version.get_all()
-    tasks = task.get_all()
-    # source가 'external'인 태스크는 외부 동기화로 생성된 것
-    external_tasks = [t for t in tasks if t.get('source') == 'external']
     return jsonify({
-        'versions': len(versions),
-        'external_tasks': len(external_tasks),
-        'local_tasks': len(tasks) - len(external_tasks),
+        'versions': len(version.get_all()),
+        'tasks': len(task.get_all()),
     })

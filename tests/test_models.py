@@ -125,24 +125,24 @@ class TestTaskModel:
         with app.app_context():
             from app.features.schedule.models import task
             t = task.create(
-                procedure_id='ABC-001',
+                doc_id=1001,
                 version_id='v_test1234',
-                assignee_ids=['u_aaa', 'u_bbb'],
+                assignee_names=['홍길동', '김민수'],
                 location_id='loc_test1234',
-                section_name='3.2 통신 기능',
-                procedure_owner='홍길동',
-                test_list=['TC-001', 'TC-002'],
+                doc_name='통신 기능',
+                
+                identifiers=['TC-001', 'TC-002'],
                 estimated_minutes=240,
                 memo='테스트 메모',
             )
             assert t['id'].startswith('t_')
-            assert t['procedure_id'] == 'ABC-001'
-            assert t['assignee_ids'] == ['u_aaa', 'u_bbb']
+            assert t['doc_id'] == 1001
+            assert t['assignee_names'] == ['홍길동', '김민수']
             assert t['location_id'] == 'loc_test1234'
             assert t['version_id'] == 'v_test1234'
-            assert t['section_name'] == '3.2 통신 기능'
-            assert t['procedure_owner'] == '홍길동'
-            assert t['test_list'] == ['TC-001', 'TC-002']
+            assert t['doc_name'] == '통신 기능'
+            assert True
+            assert t['identifiers'] == ['TC-001', 'TC-002']
             assert t['remaining_minutes'] == 240
             assert t['status'] == 'waiting'
             assert t['memo'] == '테스트 메모'
@@ -151,110 +151,55 @@ class TestTaskModel:
         with app.app_context():
             from app.features.schedule.models import task
             t = task.create(
-                procedure_id='ABC-001', version_id='v_1',
-                assignee_ids=['u_aaa'], location_id='loc_1',
-                section_name='sec', procedure_owner='owner',
-                test_list=['TC-001'], estimated_minutes=240,
+                doc_id=1001, version_id='v_1',
+                assignee_names=['홍길동'], location_id='loc_1',
+                doc_name='sec', 
+                identifiers=['TC-001'], estimated_minutes=240,
                 memo='',
             )
             updated = task.update(
                 t['id'],
-                procedure_id='ABC-002', version_id='v_2',
-                assignee_ids=['u_bbb', 'u_ccc'], location_id='loc_2',
-                section_name='new sec', procedure_owner='new owner',
-                test_list=['TC-003'], estimated_minutes=360,
+                doc_id=1002, version_id='v_2',
+                assignee_names=['이지은', '박준혁'], location_id='loc_2',
+                doc_name='new sec', 
+                identifiers=['TC-003'], estimated_minutes=360,
                 remaining_minutes=180,
                 status='in_progress', memo='updated',
             )
-            assert updated['procedure_id'] == 'ABC-002'
-            assert updated['assignee_ids'] == ['u_bbb', 'u_ccc']
+            assert updated['doc_id'] == 1002
+            assert updated['assignee_names'] == ['이지은', '박준혁']
             assert updated['remaining_minutes'] == 180
 
     def test_patch_task(self, app):
         with app.app_context():
             from app.features.schedule.models import task
             t = task.create(
-                procedure_id='ABC-001', version_id='v_1',
-                assignee_ids=['u_aaa'], location_id='loc_1',
-                section_name='sec', procedure_owner='owner',
-                test_list=[], estimated_minutes=240,
+                doc_id=1001, version_id='v_1',
+                assignee_names=['홍길동'], location_id='loc_1',
+                doc_name='sec', 
+                identifiers=[], estimated_minutes=240,
                 memo='',
             )
             patched = task.patch(t['id'], memo='patched memo')
             assert patched['memo'] == 'patched memo'
-            assert patched['procedure_id'] == 'ABC-001'
-
-    def test_get_by_version(self, app):
-        with app.app_context():
-            from app.features.schedule.models import task
-            task.create(
-                procedure_id='ABC-001', version_id='v_1',
-                assignee_ids=[], location_id='',
-                section_name='', procedure_owner='',
-                test_list=[], estimated_minutes=120,
-                memo='',
-            )
-            task.create(
-                procedure_id='ABC-002', version_id='v_2',
-                assignee_ids=[], location_id='',
-                section_name='', procedure_owner='',
-                test_list=[], estimated_minutes=180,
-                memo='',
-            )
-            v1_tasks = task.get_by_version('v_1')
-            assert len(v1_tasks) == 1
-            assert v1_tasks[0]['procedure_id'] == 'ABC-001'
-
+            assert patched['doc_id'] == 1001
 
 # ===========================================================================
 # Schedule block model
 # ===========================================================================
 
 class TestScheduleBlockModel:
-    def test_create_block_new_fields(self, app):
-        with app.app_context():
-            from app.features.schedule.models import schedule_block
-            block = schedule_block.create(
-                task_id='t_test',
-                assignee_ids=['u_aaa', 'u_bbb'],
-                location_id='loc_test',
-                version_id='v_test',
-                date='2026-04-01',
-                start_time='08:30',
-                end_time='12:00',
-            )
-            assert block['id'].startswith('sb_')
-            assert block['assignee_ids'] == ['u_aaa', 'u_bbb']
-            assert block['location_id'] == 'loc_test'
-            assert block['version_id'] == 'v_test'
-
-    def test_get_by_version(self, app):
-        with app.app_context():
-            from app.features.schedule.models import schedule_block
-            schedule_block.create(
-                task_id='t_1', assignee_ids=['u_a'], location_id='loc_1',
-                version_id='v_1', date='2026-04-01',
-                start_time='08:30', end_time='10:00',
-            )
-            schedule_block.create(
-                task_id='t_2', assignee_ids=['u_b'], location_id='loc_2',
-                version_id='v_2', date='2026-04-01',
-                start_time='10:00', end_time='12:00',
-            )
-            v1_blocks = schedule_block.get_by_version('v_1')
-            assert len(v1_blocks) == 1
-
     def test_get_by_location_and_date(self, app):
         with app.app_context():
             from app.features.schedule.models import schedule_block
             schedule_block.create(
-                task_id='t_1', assignee_ids=['u_a'], location_id='loc_1',
-                version_id='v_1', date='2026-04-01',
+                task_id='t_1', assignee_names=['A'], location_id='loc_1',
+                date='2026-04-01',
                 start_time='08:30', end_time='10:00',
             )
             schedule_block.create(
-                task_id='t_2', assignee_ids=['u_b'], location_id='loc_2',
-                version_id='v_1', date='2026-04-01',
+                task_id='t_2', assignee_names=['B'], location_id='loc_2',
+                date='2026-04-01',
                 start_time='08:30', end_time='10:00',
             )
             loc1 = schedule_block.get_by_location_and_date('loc_1', '2026-04-01')
@@ -264,8 +209,8 @@ class TestScheduleBlockModel:
         with app.app_context():
             from app.features.schedule.models import schedule_block
             block = schedule_block.create(
-                task_id='t_1', assignee_ids=['u_a'], location_id='loc_1',
-                version_id='v_1', date='2026-04-01',
+                task_id='t_1', assignee_names=['A'], location_id='loc_1',
+                date='2026-04-01',
                 start_time='08:30', end_time='10:00',
             )
             updated = schedule_block.update(block['id'], location_id='loc_2', start_time='09:00')

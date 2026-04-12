@@ -26,7 +26,7 @@ class ScheduleBlockRepository(BaseRepository):
     # patch로 수정 가능한 필드를 명시적으로 제한 (보안 및 무결성 보호)
     ALLOWED_FIELDS = {
         'date', 'start_time', 'end_time', 'is_locked',
-        'block_status', 'task_id', 'assignee_ids', 'location_id',
+        'block_status', 'task_id', 'assignee_names', 'location_id',
         'memo', 'identifier_ids', 'title', 'is_simple',
         'overflow_minutes',
     }
@@ -60,17 +60,17 @@ class ScheduleBlockRepository(BaseRepository):
         ]
 
     @classmethod
-    def get_by_assignee(cls, assignee_id):
+    def get_by_assignee(cls, assignee_name):
         """특정 담당자가 포함된 모든 블록을 조회한다.
 
         Args:
-            assignee_id: 담당자 ID
+            assignee_name: 담당자 이름
 
         Returns:
             list[dict]: 해당 담당자가 배정된 블록 리스트
         """
         return [b for b in cls.get_all()
-                if assignee_id in b.get('assignee_ids', [])]
+                if assignee_name in b.get('assignee_names', [])]
 
     @classmethod
     def get_by_location_and_date(cls, location_id, date_str):
@@ -89,7 +89,7 @@ class ScheduleBlockRepository(BaseRepository):
         ]
 
     @classmethod
-    def create(cls, task_id, assignee_ids, location_id,
+    def create(cls, task_id, assignee_names, location_id,
                date, start_time, end_time,
                is_locked=False,
                block_status='pending', identifier_ids=None,
@@ -98,7 +98,7 @@ class ScheduleBlockRepository(BaseRepository):
 
         Args:
             task_id: 연결된 태스크 ID (간단 블록이면 None 가능)
-            assignee_ids: 시험 담당자 ID 리스트
+            assignee_names: 시험 담당자 ID 리스트
             location_id: 시험 장소 ID
             date: 배치 날짜 (예: '2026-04-07')
             start_time: 시작 시간 (예: '09:00')
@@ -117,7 +117,7 @@ class ScheduleBlockRepository(BaseRepository):
         """
         data = {
             'task_id': task_id,
-            'assignee_ids': assignee_ids or [],
+            'assignee_names': assignee_names or [],
             'location_id': location_id,
             'date': date,
             'start_time': start_time,

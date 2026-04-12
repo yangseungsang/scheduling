@@ -1,57 +1,14 @@
 [
   {
-    "task_id": "t_001",
-    "assignee_ids": [
-      "u_001",
-      "u_002"
+    "task_id": "t_003",
+    "assignee_names": [
+      "박준혁",
+      "최수연"
     ],
     "location_id": "loc_001",
-    "date": "2026-04-06",
-    "start_time": "09:40",
-    "end_time": "10:40",
-    "is_locked": false,
-    "block_status": "pending",
-    "memo": "",
-    "identifier_ids": [
-      "TC-001",
-      "TC-003"
-    ],
-    "title": "",
-    "is_simple": false,
-    "overflow_minutes": 0,
-    "id": "sb_e7db8f95"
-  },
-  {
-    "task_id": "t_001",
-    "assignee_ids": [
-      "u_001",
-      "u_002"
-    ],
-    "location_id": "loc_002",
-    "date": "2026-04-06",
-    "start_time": "09:50",
-    "end_time": "10:33",
-    "is_locked": false,
-    "block_status": "pending",
-    "memo": "",
-    "identifier_ids": [
-      "TC-002"
-    ],
-    "title": "",
-    "is_simple": false,
-    "overflow_minutes": 0,
-    "id": "sb_be15040f"
-  },
-  {
-    "task_id": "t_003",
-    "assignee_ids": [
-      "u_003",
-      "u_004"
-    ],
-    "location_id": "loc_002",
     "date": "2026-04-07",
-    "start_time": "09:00",
-    "end_time": "11:14",
+    "start_time": "11:43",
+    "end_time": "14:57",
     "is_locked": false,
     "block_status": "pending",
     "memo": "",
@@ -63,9 +20,9 @@
   },
   {
     "task_id": "t_006",
-    "assignee_ids": [
-      "u_001",
-      "u_003"
+    "assignee_names": [
+      "김민수",
+      "박준혁"
     ],
     "location_id": "loc_001",
     "date": "2026-04-07",
@@ -82,8 +39,8 @@
   },
   {
     "task_id": "t_005",
-    "assignee_ids": [
-      "u_002"
+    "assignee_names": [
+      "이지은"
     ],
     "location_id": "loc_003",
     "date": "2026-04-07",
@@ -99,34 +56,15 @@
     "id": "sb_9dc02d25"
   },
   {
-    "task_id": "t_004",
-    "assignee_ids": [
-      "u_001",
-      "u_004"
-    ],
-    "location_id": "loc_001",
-    "date": "2026-04-07",
-    "start_time": "09:40",
-    "end_time": "10:40",
-    "is_locked": false,
-    "block_status": "pending",
-    "memo": "",
-    "identifier_ids": null,
-    "title": "",
-    "is_simple": false,
-    "overflow_minutes": 0,
-    "id": "sb_de56d41c"
-  },
-  {
     "task_id": "t_002",
-    "assignee_ids": [
-      "u_002",
-      "u_003"
+    "assignee_names": [
+      "이지은",
+      "박준혁"
     ],
-    "location_id": "loc_001",
-    "date": "2026-04-08",
-    "start_time": "09:30",
-    "end_time": "09:52",
+    "location_id": "loc_002",
+    "date": "2026-04-07",
+    "start_time": "08:30",
+    "end_time": "08:52",
     "is_locked": false,
     "block_status": "pending",
     "memo": "",
@@ -137,5 +75,139 @@
     "is_simple": false,
     "overflow_minutes": 0,
     "id": "sb_0e8a9d03"
+  },
+  {
+    "task_id": "t_010",
+    "assignee_names": [
+      "이지은",
+      "최수연"
+    ],
+    "location_id": "loc_001",
+    "date": "2026-04-06",
+    "start_time": "09:50",
+    "end_time": "11:31",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": null,
+    "title": "",
+    "is_simple": false,
+    "overflow_minutes": 0,
+    "id": "sb_529e7c68"
+  },
+  {
+    "task_id": "t_007",
+    "assignee_names": [
+      "박준혁",
+      "최수연"
+    ],
+    "location_id": "loc_003",
+    "date": "2026-04-06",
+    "start_time": "08:30",
+    "end_time": "09:30",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": null,
+    "title": "",
+    "is_simple": false,
+    "overflow_minutes": 0,
+    "id": "sb_60702b6e"
+  },
+  {
+    "task_id": "t_001",
+    "assignee_names": [
+      "김민수",
+      "이지은"
+    ],
+    "location_id": "loc_003",
+    "date": "2026-04-07",
+    "start_time": "08:40",
+    "end_time": "10:20",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": null,
+    "title": "",
+    "is_simple": false,
+    "overflow_minutes": 0,
+    "id": "sb_aa47d57e"
+  },
+  {
+    "task_id": "t_002",
+    "assignee_names": [
+      "이지은",
+      "박준혁"
+    ],
+    "location_id": "loc_001",
+    "date": "2026-04-07",
+    "start_time": "15:20",
+    "end_time": "15:58",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": [
+      "TC-004"
+    ],
+    "title": "",
+    "is_simple": false,
+    "overflow_minutes": 0,
+    "id": "sb_932070d4"
+  },
+  {
+    "task_id": "t_004",
+    "assignee_names": [
+      "김민수",
+      "최수연"
+    ],
+    "location_id": "loc_001",
+    "date": "2026-04-07",
+    "start_time": "10:40",
+    "end_time": "11:43",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": null,
+    "title": "",
+    "is_simple": false,
+    "overflow_minutes": 0,
+    "id": "sb_2ac66189"
+  },
+  {
+    "task_id": "t_009",
+    "assignee_names": [
+      "김민수",
+      "이지은"
+    ],
+    "location_id": "loc_002",
+    "date": "2026-04-06",
+    "start_time": "08:30",
+    "end_time": "09:34",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": null,
+    "title": "",
+    "is_simple": false,
+    "overflow_minutes": 0,
+    "id": "sb_e712dbfe"
+  },
+  {
+    "task_id": "t_008",
+    "assignee_names": [
+      "최수연"
+    ],
+    "location_id": "loc_001",
+    "date": "2026-04-06",
+    "start_time": "08:30",
+    "end_time": "09:50",
+    "is_locked": false,
+    "block_status": "pending",
+    "memo": "",
+    "identifier_ids": null,
+    "title": "",
+    "is_simple": false,
+    "overflow_minutes": 0,
+    "id": "sb_9d3df13c"
   }
 ]

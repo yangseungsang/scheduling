@@ -15,12 +15,12 @@ def app(tmp_path):
     with open(os.path.join(data_dir, 'procedures.json'), 'w') as f:
         json.dump([
             {
-                'procedure_id': 'SYS-001',
-                'section_name': '3.1 시스템 초기화',
-                'procedure_owner': '김민수',
-                'test_list': [
-                    {'id': 'TC-001', 'estimated_minutes': 0},
-                    {'id': 'TC-002', 'estimated_minutes': 0},
+                'version_id': 'MAE31F',
+                'doc_id': 1,
+                'doc_name': '시스템 초기화',
+                'identifiers': [
+                    {'id': 'TC-001', 'name': '전원 투입', 'owners': ['김민수'], 'estimated_minutes': 12},
+                    {'id': 'TC-002', 'name': '초기화 검증', 'owners': ['김민수'], 'estimated_minutes': 45},
                 ],
             }
         ], f)
@@ -44,12 +44,16 @@ class TestProcedureLookup:
     def test_lookup_existing(self, app):
         with app.app_context():
             from app.features.schedule.services.procedure import lookup
-            result = lookup('SYS-001')
+            result = lookup(1)
             assert result is not None
-            assert result['section_name'] == '3.1 시스템 초기화'
+            assert result['doc_id'] == 1
+            assert result['doc_name'] == '시스템 초기화'
+            assert result['version_id'] == 'MAE31F'
+            assert len(result['identifiers']) == 2
+            assert result['identifiers'][0]['owners'] == ['김민수']
 
     def test_lookup_missing(self, app):
         with app.app_context():
             from app.features.schedule.services.procedure import lookup
-            result = lookup('NONEXIST-001')
-            assert result is None
+            assert lookup(9999) is None
+            assert lookup('not-a-number') is None

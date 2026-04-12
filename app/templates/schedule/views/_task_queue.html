@@ -10,7 +10,7 @@
   </div>
   <div class="queue-search-bar">
     <i class="bi bi-search"></i>
-    <input type="text" id="queue-search" placeholder="장절명, 절차서 ID 검색..." autocomplete="off">
+    <input type="text" id="queue-search" placeholder="문서명, 문서 ID 검색..." autocomplete="off">
   </div>
   <div class="queue-simple-block-add d-flex gap-1">
     <button class="btn btn-sm btn-outline-secondary flex-fill" id="btn-add-task">
@@ -26,19 +26,19 @@
     {% set queue_color = task.location_color if settings.block_color_by == 'location' else task.assignee_color %}
     <div class="queue-task-item"
          data-task-id="{{ task.id }}"
-         data-assignee-ids="{{ task.assignee_ids|join(',') }}"
+         data-assignee-names="{{ task.assignee_names|join(',') }}"
          data-location-id="{{ task.location_id }}"
          data-remaining-minutes="{{ task.remaining_unscheduled_minutes }}"
          data-estimated-minutes="{{ task.estimated_minutes }}"
-         data-title="{{ task.section_name or task.procedure_id }}"
+         data-title="{{ task.doc_name or task.doc_id }}"
          data-location-name="{{ task.location_name }}"
          data-assignee-name="{{ task.assignee_name }}"
          data-queue-color="{{ queue_color }}"
-         data-test-list='{{ task.test_list|tojson }}'>
+         data-identifiers='{{ task.identifiers|tojson }}'>
       <div class="queue-card-color" style="background:{{ queue_color if not task.get('is_simple') else '#94a3b8' }}"></div>
       <div class="queue-card-body">
         <div class="queue-card-top">
-          <span class="queue-card-section-title">{{ task.section_name }}</span>
+          <span class="queue-card-section-title">{{ task.doc_name }}</span>
           {% if task.get('is_simple') %}<span class="badge bg-secondary" style="font-size:0.6rem;vertical-align:middle;margin-left:4px">준비</span>{% endif %}
         </div>
         <div class="queue-card-hours">

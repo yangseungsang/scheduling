@@ -19,7 +19,7 @@ class TestEnrichBlocks:
         assert len(data['blocks']) >= 1
 
         block = data['blocks'][0]
-        assert block['section_name'] == '3.1 시스템'
+        assert block['doc_name'] == '시스템'
         assert block['location_name'] == '시험실A'
         assert 'color' in block
 
@@ -32,7 +32,7 @@ class TestEnrichBlocks:
         # Place block with only TC-001 (task has TC-001 + TC-002)
         r = client.post('/schedule/api/blocks', json={
             'task_id': tid,
-            'assignee_ids': [uid],
+            'assignee_names': [uid],
             'date': '2026-03-10',
             'start_time': '09:00',
             'end_time': '10:00',
@@ -88,7 +88,7 @@ class TestQueueTasks:
         tid = _create_task(client, uid, version_id=vid, hours='4')
 
         client.post('/schedule/api/blocks', json={
-            'task_id': tid, 'assignee_ids': [uid],
+            'task_id': tid, 'assignee_names': [uid],
             'date': '2026-03-10', 'start_time': '10:00', 'end_time': '11:00',
             'identifier_ids': ['TC-001'],
         })

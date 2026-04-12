@@ -17,7 +17,7 @@ class TestBlockCreate:
         data, status = _create_block(client, tid, uid)
         assert status == 201
         assert data['task_id'] == tid
-        assert uid in data['assignee_ids']
+        assert uid in data['assignee_names']
 
     def test_create_simple_block(self, client):
         r = client.post('/schedule/api/simple-blocks', json={
@@ -26,7 +26,7 @@ class TestBlockCreate:
         })
         assert r.status_code == 201
         t = r.get_json()
-        assert t['section_name'] == '회의'
+        assert t['doc_name'] == '회의'
         # Verify the task was marked as simple
         task_r = client.get(f'/tasks/api/{t["id"]}')
         assert task_r.get_json()['task']['is_simple'] is True
@@ -45,7 +45,7 @@ class TestBlockCreate:
         tid = _create_task(client, uid, hours='4')
         payload = {
             'task_id': tid,
-            'assignee_ids': [uid],
+            'assignee_names': [uid],
             'date': '2026-03-10',
             'start_time': '09:00',
             'end_time': '11:00',

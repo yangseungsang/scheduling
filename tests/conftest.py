@@ -54,13 +54,16 @@ def client(app):
 # ===========================================================================
 
 def _create_user(client, name='홍길동', role='개발자', color='#4A90D9'):
-    """Helper: create a user via form and return the user_id."""
+    """Helper: create a user via form and return the user **name**.
+
+    신 스키마에서는 담당자 참조가 이름 기반이므로 id 대신 name을 반환한다.
+    기존 테스트에서 `uid = _create_user(client)`로 받은 값은 그대로
+    assignee_names 리스트에 넣을 수 있다.
+    """
     client.post('/admin/users/new', data={
         'name': name, 'role': role, 'color': color,
     })
-    r = client.get('/admin/users')
-    ids = re.findall(r'/admin/users/(u_\w+)/edit', r.data.decode())
-    return ids[-1]
+    return name
 
 
 def _create_location(client, name='A', color='#28a745', description='시험실'):
@@ -81,24 +84,33 @@ def _create_version(client, name='v1.0.0', description='테스트'):
     return r.get_json()['id']
 
 
+_TASK_DOC_COUNTER = [100]
+
+
 def _create_task(client, uid_list, loc_id='', version_id='',
-                 procedure_id='SYS-001', hours='4'):
-    """Helper: create a task via form and return the task_id."""
+                 doc_id=None, hours='4', **_legacy):
+    """Helper: create a task via form and return the task_id.
+
+    `uid_list`는 과거엔 사용자 ID 리스트였지만 신 스키마에서는 담당자 **이름** 리스트다.
+    테스트 호환을 위해 값은 그대로 넘긴다 — users 픽스처는 실제 이름을 만든다.
+    """
     if isinstance(uid_list, str):
         uid_list = [uid_list]
+    if doc_id is None:
+        _TASK_DOC_COUNTER[0] += 1
+        doc_id = _TASK_DOC_COUNTER[0]
     total_minutes = round(float(hours) * 60)
-    test_list = [
+    identifiers = [
         {'id': 'TC-001', 'estimated_minutes': total_minutes // 2, 'owners': []},
         {'id': 'TC-002', 'estimated_minutes': total_minutes - total_minutes // 2, 'owners': []},
     ]
     data = {
-        'procedure_id': procedure_id,
+        'doc_id': str(doc_id),
         'version_id': version_id,
-        'assignee_ids': uid_list,
+        'assignee_names': uid_list,
         'location_id': loc_id,
-        'section_name': '3.1 시스템',
-        'procedure_owner': '담당자',
-        'test_list_json': json.dumps(test_list),
+        'doc_name': '시스템',
+        'identifiers_json': json.dumps(identifiers),
         'estimated_minutes': str(total_minutes),
         'memo': '',
     }
@@ -114,7 +126,7 @@ def _create_block(client, tid, uid_list, date_str='2026-03-10',
     if isinstance(uid_list, str):
         uid_list = [uid_list]
     payload = {
-        'task_id': tid, 'assignee_ids': uid_list,
+        'task_id': tid, 'assignee_names': uid_list,
         'date': date_str, 'start_time': start, 'end_time': end,
     }
     payload.update(kwargs)

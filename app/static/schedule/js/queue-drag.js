@@ -29,17 +29,17 @@
     document.querySelectorAll('.queue-task-item[data-task-id]').forEach(function (item) {
       item.addEventListener('mousedown', function (e) {
         var taskId = item.dataset.taskId;
-        // 담당자 ID 배열 파싱 (쉼표 구분 문자열)
-        var assigneeIds = item.dataset.assigneeIds ? item.dataset.assigneeIds.split(',').filter(Boolean) : [];
+        // 담당자 이름 배열 파싱 (쉼표 구분 문자열)
+        var assigneeNames = item.dataset.assigneeNames ? item.dataset.assigneeNames.split(',').filter(Boolean) : [];
         var locationId = item.dataset.locationId || '';
         // 잔여 시간(분) — 블록 길이 결정에 사용
         var remaining = parseFloat(item.dataset.remainingMinutes) || 1;
         var title = (item.querySelector('.queue-card-section-title') || item.querySelector('.queue-card-id') || {}).textContent || '';
 
         // 식별자 목록 파싱 (JSON 배열)
-        var testListRaw = item.dataset.testList || '[]';
+        var identifiersRaw = item.dataset.identifiers || '[]';
         var testList = [];
-        try { testList = JSON.parse(testListRaw); } catch(e2) {}
+        try { testList = JSON.parse(identifiersRaw); } catch(e2) {}
 
         // 블록 길이를 잔여 시간(분)으로 설정
         var blockMin = Math.round(remaining);
@@ -118,7 +118,7 @@
                 getTaskRemaining(taskId).then(function (r) {
                   prevRem = r;
                   var payload = {
-                    task_id: taskId, assignee_ids: assigneeIds,
+                    task_id: taskId, assignee_names: assigneeNames,
                     location_id: dropLocationId,
                     date: target.date,
                     start_time: minToTime(startMin),

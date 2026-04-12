@@ -10,8 +10,8 @@ import io
 from datetime import date, datetime, timedelta
 
 
-# 내보내기 열 헤더 (날짜와 장절명만 포함)
-HEADERS = ['날짜', '장절명']
+# 내보내기 열 헤더 (날짜와 문서명만 포함)
+HEADERS = ['날짜', '문서명']
 
 
 def _block_to_row(b):
@@ -21,11 +21,11 @@ def _block_to_row(b):
         b: 보강된 스케줄 블록 딕셔너리.
 
     Returns:
-        list: [날짜, 장절명(또는 태스크 제목)] 형태의 리스트.
+        list: [날짜, 문서명(또는 태스크 제목)] 형태의 리스트.
     """
     return [
         b.get('date', ''),
-        b.get('section_name', '') or b.get('task_title', ''),
+        b.get('doc_name', '') or b.get('task_title', ''),
     ]
 
 
@@ -139,14 +139,14 @@ def export_xlsx(enriched_blocks, start_date, end_date):
                 cell.fill = weekend_fill
         row += 1
 
-        # 내용 행: 해당 날짜의 장절명을 줄바꿈으로 합쳐서 표시
+        # 내용 행: 해당 날짜의 문서명을 줄바꿈으로 합쳐서 표시
         max_lines = 1
         for i in range(7):
             day = current + timedelta(days=i)
             day_blocks = blocks_by_date.get(day.isoformat(), [])
             sections = []
             for b in day_blocks:
-                section = b.get('section_name', '') or b.get('task_title', '')
+                section = b.get('doc_name', '') or b.get('task_title', '')
                 if section:
                     sections.append(section)
 

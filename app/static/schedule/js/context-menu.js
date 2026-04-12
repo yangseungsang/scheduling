@@ -109,7 +109,7 @@
           ]).then(function (results) {
             var tsk = results[0].task;
             var allBlocks = (results[1] && results[1].blocks) || [];
-            if (!tsk || !tsk.test_list || tsk.test_list.length < 2) {
+            if (!tsk || !tsk.identifiers || tsk.identifiers.length < 2) {
               showToast('식별자가 2개 이상이어야 분리할 수 있습니다.', 'danger');
               return;
             }
@@ -128,13 +128,13 @@
                 if (b.id === blockId || !b.identifier_ids) return;
                 b.identifier_ids.forEach(function (id) { otherIds[id] = true; });
               });
-              currentIds = tsk.test_list
+              currentIds = tsk.identifiers
                 .map(function(it) { return typeof it === 'object' ? it.id : it; })
                 .filter(function(id) { return !otherIds[id]; });
             }
 
             // 현재 블록의 식별자만으로 test_list 필터링
-            var blockTestList = tsk.test_list.filter(function(it) {
+            var blockTestList = tsk.identifiers.filter(function(it) {
               var iid = typeof it === 'object' ? it.id : it;
               return currentIds.indexOf(iid) !== -1;
             });

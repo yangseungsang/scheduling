@@ -42,13 +42,14 @@ def _section_color(section_name):
 
 
 def build_maps():
-    """사용자·태스크·장소 데이터를 ID→객체 딕셔너리로 변환한다.
+    """사용자·태스크·장소 데이터를 조회 키→객체 딕셔너리로 변환한다.
 
     시간표 렌더링 시 반복적인 조회를 피하기 위해 미리 맵을 구성한다.
+    담당자 참조는 이름 기반이므로 users_map은 이름을 키로 사용한다.
 
     Returns:
         tuple: (users_map, tasks_map, locations_map)
-            - users_map: {user_id: user_dict}
+            - users_map: {user_name: user_dict}
             - tasks_map: {task_id: task_dict}
             - locations_map: {location_id: location_dict}
     """
@@ -56,7 +57,7 @@ def build_maps():
     tasks = task.get_all()
     locations = location.get_all()
     return (
-        {u['id']: u for u in users},
+        {u['name']: u for u in users},
         {t['id']: t for t in tasks},
         {loc['id']: loc for loc in locations},
     )
@@ -92,29 +93,33 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         t = tasks_map.get(b.get('task_id'))
         loc = locations_map.get(b.get('location_id'))
 
-        # 담당자(assignee) 이름과 색상 목록 구성
-        assignee_ids = b.get('assignee_ids', [])
-        assignee_names = []
+        # 담당자(assignee) 이름과 색상 목록 구성 (값 자체가 이름)
+        raw_assignee_names = b.get('assignee_names', [])
+        assignee_name_list = []
         assignee_colors = []
-        for uid in assignee_ids:
-            u = users_map.get(uid)
+        for name in raw_assignee_names:
+            u = users_map.get(name)
             if u:
-                assignee_names.append(u['name'])
+                assignee_name_list.append(u['name'])
                 assignee_colors.append(u['color'])
+            else:
+                # users.json에 없는 이름도 그대로 표시 (색상만 기본값)
+                assignee_name_list.append(name)
+                assignee_colors.append('#6c757d')
 
         is_simple = b.get('is_simple', False)
-        block['procedure_id'] = t.get('procedure_id', '') if t else ''
-        block['section_name'] = t.get('section_name', '') if t else ''
+        block['doc_id'] = t.get('doc_id', '') if t else ''
+        block['doc_name'] = t.get('doc_name', '') if t else ''
         if is_simple:
             # 단순 블록(태스크 없이 직접 생성된 블록)은 블록 자체의 title 사용
             block['task_title'] = b.get('title', '(블록)')
-            block['section_name'] = b.get('title', '')
-            block['procedure_id'] = ''
+            block['doc_name'] = b.get('title', '')
+            block['doc_id'] = ''
         else:
-            # 일반 블록: 장절명 우선, 없으면 절차 ID, 태스크 삭제 시 '(삭제됨)'
-            block['task_title'] = t.get('section_name') or t.get('procedure_id', '(삭제됨)') if t else '(삭제됨)'
-        block['assignee_names'] = assignee_names
-        block['assignee_name'] = ', '.join(assignee_names) if assignee_names else '(미배정)'
+            # 일반 블록: 문서명 우선, 없으면 문서 ID, 태스크 삭제 시 '(삭제됨)'
+            block['task_title'] = t.get('doc_name') or str(t.get('doc_id', '(삭제됨)')) if t else '(삭제됨)'
+        block['assignee_names'] = assignee_name_list
+        block['assignee_name'] = ', '.join(assignee_name_list) if assignee_name_list else '(미배정)'
         # 첫 번째 담당자의 색상을 대표 색상으로 사용
         block['assignee_color'] = assignee_colors[0] if assignee_colors else '#6c757d'
         block['location_name'] = loc['name'] if loc else ''
@@ -126,10 +131,10 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         block['identifier_ids'] = b.get('identifier_ids')
         block['is_simple'] = b.get('is_simple', False)
         block['title'] = b.get('title', '')
-        block['section_color'] = _section_color(block['section_name'])
+        block['section_color'] = _section_color(block['doc_name'])
 
         # 식별자(identifier) 수 계산: 전체 vs 이 블록에 할당된 수
-        total_ids = len(t.get('test_list', [])) if t else 0
+        total_ids = len(t.get('identifiers', [])) if t else 0
         block_ids = b.get('identifier_ids')
         block['total_identifier_count'] = total_ids
         block['block_identifier_count'] = len(block_ids) if block_ids else total_ids
@@ -140,7 +145,7 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         if block['is_split'] and t:
             # 태스크의 전체 식별자 ID 집합
             all_task_ids = set(item['id'] if isinstance(item, dict) else item
-                              for item in t.get('test_list', []))
+                              for item in t.get('identifiers', []))
             # 이 태스크의 모든 블록에서 배치된 식별자 ID 수집
             placed_ids = set()
             for tb in all_blocks_by_task.get(b.get('task_id'), []):
@@ -158,7 +163,7 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
             id_set = set(block_ids)
             block['estimated_minutes'] = sum(
                 item.get('estimated_minutes', 0)
-                for item in t.get('test_list', [])
+                for item in t.get('identifiers', [])
                 if isinstance(item, dict) and item.get('id') in id_set
             )
         else:
@@ -214,7 +219,7 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
 
         # 분할 블록의 경우: 미배치 식별자 확인
         all_ids = [item['id'] if isinstance(item, dict) else item
-                   for item in t.get('test_list', [])]
+                   for item in t.get('identifiers', [])]
 
         if not all_ids:
             # 식별자가 없는 태스크(예: 단순 블록): 블록이 하나라도 있으면 제외
@@ -237,7 +242,7 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
             # 미배치 식별자들의 예상 시간 합산
             remaining = sum(
                 item.get('estimated_minutes', 0)
-                for item in t.get('test_list', [])
+                for item in t.get('identifiers', [])
                 if isinstance(item, dict) and item.get('id') in set(unscheduled_ids)
             )
 
@@ -246,15 +251,23 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
 
         task_item = dict(t)
         task_item['remaining_unscheduled_minutes'] = remaining
-        task_item['section_color'] = _section_color(t.get('section_name', ''))
+        task_item['section_color'] = _section_color(t.get('doc_name', ''))
 
-        # 담당자 이름/색상 추가
-        assignee_ids = t.get('assignee_ids', [])
-        assignee_names = [users_map[uid]['name'] for uid in assignee_ids if uid in users_map]
-        assignee_colors = [users_map[uid]['color'] for uid in assignee_ids if uid in users_map]
+        # 담당자 이름/색상 추가 (값 자체가 이름)
+        raw_assignee_names = t.get('assignee_names', [])
+        resolved_names = []
+        resolved_colors = []
+        for name in raw_assignee_names:
+            u = users_map.get(name)
+            if u:
+                resolved_names.append(u['name'])
+                resolved_colors.append(u['color'])
+            else:
+                resolved_names.append(name)
+                resolved_colors.append('#6c757d')
 
-        task_item['assignee_name'] = ', '.join(assignee_names) if assignee_names else '(미배정)'
-        task_item['assignee_color'] = assignee_colors[0] if assignee_colors else '#6c757d'
+        task_item['assignee_name'] = ', '.join(resolved_names) if resolved_names else '(미배정)'
+        task_item['assignee_color'] = resolved_colors[0] if resolved_colors else '#6c757d'
 
         # 장소 정보 추가
         loc = locations_map.get(t.get('location_id'))
@@ -263,8 +276,8 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
 
         queue.append(task_item)
 
-    # 장절명 → 절차ID 순으로 정렬
-    queue.sort(key=lambda t: t.get('section_name', '') or t.get('procedure_id', ''))
+    # 문서명 → 문서ID 순으로 정렬
+    queue.sort(key=lambda t: t.get('doc_name', '') or str(t.get('doc_id', '')))
     return queue
 
 

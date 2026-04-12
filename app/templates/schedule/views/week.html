@@ -87,8 +87,8 @@
                    data-start-time="{{ block.start_time }}"
                    data-end-time="{{ block.end_time }}"
                    data-location-id="{{ block.location_id }}"
-                   data-procedure-id="{{ block.procedure_id }}"
-                   data-section-name="{{ block.section_name }}"
+                   data-doc-id="{{ block.doc_id }}"
+                   data-doc-name="{{ block.doc_name }}"
                    data-assignee-name="{{ block.assignee_name }}"
                    data-location-name="{{ block.location_name }}"
                    data-estimated-minutes="{{ block.estimated_minutes }}"
@@ -99,7 +99,7 @@
                   {% if block.block_status == 'in_progress' %}<i class="bi bi-play-fill" style="color:#fff;font-size:0.65rem"></i>
                   {% elif block.block_status == 'completed' %}<i class="bi bi-check-lg" style="color:#fff;font-size:0.65rem"></i>
                   {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-lg" style="color:#fff;font-size:0.65rem"></i>
-                  {% endif %}{{ block.section_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %}
+                  {% endif %}{{ block.doc_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %}
                 </div>
                 <div class="block-info">
                   <span class="block-time">{{ block.start_time }}–{{ block.end_time }}</span>

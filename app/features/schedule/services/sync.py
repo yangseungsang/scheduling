@@ -58,7 +58,7 @@ class SyncService:
     def sync_test_data(provider, version_id=None):
         """프로바이더로부터 시험 데이터를 동기화한다.
 
-        외부 데이터의 section_name을 키로 사용하여 태스크를 매칭하고,
+        외부 데이터의 doc_id를 키로 사용하여 태스크를 매칭하고,
         식별자(identifiers)와 예상 시간을 갱신한다.
         외부에서 사라진 태스크는 'cancelled' 상태로 변경한다.
 
@@ -75,46 +75,50 @@ class SyncService:
         else:
             external = provider.get_test_data_all()
 
-        external_keys = set()  # 외부에 존재하는 section_name 집합
+        external_doc_ids = set()  # 외부에 존재하는 doc_id 집합
         added = updated = cancelled = 0
         warnings = []
 
         for item in external:
-            key = item['section_name']
-            external_keys.add(key)
-            existing = task.get_by_external_key(key)
+            try:
+                doc_id = int(item.get('doc_id'))
+            except (TypeError, ValueError):
+                warnings.append(f"잘못된 doc_id, 건너뜀: {item}")
+                continue
+            external_doc_ids.add(doc_id)
 
+            doc_name = item.get('doc_name') or item.get('section_name', '')
             identifiers = item.get('identifiers', [])
             # 각 식별자의 예상 시간을 합산하여 태스크 전체 예상 시간 계산
             est_minutes = sum(i.get('estimated_minutes', 0) for i in identifiers)
 
+            existing = task.get_by_doc_id(doc_id)
             if existing:
-                # 기존 태스크 갱신: 식별자 목록, 예상 시간, 장절명
+                # 기존 태스크 갱신: 식별자 목록, 예상 시간, 문서명
                 task.patch(existing['id'],
-                           test_list=identifiers,
+                           identifiers=identifiers,
                            estimated_minutes=est_minutes,
-                           section_name=item['section_name'])
+                           doc_name=doc_name,
+                           version_id=item.get('version_id', existing.get('version_id', '')))
                 updated += 1
             else:
-                # 신규 태스크 생성 (외부 소스 표시)
+                # 신규 태스크 생성
                 task.create(
-                    procedure_id='EXT-' + str(len(task.get_all()) + 1).zfill(3),
-                    assignee_ids=[],
+                    doc_id=doc_id,
+                    version_id=item.get('version_id', ''),
+                    assignee_names=[],
                     location_id='',
-                    section_name=item['section_name'],
-                    procedure_owner='',
-                    test_list=identifiers,
+                    doc_name=doc_name,
+                    identifiers=identifiers,
                     estimated_minutes=est_minutes,
-                    source='external',
-                    external_key=key,
                 )
                 added += 1
 
-        # 외부에서 사라진 외부 소스 태스크를 취소 처리
+        # 외부에서 사라진 태스크를 취소 처리
         for t in task.get_all():
-            if (t.get('source') == 'external'
-                    and t.get('external_key')
-                    and t['external_key'] not in external_keys
+            did = t.get('doc_id')
+            if (did is not None
+                    and did not in external_doc_ids
                     and t.get('status') != 'cancelled'):
                 task.patch(t['id'], status='cancelled')
                 cancelled += 1

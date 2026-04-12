@@ -55,7 +55,7 @@ class TestFullWorkflow:
         # Place TC-001 on 2026-05-01
         r1 = client.post('/schedule/api/blocks', json={
             'task_id': tid,
-            'assignee_ids': [uid],
+            'assignee_names': [uid],
             'date': '2026-05-01',
             'start_time': '09:00',
             'end_time': '10:00',
@@ -66,7 +66,7 @@ class TestFullWorkflow:
         # Place TC-002 on 2026-05-02
         r2 = client.post('/schedule/api/blocks', json={
             'task_id': tid,
-            'assignee_ids': [uid],
+            'assignee_names': [uid],
             'date': '2026-05-02',
             'start_time': '09:00',
             'end_time': '10:00',
@@ -92,7 +92,7 @@ class TestFullWorkflow:
         # Block1: TC-001 on day1
         r1 = client.post('/schedule/api/blocks', json={
             'task_id': tid,
-            'assignee_ids': [uid],
+            'assignee_names': [uid],
             'date': '2026-05-01',
             'start_time': '09:00',
             'end_time': '10:00',
@@ -104,7 +104,7 @@ class TestFullWorkflow:
         # Block2: TC-001 + TC-002 on day2 (TC-001 moves from block1)
         r2 = client.post('/schedule/api/blocks', json={
             'task_id': tid,
-            'assignee_ids': [uid],
+            'assignee_names': [uid],
             'date': '2026-05-02',
             'start_time': '09:00',
             'end_time': '11:00',

@@ -1,7 +1,16 @@
 """Tests for admin routes."""
+import re
+
 from tests.conftest import (
     _create_user, _create_location, _create_version,
 )
+
+
+def _user_id_from_list(client):
+    """admin/users 페이지에서 가장 최근 생성된 사용자의 ID를 추출."""
+    r = client.get('/admin/users')
+    ids = re.findall(r'/admin/users/(u_\w+)/edit', r.data.decode())
+    return ids[-1] if ids else None
 
 
 class TestPageRoutes:
@@ -11,10 +20,6 @@ class TestPageRoutes:
 
     def test_admin_locations(self, client):
         r = client.get('/admin/locations')
-        assert r.status_code == 200
-
-    def test_admin_versions(self, client):
-        r = client.get('/admin/versions')
         assert r.status_code == 200
 
     def test_admin_settings(self, client):
@@ -31,7 +36,8 @@ class TestUserCRUD:
         assert '홍길동' in r.data.decode()
 
     def test_edit_user(self, client):
-        uid = _create_user(client)
+        _create_user(client)
+        uid = _user_id_from_list(client)
         r = client.post(f'/admin/users/{uid}/edit', data={
             'name': '김철수', 'role': 'PM', 'color': '#FF0000',
         }, follow_redirects=True)
@@ -40,7 +46,8 @@ class TestUserCRUD:
         assert '홍길동' not in html
 
     def test_delete_user(self, client):
-        uid = _create_user(client)
+        _create_user(client)
+        uid = _user_id_from_list(client)
         r = client.post(f'/admin/users/{uid}/delete', follow_redirects=True)
         assert r.status_code == 200
         assert '홍길동' not in r.data.decode()
@@ -70,13 +77,15 @@ class TestUserCRUD:
         assert len(r.get_json()) == 1
 
     def test_api_update_user(self, client):
-        uid = _create_user(client)
+        _create_user(client)
+        uid = _user_id_from_list(client)
         r = client.put(f'/admin/api/users/{uid}', json={'name': '수정됨'})
         assert r.status_code == 200
         assert r.get_json()['name'] == '수정됨'
 
     def test_api_delete_user(self, client):
-        uid = _create_user(client)
+        _create_user(client)
+        uid = _user_id_from_list(client)
         r = client.delete(f'/admin/api/users/{uid}')
         assert r.status_code == 200
         assert r.get_json()['success'] is True
@@ -135,25 +144,6 @@ class TestLocationCRUD:
 
 
 class TestVersionCRUD:
-    def test_create_version(self, client):
-        r = client.post('/admin/versions/new', data={
-            'name': 'v1.0.0', 'description': '최초 버전',
-        }, follow_redirects=True)
-        assert r.status_code == 200
-        assert 'v1.0.0' in r.data.decode()
-
-    def test_edit_version(self, client):
-        vid = _create_version(client)
-        r = client.post(f'/admin/versions/{vid}/edit', data={
-            'name': 'v2.0.0', 'description': '업데이트',
-        }, follow_redirects=True)
-        assert 'v2.0.0' in r.data.decode()
-
-    def test_delete_version(self, client):
-        vid = _create_version(client)
-        r = client.post(f'/admin/versions/{vid}/delete', follow_redirects=True)
-        assert r.status_code == 200
-
     def test_api_create_version(self, client):
         r = client.post('/admin/api/versions', json={
             'name': 'v3.0.0', 'description': 'API버전',

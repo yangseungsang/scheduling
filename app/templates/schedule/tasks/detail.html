@@ -1,9 +1,9 @@
 {% extends "schedule/base.html" %}
-{% block title %}{{ task.section_name or task.procedure_id }} - 스케줄링{% endblock %}
+{% block title %}{{ task.doc_name or task.doc_id }} - 스케줄링{% endblock %}
 
 {% block content_sub %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-  <h2>{{ task.section_name or '' }}</h2>
+  <h2>{{ task.doc_name or '' }}</h2>
   <div>
     <a href="{{ url_for('tasks.task_edit', task_id=task.id) }}" class="btn btn-outline-primary">수정</a>
     <form method="POST" action="{{ url_for('tasks.task_delete', task_id=task.id) }}" class="d-inline"
@@ -16,9 +16,9 @@
 <div class="card" style="max-width: 700px;">
   <div class="card-body">
     <table class="table table-borderless mb-0">
-      <tr><th style="width:140px">장절명</th><td class="fw-bold">{{ task.section_name or '-' }}</td></tr>
+      <tr><th style="width:140px">문서명</th><td class="fw-bold">{{ task.doc_name or '-' }}</td></tr>
       <tr><th>시험 식별자</th><td>
-        {% if task.test_list %}
+        {% if task.identifiers %}
           <table class="table table-sm table-borderless mb-0" style="font-size:0.85rem">
             <thead>
               <tr class="text-muted" style="font-size:0.75rem">
@@ -30,7 +30,7 @@
               </tr>
             </thead>
             <tbody>
-            {% for item in task.test_list %}
+            {% for item in task.identifiers %}
               {% if item is mapping %}
               {% set sched = identifier_schedule.get(item.id) %}
               <tr>

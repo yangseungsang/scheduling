@@ -8,7 +8,7 @@ from app.features.schedule.helpers.time_utils import time_to_minutes
 from app.features.schedule.models import schedule_block
 
 
-def check_overlap(assignee_ids, location_id, date_str, start_time, end_time,
+def check_overlap(assignee_names, location_id, date_str, start_time, end_time,
                    exclude_block_id=None, exclude_task_id=None):
     """같은 장소에서 시간이 겹치는 블록이 있는지 확인한다.
 
@@ -16,7 +16,7 @@ def check_overlap(assignee_ids, location_id, date_str, start_time, end_time,
     같은 장소(location)에서의 시간 겹침만 검사한다.
 
     Args:
-        assignee_ids: 담당자 ID 목록 (현재 겹침 검사에서 미사용).
+        assignee_names: 담당자 ID 목록 (현재 겹침 검사에서 미사용).
         location_id: 장소 ID. 없으면 겹침 없음으로 처리.
         date_str: 날짜 문자열 ('YYYY-MM-DD').
         start_time: 시작 시간 ('HH:MM').

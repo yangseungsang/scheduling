@@ -84,8 +84,8 @@
                  data-memo="{{ block.memo }}"
                  data-start-time="{{ block.start_time }}"
                  data-end-time="{{ block.end_time }}"
-                 data-procedure-id="{{ block.procedure_id }}"
-                 data-section-name="{{ block.section_name }}"
+                 data-doc-id="{{ block.doc_id }}"
+                 data-doc-name="{{ block.doc_name }}"
                  data-assignee-name="{{ block.assignee_name }}"
                  data-location-name="{{ block.location_name }}"
                  data-estimated-minutes="{{ block.get('estimated_minutes', 0) if block.get('task_id') else 0 }}"
@@ -93,7 +93,7 @@
                    style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }}; left: {{ col_left }}%; width: {{ col_width }}%; right: auto; ">
               <div class="resize-handle resize-handle-top"></div>
               <div class="block-title">
-                {{ block.section_name or block.procedure_id }}
+                {{ block.doc_name or block.doc_id }}
                 {% if block.is_split %}
                 <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}" title="{% if block.split_status == 'partial' %}부분 배치 (나머지 큐){% else %}분할 배치 (전체 배치됨){% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>
                 {% endif %}

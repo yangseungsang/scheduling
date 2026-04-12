@@ -64,10 +64,10 @@
         blockIdentifierIds.forEach(function(id) { blockIdSet[id] = true; });
       }
       // 분할 블록 여부: 현재 블록의 식별자 수 < 전체 식별자 수
-      var isSplit = blockIdentifierIds && (task.test_list || []).length > blockIdentifierIds.length;
+      var isSplit = blockIdentifierIds && (task.identifiers || []).length > blockIdentifierIds.length;
 
       // 식별자 → 배치 정보 매핑 구성 (모든 블록에서)
-      var allTestList = task.test_list || [];
+      var allTestList = task.identifiers || [];
       var allTaskIds = allTestList.map(function(it) { return typeof it === 'object' ? it.id : it; });
       var idScheduleMap = {};  // id → {time, status, date}
       // 블록을 날짜+시간 순으로 정렬
@@ -139,7 +139,7 @@
       }
       // 분할 블록일 때 (현재 블록 식별자 수 / 전체 식별자 수) 표시
       var splitInfo = '';
-      var totalIdCount = (task.test_list || []).length;
+      var totalIdCount = (task.identifiers || []).length;
       if (blockIdentifierIds && blockIdentifierIds.length < totalIdCount) {
         splitInfo = ' <span style="font-size:0.75rem;color:#6c757d">(분할 ' + blockIdentifierIds.length + '/' + totalIdCount + ')</span>';
       }
@@ -170,7 +170,7 @@
         '<div class="bd-box">' +
           '<div class="bd-header">' +
             '<div class="bd-header-left">' +
-              '<span class="bd-id">' + (task.section_name || '') + '</span>' +
+              '<span class="bd-id">' + (task.doc_name || '') + '</span>' +
               statusBadge +
             '</div>' +
             '<button class="bd-x" id="block-detail-close">&times;</button>' +
@@ -186,8 +186,8 @@
             '</td></tr>' +
             '<tr><td class="bd-k">시험장소</td><td class="bd-v">' + (locationName || '-') + '</td></tr>' +
             (startTime ? '<tr><td class="bd-k">배치 시간</td><td class="bd-v" style="white-space:nowrap">' +
-              '<input type="time" id="bd-start-time" value="' + startTime + '" style="font-size:0.82rem;border:1px solid #d1d5db;border-radius:3px;padding:1px 3px;width:90px"> – ' +
-              '<input type="time" id="bd-end-time" value="' + endTime + '" style="font-size:0.82rem;border:1px solid #d1d5db;border-radius:3px;padding:1px 3px;width:90px">' +
+              '<input type="time" id="bd-start-time" value="' + startTime + '" style="font-size:0.82rem;border:1px solid #d1d5db;border-radius:3px;padding:1px 6px;width:115px;box-sizing:content-box"> – ' +
+              '<input type="time" id="bd-end-time" value="' + endTime + '" style="font-size:0.82rem;border:1px solid #d1d5db;border-radius:3px;padding:1px 6px;width:115px;box-sizing:content-box">' +
               ' <span class="bd-sub" id="bd-time-dur"></span>' +
             '</td></tr>' : '') +
             '<tr><td class="bd-k">시험 담당자</td><td class="bd-v">' + (assigneeName || '-') + '</td></tr>' +
@@ -238,9 +238,15 @@
         }
 
         // 블록 시간 변경 (blockId가 있고 시간이 바뀐 경우)
+        // resize:true 플래그로 백엔드가 사용자가 입력한 start/end를 그대로 적용하도록 지시
+        // (기본 분기는 드래그-이동용이라 end_time을 원래 duration으로 재계산함)
         var timeChanged = blockId && newStart && newEnd && (newStart !== startTime || newEnd !== endTime);
         var blockSave = timeChanged
-          ? api('PUT', '/schedule/api/blocks/' + blockId, { start_time: newStart, end_time: newEnd })
+          ? api('PUT', '/schedule/api/blocks/' + blockId, {
+              start_time: newStart,
+              end_time: newEnd,
+              resize: true,
+            })
           : Promise.resolve();
 
         // 메모 저장

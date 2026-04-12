@@ -2,8 +2,8 @@
 시험 항목(태스크) 관리 라우트 모듈.
 
 태스크의 CRUD(생성, 조회, 수정, 삭제)를 처리하는 웹 페이지 라우트와
-REST API 엔드포인트를 제공한다. 태스크는 절차서 식별자, 담당자,
-시험 장소, 식별자 목록(test_list) 등을 포함한다.
+REST API 엔드포인트를 제공한다. 태스크는 문서 ID, 담당자,
+시험 장소, 식별자 목록(identifiers) 등을 포함한다.
 """
 
 import json
@@ -16,16 +16,17 @@ from app.features.schedule.models import task, user, location, version, schedule
 tasks_bp = Blueprint('tasks', __name__, url_prefix='/tasks')
 
 
-def _parse_test_list_from_form():
-    """폼의 숨겨진 JSON 필드에서 test_list(식별자 목록)를 파싱한다.
+def _parse_identifiers_from_form():
+    """폼의 숨겨진 JSON 필드에서 identifiers(식별자 목록)를 파싱한다.
 
     폼 제출 시 JavaScript가 식별자 목록을 JSON 문자열로 직렬화하여
-    'test_list_json' 필드에 담아 전송한다.
+    'identifiers_json' 필드에 담아 전송한다. (호환을 위해 test_list_json도 허용)
 
     Returns:
         list: 파싱된 식별자 목록 (각 항목은 dict). 파싱 실패 시 빈 리스트.
     """
-    raw = request.form.get('test_list_json', '').strip()
+    raw = (request.form.get('identifiers_json') or
+           request.form.get('test_list_json') or '').strip()
     if raw:
         try:
             return json.loads(raw)
@@ -34,16 +35,30 @@ def _parse_test_list_from_form():
     return []
 
 
-def _compute_estimated_minutes(test_list):
+def _compute_estimated_minutes(identifiers):
     """식별자 목록의 예상 소요 시간 합계를 계산한다.
 
     Args:
-        test_list (list): 식별자 목록 (각 항목에 'estimated_minutes' 포함)
+        identifiers (list): 식별자 목록 (각 항목에 'estimated_minutes' 포함)
 
     Returns:
         int: 전체 예상 소요 시간(분)
     """
-    return sum(item.get('estimated_minutes', 0) for item in test_list if isinstance(item, dict))
+    return sum(item.get('estimated_minutes', 0) for item in identifiers if isinstance(item, dict))
+
+
+def _parse_doc_id(raw):
+    """폼/요청에서 들어온 doc_id 문자열을 정수로 변환한다.
+
+    Returns:
+        int 또는 None: 변환 성공 시 int, 실패 시 None.
+    """
+    if raw is None or raw == '':
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -56,9 +71,9 @@ def task_list():
 
     다양한 필터 조건을 지원한다:
     - status: 태스크 상태 필터
-    - assignee: 담당자 필터 (복수 선택 가능)
+    - assignee: 담당자 필터 (이름 기반, 복수 선택 가능)
     - location: 시험 장소 필터
-    - procedure: 절차서 식별자 검색
+    - doc: 문서명/ID 검색
     - date: 특정 날짜에 배치된 태스크만 필터
 
     Returns:
@@ -68,21 +83,24 @@ def task_list():
     status = request.args.get('status')
     assignees = request.args.getlist('assignee')
     location_filter = request.args.get('location')
-    procedure = request.args.get('procedure', '').strip()
+    doc_query = (request.args.get('doc') or request.args.get('procedure') or '').strip()
     date_filter = request.args.get('date', '').strip()
 
     # 상태 필터 적용
     if status:
         tasks_all = [t for t in tasks_all if t['status'] == status]
-    # 담당자 필터 (하나라도 포함되면 통과)
+    # 담당자 필터 (하나라도 포함되면 통과, 이름 기반)
     if assignees:
-        tasks_all = [t for t in tasks_all if any(a in t.get('assignee_ids', []) for a in assignees)]
+        tasks_all = [t for t in tasks_all if any(a in t.get('assignee_names', []) for a in assignees)]
     # 장소 필터
     if location_filter:
         tasks_all = [t for t in tasks_all if t.get('location_id') == location_filter]
-    # 절차서 식별자 부분 일치 검색 (대소문자 무시)
-    if procedure:
-        tasks_all = [t for t in tasks_all if procedure.lower() in t.get('procedure_id', '').lower()]
+    # 문서명/ID 부분 일치 검색 (대소문자 무시)
+    if doc_query:
+        q = doc_query.lower()
+        tasks_all = [t for t in tasks_all
+                     if q in (t.get('doc_name') or '').lower()
+                     or q in str(t.get('doc_id', '')).lower()]
     # 날짜 필터: 해당 날짜에 블록이 배치된 태스크만 표시
     if date_filter:
         blocks_on_date = schedule_block.get_by_date(date_filter)
@@ -92,7 +110,7 @@ def task_list():
     users = user.get_all()
     locations = location.get_all()
     versions = version.get_all()
-    user_map = {u['id']: u['name'] for u in users}
+    user_map = {u['name']: u for u in users}
     location_map = {loc['id']: loc['name'] for loc in locations}
 
     all_blocks = schedule_block.get_all()
@@ -113,7 +131,7 @@ def task_list():
         task_blocks = blocks_by_task.get(tid, [])
         # 블록이 하나라도 있으면 배치 완료
         schedule_status_map[tid] = 'scheduled' if task_blocks else 'queue'
-        total_ids = len(t.get('test_list', []))
+        total_ids = len(t.get('identifiers', []))
         # 분할 여부: 블록의 식별자 수가 전체보다 적으면 분할된 것
         has_split = any(b.get('identifier_ids') is not None and len(b.get('identifier_ids', [])) < total_ids
                         for b in task_blocks)
@@ -146,7 +164,7 @@ def task_list():
                                'status': status or '',
                                'assignees': assignees,
                                'location': location_filter or '',
-                               'procedure': procedure,
+                               'doc': doc_query,
                                'date': date_filter,
                            })
 
@@ -163,28 +181,28 @@ def task_new():
         POST: 성공 시 목록 페이지로 리다이렉트, 실패 시 폼 페이지로 리다이렉트
     """
     if request.method == 'POST':
-        procedure_id = request.form.get('procedure_id', '').strip()
-        if not procedure_id:
-            flash('절차서 식별자를 입력해주세요.', 'danger')
+        doc_id = _parse_doc_id(request.form.get('doc_id'))
+        if doc_id is None:
+            flash('문서 ID를 입력해주세요.', 'danger')
             return redirect(url_for('tasks.task_new'))
-        assignee_ids = request.form.getlist('assignee_ids')
-        test_list = _parse_test_list_from_form()
-        # test_list가 있으면 식별자 시간 합계 사용, 없으면 직접 입력값 사용
-        estimated_minutes = _compute_estimated_minutes(test_list) if test_list else int(request.form.get('estimated_minutes', 0) or 0)
+        assignee_names = request.form.getlist('assignee_names')
+        identifiers = _parse_identifiers_from_form()
+        # identifiers가 있으면 식별자 시간 합계 사용, 없으면 직접 입력값 사용
+        estimated_minutes = _compute_estimated_minutes(identifiers) if identifiers else int(request.form.get('estimated_minutes', 0) or 0)
 
         # 식별자 ID 중복 검사
-        dupes = task.validate_unique_identifiers(test_list)
+        dupes = task.validate_unique_identifiers(identifiers)
         if dupes:
             flash(f'중복된 식별자가 있습니다: {", ".join(dupes)}', 'danger')
             return redirect(url_for('tasks.task_new'))
 
         task.create(
-            procedure_id=procedure_id,
-            assignee_ids=assignee_ids,
+            doc_id=doc_id,
+            version_id=request.form.get('version_id', '').strip(),
+            assignee_names=assignee_names,
             location_id=request.form.get('location_id', ''),
-            section_name=request.form.get('section_name', '').strip(),
-            procedure_owner=request.form.get('procedure_owner', '').strip(),
-            test_list=test_list,
+            doc_name=request.form.get('doc_name', '').strip(),
+            identifiers=identifiers,
             estimated_minutes=estimated_minutes,
             memo=request.form.get('memo', '').strip(),
         )
@@ -212,16 +230,14 @@ def task_detail(task_id):
     t = task.get_by_id(task_id)
     if not t:
         abort(404)
-    users = user.get_all()
-    user_map = {u['id']: u['name'] for u in users}
-    assignee_names = [user_map.get(uid, uid) for uid in t.get('assignee_ids', [])]
+    assignee_names = list(t.get('assignee_names', []))
     loc = location.get_by_id(t.get('location_id')) if t.get('location_id') else None
 
     # 식별자별 배치 일정 매핑 (식별자 ID → 날짜/시간 정보)
     all_blocks = schedule_block.get_all()
     task_blocks = [b for b in all_blocks if b.get('task_id') == task_id]
     total_ids = [item['id'] if isinstance(item, dict) else item
-                 for item in t.get('test_list', [])]
+                 for item in t.get('identifiers', [])]
     identifier_schedule = {}  # id → {date, start_time, end_time}
     for b in sorted(task_blocks, key=lambda x: (x['date'], x['start_time'])):
         block_ids = b.get('identifier_ids')
@@ -260,29 +276,29 @@ def task_edit(task_id):
     if not t:
         abort(404)
     if request.method == 'POST':
-        procedure_id = request.form.get('procedure_id', '').strip()
-        if not procedure_id:
-            flash('절차서 식별자를 입력해주세요.', 'danger')
+        doc_id = _parse_doc_id(request.form.get('doc_id'))
+        if doc_id is None:
+            flash('문서 ID를 입력해주세요.', 'danger')
             return redirect(url_for('tasks.task_edit', task_id=task_id))
-        assignee_ids = request.form.getlist('assignee_ids')
-        test_list = _parse_test_list_from_form()
-        estimated_minutes = _compute_estimated_minutes(test_list) if test_list else int(request.form.get('estimated_minutes', 0) or 0)
+        assignee_names = request.form.getlist('assignee_names')
+        identifiers = _parse_identifiers_from_form()
+        estimated_minutes = _compute_estimated_minutes(identifiers) if identifiers else int(request.form.get('estimated_minutes', 0) or 0)
         remaining_minutes = int(request.form.get('remaining_minutes', 0) or 0)
 
         # 식별자 ID 중복 검사 (자기 자신은 제외)
-        dupes = task.validate_unique_identifiers(test_list, exclude_task_id=task_id)
+        dupes = task.validate_unique_identifiers(identifiers, exclude_task_id=task_id)
         if dupes:
             flash(f'중복된 식별자가 있습니다: {", ".join(dupes)}', 'danger')
             return redirect(url_for('tasks.task_edit', task_id=task_id))
 
         task.update(
             task_id=task_id,
-            procedure_id=procedure_id,
-            assignee_ids=assignee_ids,
+            doc_id=doc_id,
+            version_id=request.form.get('version_id', '').strip(),
+            assignee_names=assignee_names,
             location_id=request.form.get('location_id', ''),
-            section_name=request.form.get('section_name', '').strip(),
-            procedure_owner=request.form.get('procedure_owner', '').strip(),
-            test_list=test_list,
+            doc_name=request.form.get('doc_name', '').strip(),
+            identifiers=identifiers,
             estimated_minutes=estimated_minutes,
             remaining_minutes=remaining_minutes,
             status=request.form.get('status', 'waiting'),
@@ -345,13 +361,10 @@ def api_task_detail(task_id):
     t = task.get_by_id(task_id)
     if not t:
         return jsonify({'error': '시험 항목을 찾을 수 없습니다.'}), 404
-    users = user.get_all()
-    user_map = {u['id']: u['name'] for u in users}
     locations = location.get_all()
     loc_map = {loc['id']: loc['name'] for loc in locations}
     result = dict(t)
-    # 담당자 ID를 이름으로 변환하여 추가
-    result['assignee_names'] = [user_map.get(uid, uid) for uid in t.get('assignee_ids', [])]
+    # 담당자 이름은 이미 assignee_names 필드에 저장되어 있음
     # 장소 ID를 이름으로 변환하여 추가
     result['location_name'] = loc_map.get(t.get('location_id', ''), '')
     return jsonify({'task': result})
@@ -362,36 +375,37 @@ def api_task_create():
     """API를 통해 새 태스크를 생성한다.
 
     Request Body (JSON):
-        - procedure_id (str): 절차서 식별자 (필수)
-        - assignee_ids (list, optional): 담당자 ID 리스트
+        - doc_id (int): 문서 ID (필수)
+        - version_id (str, optional): 버전 ID
+        - assignee_names (list, optional): 담당자 이름 리스트
         - location_id (str, optional): 시험 장소 ID
-        - section_name (str, optional): 장절명
-        - procedure_owner (str, optional): 절차서 작성자
-        - test_list (list, optional): 식별자 목록
+        - doc_name (str, optional): 문서명
+        - identifiers (list, optional): 식별자 목록
         - estimated_minutes (int, optional): 예상 소요 시간(분)
         - memo (str, optional): 메모
 
     Returns:
         JSON: 생성된 태스크 데이터 (201) 또는 에러 (400)
     """
-    data = request.get_json()
-    if not data or not data.get('procedure_id', '').strip():
-        return jsonify({'error': '절차서 식별자를 입력해주세요.'}), 400
-    test_list = data.get('test_list', [])
-    estimated_minutes = _compute_estimated_minutes(test_list) if test_list else int(data.get('estimated_minutes', 0) or 0)
+    data = request.get_json() or {}
+    doc_id = _parse_doc_id(data.get('doc_id'))
+    if doc_id is None:
+        return jsonify({'error': '문서 ID를 입력해주세요.'}), 400
+    identifiers = data.get('identifiers') or data.get('test_list') or []
+    estimated_minutes = _compute_estimated_minutes(identifiers) if identifiers else int(data.get('estimated_minutes', 0) or 0)
 
     # 식별자 중복 검사
-    dupes = task.validate_unique_identifiers(test_list)
+    dupes = task.validate_unique_identifiers(identifiers)
     if dupes:
         return jsonify({'error': f'중복된 식별자: {", ".join(dupes)}'}), 400
 
     t = task.create(
-        procedure_id=data['procedure_id'].strip(),
-        assignee_ids=data.get('assignee_ids', []),
+        doc_id=doc_id,
+        version_id=data.get('version_id', ''),
+        assignee_names=data.get('assignee_names', []),
         location_id=data.get('location_id', ''),
-        section_name=data.get('section_name', ''),
-        procedure_owner=data.get('procedure_owner', ''),
-        test_list=test_list,
+        doc_name=data.get('doc_name', ''),
+        identifiers=identifiers,
         estimated_minutes=estimated_minutes,
         memo=data.get('memo', ''),
     )
@@ -414,29 +428,31 @@ def api_task_update(task_id):
     t = task.get_by_id(task_id)
     if not t:
         return jsonify({'error': '시험 항목을 찾을 수 없습니다.'}), 404
-    data = request.get_json()
-    if not data or not data.get('procedure_id', '').strip():
-        return jsonify({'error': '절차서 식별자를 입력해주세요.'}), 400
-    test_list = data.get('test_list', [])
-    estimated_minutes = _compute_estimated_minutes(test_list) if test_list else int(data.get('estimated_minutes', 0) or 0)
+    data = request.get_json() or {}
+    # 부분 업데이트(patch)일 수도 있고 전체 업데이트일 수도 있음 — 필수값 완화
+    doc_id = _parse_doc_id(data.get('doc_id', t.get('doc_id')))
+    if doc_id is None:
+        return jsonify({'error': '문서 ID를 입력해주세요.'}), 400
+    identifiers = data.get('identifiers') or data.get('test_list') or t.get('identifiers', [])
+    estimated_minutes = _compute_estimated_minutes(identifiers) if identifiers else int(data.get('estimated_minutes', 0) or 0)
 
     # 식별자 중복 검사 (자기 자신은 제외)
-    dupes = task.validate_unique_identifiers(test_list, exclude_task_id=task_id)
+    dupes = task.validate_unique_identifiers(identifiers, exclude_task_id=task_id)
     if dupes:
         return jsonify({'error': f'중복된 식별자: {", ".join(dupes)}'}), 400
 
     updated = task.update(
         task_id=task_id,
-        procedure_id=data['procedure_id'].strip(),
-        assignee_ids=data.get('assignee_ids', []),
-        location_id=data.get('location_id', ''),
-        section_name=data.get('section_name', ''),
-        procedure_owner=data.get('procedure_owner', ''),
-        test_list=test_list,
+        doc_id=doc_id,
+        version_id=data.get('version_id', t.get('version_id', '')),
+        assignee_names=data.get('assignee_names', t.get('assignee_names', [])),
+        location_id=data.get('location_id', t.get('location_id', '')),
+        doc_name=data.get('doc_name', t.get('doc_name', '')),
+        identifiers=identifiers,
         estimated_minutes=estimated_minutes,
-        remaining_minutes=int(data.get('remaining_minutes', 0) or 0),
-        status=data.get('status', 'waiting'),
-        memo=data.get('memo', ''),
+        remaining_minutes=int(data.get('remaining_minutes', t.get('remaining_minutes', 0)) or 0),
+        status=data.get('status', t.get('status', 'waiting')),
+        memo=data.get('memo', t.get('memo', '')),
     )
     return jsonify(updated)
 
@@ -458,22 +474,23 @@ def api_task_delete(task_id):
     return jsonify({'success': True})
 
 
-@tasks_bp.route('/api/procedure/<procedure_id>')
-def api_procedure_lookup(procedure_id):
-    """절차서 ID로 외부 절차서 정보를 조회한다.
+@tasks_bp.route('/api/procedure/<int:doc_id>')
+def api_procedure_lookup(doc_id):
+    """문서 ID로 문서 정보를 조회한다.
 
-    외부 데이터 소스에서 절차서 메타데이터를 가져오는 데 사용된다.
+    procedures.json에서 문서 메타데이터(doc_name, version_id, identifiers)를
+    가져오는 데 사용된다.
 
     Args:
-        procedure_id (str): 조회할 절차서 식별자
+        doc_id (int): 조회할 문서 ID
 
     Returns:
-        JSON: 절차서 정보 또는 에러 (404)
+        JSON: 문서 정보 또는 에러 (404)
     """
     from app.features.schedule.services.procedure import lookup
-    result = lookup(procedure_id)
+    result = lookup(doc_id)
     if not result:
-        return jsonify({'error': '절차서를 찾을 수 없습니다.'}), 404
+        return jsonify({'error': '문서를 찾을 수 없습니다.'}), 404
     return jsonify(result)
 
 

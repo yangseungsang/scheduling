@@ -39,7 +39,7 @@ def api_create_block():
         - date (str): 배치 날짜 (YYYY-MM-DD, 필수)
         - start_time (str): 시작 시간 (HH:MM, 필수)
         - end_time (str): 종료 시간 (HH:MM, 필수)
-        - assignee_ids (list, optional): 담당자 ID 리스트
+        - assignee_names (list, optional): 담당자 ID 리스트
         - location_id (str, optional): 시험 장소 ID
         - identifier_ids (list, optional): 배치할 식별자 ID 리스트
         - overflow_minutes (int, optional): 초과 배치 시간(분)
@@ -62,7 +62,7 @@ def api_create_block():
                 return jsonify({'error': f'{field}은(는) 필수 항목입니다.'}), 400
         block = schedule_block.create(
             task_id=None,
-            assignee_ids=[],
+            assignee_names=[],
             location_id=data.get('location_id', ''),
             date=data['date'],
             start_time=data['start_time'],
@@ -78,12 +78,12 @@ def api_create_block():
             return jsonify({'error': f'{field}은(는) 필수 항목입니다.'}), 400
 
     t = task.get_by_id(data['task_id'])
-    assignee_ids = data.get('assignee_ids', [])
+    assignee_names = data.get('assignee_names', [])
     location_id = data.get('location_id', '')
 
     # 담당자/장소가 미지정이면 태스크의 기본값 사용
-    if not assignee_ids and t:
-        assignee_ids = t.get('assignee_ids', [])
+    if not assignee_names and t:
+        assignee_names = t.get('assignee_names', [])
     if not location_id and t:
         location_id = t.get('location_id', '')
 
@@ -92,7 +92,7 @@ def api_create_block():
     adjusted_end = adjust_end_for_breaks(data['start_time'], data['end_time'], sttngs)
 
     # 담당자 및 장소 기준 시간 겹침 검사
-    overlap = check_overlap(assignee_ids, location_id, data['date'], data['start_time'], adjusted_end)
+    overlap = check_overlap(assignee_names, location_id, data['date'], data['start_time'], adjusted_end)
     if overlap:
         return jsonify({'error': '해당 시간에 이미 다른 시험이 배치되어 있습니다.'}), 409
 
@@ -103,7 +103,7 @@ def api_create_block():
 
     block = schedule_block.create(
         task_id=data['task_id'],
-        assignee_ids=assignee_ids,
+        assignee_names=assignee_names,
         location_id=location_id,
         date=data['date'],
         start_time=data['start_time'],
@@ -179,12 +179,12 @@ def api_update_block(block_id):
     check_date = updates.get('date', block['date'])
     check_start = updates.get('start_time', block['start_time'])
     check_end = updates.get('end_time', block['end_time'])
-    assignee_ids = block.get('assignee_ids', [])
+    assignee_names = block.get('assignee_names', [])
     location_id = updates.get('location_id', block.get('location_id', ''))
 
     # 자기 자신은 제외하고 겹침 검사
     overlap = check_overlap(
-        assignee_ids, location_id, check_date, check_start, check_end,
+        assignee_names, location_id, check_date, check_start, check_end,
         exclude_block_id=block_id,
     )
     if overlap:
@@ -300,14 +300,14 @@ def api_create_simple_block():
         return jsonify({'error': '제목을 입력해주세요.'}), 400
     title = data['title'].strip()
     minutes = int(data.get('estimated_minutes', 60))
-    # 고유한 절차서 ID 생성 (타임스탬프 뒤 6자리 활용)
+    # 고유한 문서 ID 생성 (타임스탬프 뒤 6자리를 정수로)
     t = task.create(
-        procedure_id='BLK-' + str(int(__import__('time').time()))[-6:],
-        assignee_ids=[],
+        doc_id=int(str(int(__import__('time').time()))[-6:]),
+        version_id='',
+        assignee_names=[],
         location_id='',
-        section_name=title,
-        procedure_owner='',
-        test_list=[],
+        doc_name=title,
+        identifiers=[],
         estimated_minutes=minutes,
         memo='',
     )
@@ -501,7 +501,7 @@ def api_split_block(block_id):
         return jsonify({'error': '연결된 시험 항목을 찾을 수 없습니다.'}), 404
 
     sttngs = settings.get()
-    test_list = t.get('test_list', [])
+    test_list = t.get('identifiers', [])
     keep_set = set(keep_ids)
 
     # 이 블록이 실제로 커버하는 식별자 목록을 결정
@@ -549,7 +549,7 @@ def api_split_block(block_id):
 
     # 새 블록의 시간 겹침 검사
     overlap = check_overlap(
-        block.get('assignee_ids', []),
+        block.get('assignee_names', []),
         block.get('location_id', ''),
         block['date'],
         split_start,
@@ -567,7 +567,7 @@ def api_split_block(block_id):
 
     new_block = schedule_block.create(
         task_id=task_id,
-        assignee_ids=block.get('assignee_ids', []),
+        assignee_names=block.get('assignee_names', []),
         location_id=block.get('location_id', ''),
         date=block['date'],
         start_time=split_start,

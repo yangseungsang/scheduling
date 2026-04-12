@@ -100,7 +100,7 @@ window.ScheduleApp = window.ScheduleApp || {};
       var remaining = task.remaining_minutes;
       // 잔여 시간이 이전보다 증가한 경우에만 알림 (시간이 잘렸음을 의미)
       if (remaining > 0 && remaining > (prevRemaining || 0)) {
-        return showRemainingAlert(procedureId || task.procedure_id, remaining);
+        return showRemainingAlert(procedureId || task.doc_name || task.doc_id, remaining);
       }
       return false;
     }).catch(function () { return false; });

@@ -48,7 +48,7 @@ class TestScheduleBlockAPI:
         data, status = _create_block(client, tid, uid)
         assert status == 201
         assert data['task_id'] == tid
-        assert uid in data['assignee_ids']
+        assert uid in data['assignee_names']
         assert data['start_time'] == '09:00'
 
     def test_create_block_missing_fields(self, client):
@@ -60,7 +60,7 @@ class TestScheduleBlockAPI:
         assert r.status_code == 400
 
     def test_create_block_auto_assignee(self, client):
-        """If no assignee_ids, use the task's assignee_ids."""
+        """If no assignee_names, use the task's assignee_names."""
         uid = _create_user(client)
         tid = _create_task(client, uid)
         r = client.post('/schedule/api/blocks', json={
@@ -68,7 +68,7 @@ class TestScheduleBlockAPI:
             'start_time': '09:00', 'end_time': '10:00',
         })
         assert r.status_code == 201
-        assert uid in r.get_json()['assignee_ids']
+        assert uid in r.get_json()['assignee_names']
 
     def test_create_block_overlap_rejected(self, client):
         uid = _create_user(client)
@@ -264,21 +264,21 @@ class TestScheduleViewAPIs:
 
     def test_api_day_data_with_blocks(self, client):
         uid = _create_user(client)
-        tid = _create_task(client, uid, procedure_id='DAY-001')
+        tid = _create_task(client, uid, doc_id=820)
         _create_block(client, tid, uid, date_str='2026-03-10')
         r = client.get('/schedule/api/day?date=2026-03-10')
         data = r.get_json()
         assert len(data['blocks']) == 1
-        assert data['blocks'][0]['task_title'] == '3.1 시스템'
+        assert data['blocks'][0]['task_title'] == '시스템'
 
     def test_enriched_block_has_display_fields(self, client):
         uid = _create_user(client)
         lid = _create_location(client, name='시험실Z')
-        tid = _create_task(client, uid, loc_id=lid, procedure_id='ENR-001')
+        tid = _create_task(client, uid, loc_id=lid, doc_id=654)
         _create_block(client, tid, uid, date_str='2026-03-10')
         r = client.get('/schedule/api/day?date=2026-03-10')
         block = r.get_json()['blocks'][0]
-        assert block['task_title'] == '3.1 시스템'
+        assert block['task_title'] == '시스템'
         assert block['assignee_name'] == '홍길동'
         assert 'color' in block
 
@@ -313,8 +313,7 @@ class TestScheduleViewAPIs:
         tid = _create_task(client, uid, hours='2')
         # Mark as completed via API update
         client.put(f'/tasks/api/{tid}/update', json={
-            'procedure_id': 'SYS-001',
-            'status': 'completed',
+                        'status': 'completed',
             'estimated_minutes': 120,
             'remaining_minutes': 0,
         })
@@ -326,9 +325,9 @@ class TestScheduleViewAPIs:
 class TestOverlapLayout:
     def test_overlapping_blocks_get_columns(self, client):
         uid = _create_user(client)
-        tid1 = _create_task(client, uid, procedure_id='업무A')
+        tid1 = _create_task(client, uid, doc_id=986)
         uid2 = _create_user(client, name='김철수', color='#FF0000')
-        tid2 = _create_task(client, uid2, procedure_id='업무B')
+        tid2 = _create_task(client, uid2, doc_id=771)
         # Two blocks at same time, different assignees
         _create_block(client, tid1, uid, date_str='2026-03-10',
                       start='09:00', end='10:00')
@@ -352,7 +351,7 @@ class TestOverlapLayout:
 class TestExportAPI:
     def test_export_csv(self, client):
         uid = _create_user(client)
-        tid = _create_task(client, uid, procedure_id='EXPORT-001')
+        tid = _create_task(client, uid, doc_id=681)
         _create_block(client, tid, uid, date_str='2026-03-10')
         r = client.get(
             '/schedule/api/export?start_date=2026-03-10&end_date=2026-03-10&format=csv'
@@ -360,7 +359,7 @@ class TestExportAPI:
         assert r.status_code == 200
         assert 'text/csv' in r.content_type
         body = r.data.decode('utf-8-sig')
-        assert '3.1' in body  # section_name
+        assert '시스템' in body  # doc_name
         assert '2026-03-10' in body
 
     def test_export_xlsx(self, client):
@@ -396,4 +395,4 @@ class TestExportAPI:
         )
         body = r.data.decode('utf-8-sig')
         assert '날짜' in body
-        assert '장절명' in body
+        assert '문서명' in body

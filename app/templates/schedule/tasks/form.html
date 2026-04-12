@@ -5,15 +5,20 @@
 <h2>{{ '시험 항목 수정' if task else '시험 항목 추가' }}</h2>
 <form method="POST" class="mt-3" style="max-width: 700px;" id="task-form">
 
-  {# ── 장절 정보 (최상단) ── #}
-  <div class="mb-3">
-    <label class="form-label fw-bold">장절명</label>
-    <input type="text" class="form-control" name="section_name" id="section_name"
-           value="{{ task.section_name if task else '' }}" placeholder="예: 3.1 시스템 초기화" required
-           {% if task and task.get('source') == 'external' %}readonly{% endif %}>
+  {# ── 문서 정보 (최상단) ── #}
+  <div class="row mb-3">
+    <div class="col-3">
+      <label class="form-label fw-bold">문서 ID</label>
+      <input type="number" class="form-control" name="doc_id" id="doc_id"
+             value="{{ task.doc_id if task else '' }}" required>
+    </div>
+    <div class="col">
+      <label class="form-label fw-bold">문서명</label>
+      <input type="text" class="form-control" name="doc_name" id="doc_name"
+             value="{{ task.doc_name if task else '' }}" placeholder="예: 시스템 초기화" required>
+    </div>
   </div>
-  <input type="hidden" name="procedure_id" id="procedure_id" value="{{ task.procedure_id if task else 'AUTO' }}">
-  <input type="hidden" name="procedure_owner" value="{{ task.procedure_owner if task else '' }}">
+  <input type="hidden" name="version_id" id="version_id" value="{{ task.version_id if task else (versions[0].id if versions else '') }}">
 
   {# ── 시험 식별자 목록 ── #}
   <div class="mb-3">
@@ -39,7 +44,7 @@
     </div>
     <div id="identifier-error" class="text-danger mt-1" style="display:none"></div>
   </div>
-  <input type="hidden" name="test_list_json" id="test_list_json">
+  <input type="hidden" name="identifiers_json" id="identifiers_json">
   <input type="hidden" name="estimated_minutes" id="estimated_minutes_hidden" value="{{ task.estimated_minutes if task else 0 }}">
 
   {# ── 배정 정보 ── #}
@@ -60,9 +65,9 @@
   </div>
   <div class="mb-3">
     <label class="form-label">시험 담당자 (복수 선택 가능)</label>
-    <select name="assignee_ids" class="form-select" id="assignee-select" multiple size="4">
+    <select name="assignee_names" class="form-select" id="assignee-select" multiple size="4">
       {% for u in users %}
-      <option value="{{ u.id }}" {{ 'selected' if task and u.id in task.assignee_ids }}>{{ u.name }}</option>
+      <option value="{{ u.name }}" {{ 'selected' if task and u.name in task.assignee_names }}>{{ u.name }}</option>
       {% endfor %}
     </select>
     <div id="assignee-chips" class="mt-1"></div>
@@ -102,15 +107,14 @@
 {% block scripts_sub %}
 <script>
 (function() {
-  var isExternal = {{ 'true' if task and task.get('source') == 'external' else 'false' }};
   var tbody = document.getElementById('identifier-body');
   var totalDisplay = document.getElementById('total-est-display');
-  var hiddenJson = document.getElementById('test_list_json');
+  var hiddenJson = document.getElementById('identifiers_json');
   var hiddenEst = document.getElementById('estimated_minutes_hidden');
   var errDiv = document.getElementById('identifier-error');
 
-  // Load existing test_list
-  var initialList = {{ (task.test_list if task else [])|tojson }};
+  // Load existing identifiers
+  var initialList = {{ (task.identifiers if task else [])|tojson }};
   if (initialList && initialList.length) {
     initialList.forEach(function(item) {
       if (typeof item === 'string') {
@@ -125,7 +129,6 @@
   function addRow(id, name, owners, minutes) {
     owners = owners || [];
     var tr = document.createElement('tr');
-    // innerHTML 대신 DOM API로 생성하여 특수문자가 포함된 값에서도 안전하게 동작
     tr.innerHTML =
       '<td><input type="text" class="form-control form-control-sm id-input" placeholder="TC-001" required></td>' +
       '<td><input type="text" class="form-control form-control-sm name-input" placeholder="시험항목명"></td>' +
@@ -142,13 +145,6 @@
       tr.remove();
       updateTotal();
     });
-    if (isExternal) {
-      tr.querySelector('.id-input').readOnly = true;
-      tr.querySelector('.name-input').readOnly = true;
-      tr.querySelector('.owners-input').readOnly = true;
-      tr.querySelector('.min-input').readOnly = true;
-      tr.querySelector('.btn-remove-id').style.display = 'none';
-    }
   }
 
   function updateTotal() {
@@ -165,11 +161,7 @@
     addRow('', '', [], 0);
   });
 
-  if (isExternal) {
-    document.getElementById('btn-add-identifier').style.display = 'none';
-  }
-
-  // Before submit: serialize test_list and validate
+  // Before submit: serialize identifiers and validate
   document.getElementById('task-form').addEventListener('submit', function(e) {
     var rows = tbody.querySelectorAll('tr');
     var list = [];
@@ -203,14 +195,6 @@
     }
     errDiv.style.display = 'none';
     hiddenJson.value = JSON.stringify(list);
-  });
-
-  // Auto-generate procedure_id if hidden
-  document.getElementById('task-form').addEventListener('submit', function() {
-    var pidEl = document.getElementById('procedure_id');
-    if (!pidEl.value || pidEl.value === 'AUTO') {
-      pidEl.value = 'SEC-' + Date.now().toString(36).toUpperCase().slice(-4);
-    }
   });
 
   // Assignee chips

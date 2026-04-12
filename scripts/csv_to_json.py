@@ -86,38 +86,40 @@ def get_next_task_id(existing_tasks):
     return max_num + 1
 
 
-def get_next_procedure_prefix(existing_tasks):
-    """기존 태스크에서 사용된 procedure_id 접두사를 수집한다."""
-    prefixes = set()
+def get_next_doc_id(existing_tasks):
+    """기존 태스크에서 다음 doc_id 정수를 계산한다."""
+    max_id = 0
     for t in existing_tasks:
-        pid = t.get('procedure_id', '')
-        parts = pid.rsplit('-', 1)
-        if len(parts) == 2:
-            prefixes.add(parts[0])
-    return prefixes
+        did = t.get('doc_id', 0)
+        try:
+            if int(did) > max_id:
+                max_id = int(did)
+        except (TypeError, ValueError):
+            continue
+    return max_id + 1
 
 
 def build_tasks_and_procedures(sections, existing_tasks=None):
     """그룹화된 섹션 데이터를 tasks와 procedures 리스트로 변환한다."""
     existing_tasks = existing_tasks or []
     next_id = get_next_task_id(existing_tasks)
-    existing_sections = {t['section_name'] for t in existing_tasks}
+    next_doc_id = get_next_doc_id(existing_tasks)
+    existing_docs = {t.get('doc_name') for t in existing_tasks}
 
     tasks = []
     procedures = []
-    proc_counter = {}  # prefix -> counter
 
     now = datetime.now().isoformat(timespec='seconds')
 
     for section_name, rows in sections.items():
-        if section_name in existing_sections:
+        if section_name in existing_docs:
             print(f"  건너뜀 (이미 존재): {section_name}")
             continue
 
         # 식별자 목록 구성
-        test_list = []
+        identifiers = []
         for row in rows:
-            test_list.append({
+            identifiers.append({
                 'id': row['test_id'],
                 'name': row['test_name'],
                 'estimated_minutes': row['estimated_minutes'],
@@ -126,53 +128,42 @@ def build_tasks_and_procedures(sections, existing_tasks=None):
 
         total_minutes = sum(r['estimated_minutes'] for r in rows)
 
-        # procedure_id 생성: CSV-001, CSV-002, ...
-        prefix = 'CSV'
-        if prefix not in proc_counter:
-            proc_counter[prefix] = 1
-        else:
-            proc_counter[prefix] += 1
-        procedure_id = f"{prefix}-{proc_counter[prefix]:03d}"
-
-        # 장절의 첫 번째 담당자를 procedure_owner로 사용
-        procedure_owner = rows[0]['owners'][0] if rows[0]['owners'] else ''
+        doc_id = next_doc_id
+        next_doc_id += 1
 
         task_id = f"t_{next_id:03d}"
         next_id += 1
 
         tasks.append({
             'id': task_id,
-            'procedure_id': procedure_id,
-            'assignee_ids': [],
+            'doc_id': doc_id,
+            'version_id': '',
+            'assignee_names': [],
             'location_id': '',
-            'section_name': section_name,
-            'procedure_owner': procedure_owner,
-            'test_list': test_list,
+            'doc_name': section_name,
+            'identifiers': identifiers,
             'estimated_minutes': total_minutes,
             'remaining_minutes': total_minutes,
             'status': 'waiting',
             'memo': '',
-            'source': 'csv',
-            'external_key': '',
             'created_at': now,
         })
 
-        # procedures 항목 (identifiers는 owners/estimated_minutes 없이)
+        # procedures 항목 (master data — identifiers 그대로 복사)
         proc_identifiers = []
         for row in rows:
             proc_identifiers.append({
                 'id': row['test_id'],
                 'name': row['test_name'],
-                'owners': [],
-                'estimated_minutes': 0,
+                'owners': list(row['owners']),
+                'estimated_minutes': row['estimated_minutes'],
             })
 
         procedures.append({
-            'procedure_id': procedure_id,
-            'section_name': section_name,
-            'procedure_owner': procedure_owner,
-            'identifiers': proc_identifiers,
             'version_id': '',
+            'doc_id': doc_id,
+            'doc_name': section_name,
+            'identifiers': proc_identifiers,
         })
 
     return tasks, procedures
@@ -250,8 +241,8 @@ def main():
 
     print("\n변환 완료!")
     for t in new_tasks:
-        ids = ', '.join(item['id'] for item in t['test_list'])
-        print(f"  [{t['id']}] {t['section_name']} ({t['estimated_minutes']}분) — {ids}")
+        ids = ', '.join(item['id'] for item in t['identifiers'])
+        print(f"  [{t['id']}] {t['doc_name']} ({t['estimated_minutes']}분) — {ids}")
 
 
 if __name__ == '__main__':

@@ -1,74 +1,71 @@
 [
   {
-    "procedure_id": "SYS-001",
-    "section_name": "3.1 시스템 초기화",
-    "procedure_owner": "김민수",
+    "version_id": "MAE31F",
+    "doc_id": 1,
+    "doc_name": "시스템 초기화",
     "identifiers": [
       {
         "id": "TC-001",
         "name": "시스템 전원 투입 시험",
-        "owners": [],
-        "estimated_minutes": 0
+        "owners": ["김민수"],
+        "estimated_minutes": 12
       },
       {
         "id": "TC-002",
         "name": "초기화 절차 검증",
-        "owners": [],
-        "estimated_minutes": 0
+        "owners": ["김민수"],
+        "estimated_minutes": 45
       },
       {
         "id": "TC-003",
         "name": "자체점검 결과 확인",
-        "owners": [],
-        "estimated_minutes": 0
+        "owners": ["김민수"],
+        "estimated_minutes": 23
       }
-    ],
-    "version_id": ""
+    ]
   },
   {
-    "procedure_id": "SYS-002",
-    "section_name": "3.2 통신 기능",
-    "procedure_owner": "이지은",
+    "version_id": "MAE31F",
+    "doc_id": 2,
+    "doc_name": "통신 기능",
     "identifiers": [
       {
         "id": "TC-004",
         "name": "통신 링크 설정 시험",
-        "owners": [],
-        "estimated_minutes": 0
+        "owners": ["이지은"],
+        "estimated_minutes": 58
       },
       {
         "id": "TC-005",
         "name": "데이터 송수신 검증",
-        "owners": [],
-        "estimated_minutes": 0
+        "owners": ["이지은"],
+        "estimated_minutes": 34
       }
-    ],
-    "version_id": ""
+    ]
   },
   {
-    "procedure_id": "NAV-001",
-    "section_name": "4.1 항법 연산",
-    "procedure_owner": "박준혁",
+    "version_id": "MAE31F",
+    "doc_id": 3,
+    "doc_name": "항법 연산",
     "identifiers": [
       {
         "id": "TC-010",
         "name": "항법 데이터 입력 시험",
-        "owners": [],
-        "estimated_minutes": 0
+        "owners": ["박준혁"],
+        "estimated_minutes": 67
       },
       {
         "id": "TC-011",
         "name": "연산 정확도 검증",
-        "owners": [],
-        "estimated_minutes": 0
+        "owners": ["박준혁"],
+        "estimated_minutes": 89
       },
       {
         "id": "TC-012",
         "name": "항법 오류 처리 시험",
-        "owners": [],
-        "estimated_minutes": 0
+        "owners": ["박준혁"],
+        "estimated_minutes": 41
       }
-    ],
-    "version_id": ""
+    ]
   }
 ]

@@ -39,7 +39,7 @@ def remove_identifiers_from_other_blocks(task_id, exclude_block_id,
     t = task.get_by_id(task_id)
     if not t:
         return
-    test_list = t.get('test_list', [])
+    test_list = t.get('identifiers', [])
     # 식별자 ID → 예상 소요 시간(분) 매핑 구성
     id_minutes = {}
     for item in test_list:
@@ -86,8 +86,8 @@ def sync_task_remaining_minutes(task_id):
     """태스크의 잔여 시간(remaining_minutes)을 블록 배치 현황에 맞게 재계산한다.
 
     모든 블록의 실 작업 시간 합계를 예상 시간에서 빼서 잔여 시간을 구한다.
-    예상 시간은 test_list 식별자 시간의 합이 우선이며,
-    test_list가 없으면 태스크의 estimated_minutes를 사용한다.
+    예상 시간은 identifiers 식별자 시간의 합이 우선이며,
+    식별자가 없으면 태스크의 estimated_minutes를 사용한다.
 
     Args:
         task_id (str): 동기화할 태스크 ID (None이면 무시)
@@ -99,7 +99,7 @@ def sync_task_remaining_minutes(task_id):
         return
 
     # 예상 시간 = 식별자별 시간 합계 (없으면 태스크 직접 입력값)
-    test_list = t.get('test_list', [])
+    test_list = t.get('identifiers', [])
     tl_sum = sum(
         item.get('estimated_minutes', 0) for item in test_list
         if isinstance(item, dict)
