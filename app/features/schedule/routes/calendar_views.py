@@ -106,6 +106,11 @@ def day_view():
     if no_loc_blocks:
         blocks_by_location[''] = compute_overlap_layout(no_loc_blocks)
 
+    # 일간 뷰는 5분 간격 슬롯 사용
+    day_sttngs = dict(ctx['sttngs'])
+    day_sttngs['grid_interval_minutes'] = 5
+    day_time_slots = generate_time_slots(day_sttngs)
+
     return render_template(
         'schedule/views/day.html',
         current_date=current_date,
@@ -114,8 +119,8 @@ def day_view():
         blocks=enriched,
         blocks_by_location=blocks_by_location,
         locations=ctx['locations_list'],
-        time_slots=ctx['time_slots'],
-        break_slots=ctx['break_slots'],
+        time_slots=day_time_slots,
+        break_slots=[s for s in day_time_slots if is_break_slot(s, ctx['sttngs'])],
         settings=ctx['sttngs'],
         queue_tasks=ctx['queue_tasks'],
         versions=ctx['versions'],

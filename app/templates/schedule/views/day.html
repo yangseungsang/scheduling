@@ -36,7 +36,7 @@
         <div class="time-gutter">
           <div class="time-gutter-header"></div>
           {% for slot in time_slots %}
-          <div class="time-gutter-label">{{ slot if loop.index0 % 2 == 0 else '' }}</div>
+          <div class="time-gutter-label">{{ slot if loop.index0 % 3 == 0 else '' }}</div>
           {% endfor %}
           <div class="time-gutter-label">{{ settings.work_end }}</div>
         </div>
@@ -64,7 +64,7 @@
             {% set loc_blocks = blocks_by_location.get(loc.id, []) %}
             {% for block in loc_blocks %}
             {% set slot_height = 24 %}
-            {% set interval = settings.grid_interval_minutes %}
+            {% set interval = 5 %}
             {% set work_start_parts = (settings.actual_work_start or settings.work_start).split(':') %}
             {% set work_start_min = work_start_parts[0]|int * 60 + work_start_parts[1]|int %}
             {% set start_parts = block.start_time.split(':') %}
@@ -160,6 +160,6 @@
     {start: '{{ brk.start }}', end: '{{ brk.end }}'}
     {% endfor %}
   ];
-  window.GRID_INTERVAL = {{ settings.grid_interval_minutes }};
+  window.GRID_INTERVAL = 5; // 일간뷰 전용 5분 단위
 </script>
 {% endblock %}
