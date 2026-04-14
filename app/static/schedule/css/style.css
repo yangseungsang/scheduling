@@ -954,12 +954,13 @@ body {
 .month-block-item {
   cursor: grab;
   font-size: 0.8rem;
-  padding: 1px 4px;
-  margin-bottom: 0;
-  border-radius: 2px;
+  padding: 2px 5px;
+  margin-bottom: 2px;
+  border-radius: 3px;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
+  border-left: 3px solid rgba(0,0,0,0.2);
   text-overflow: ellipsis;
 }
 
