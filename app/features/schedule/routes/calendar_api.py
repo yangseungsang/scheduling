@@ -585,3 +585,59 @@ def api_split_block(block_id):
     # 분리 후 태스크 잔여 시간 동기화
     sync_task_remaining_minutes(task_id)
     return jsonify({'success': True, 'new_block': new_block})
+
+
+@schedule_bp.route('/api/blocks/<block_id>/return-identifiers', methods=['POST'])
+def api_return_identifiers_to_queue(block_id):
+    """블록에서 선택한 식별자를 큐로 되돌린다.
+
+    유지할 식별자만 블록에 남기고, 나머지는 미배치 상태로 전환한다.
+    유지 식별자가 없으면 블록 자체를 삭제한다.
+
+    Args:
+        block_id (str): 대상 블록 ID
+
+    Request Body (JSON):
+        - keep_identifier_ids (list): 블록에 남길 식별자 ID 목록
+
+    Returns:
+        JSON: 성공 여부
+    """
+    block = schedule_block.get_by_id(block_id)
+    if not block:
+        return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
+
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': '요청 데이터가 없습니다.'}), 400
+
+    keep_ids = data.get('keep_identifier_ids', [])
+    task_id = block.get('task_id')
+
+    if not keep_ids:
+        # 모든 식별자를 큐로 → 블록 삭제
+        schedule_block.delete(block_id)
+    else:
+        # 유지 식별자로 블록 축소
+        t = task.get_by_id(task_id) if task_id else None
+        if t:
+            keep_set = set(keep_ids)
+            keep_minutes = sum(
+                item.get('estimated_minutes', 0)
+                for item in t.get('identifiers', [])
+                if isinstance(item, dict) and item.get('id') in keep_set
+            )
+            sttngs = settings.get()
+            keep_min = max(keep_minutes, 1)
+            new_end_min = time_to_minutes(block['start_time']) + keep_min
+            new_end = minutes_to_time(new_end_min)
+            adjusted_end = adjust_end_for_breaks(block['start_time'], new_end, sttngs)
+            schedule_block.update(block_id, identifier_ids=keep_ids, end_time=adjusted_end)
+        else:
+            schedule_block.update(block_id, identifier_ids=keep_ids)
+
+    # 태스크 잔여 시간 동기화
+    if task_id:
+        sync_task_remaining_minutes(task_id)
+
+    return jsonify({'success': True})

@@ -53,14 +53,32 @@
     var input = document.getElementById('queue-search');
     if (!body || !input) return;
 
-    /** 큐 아이템을 제목(procedure_id) 기준 가나다순으로 정렬 */
+    /** 큐 아이템을 담당자 → 제목 순으로 정렬하고 담당자별 구분선 추가 */
     function sortItems() {
+      // 기존 구분선 제거
+      body.querySelectorAll('.queue-group-header').forEach(function (h) { h.remove(); });
       var items = Array.from(body.querySelectorAll('.queue-task-item'));
+      // 1차 담당자명, 2차 제목 순 정렬
       items.sort(function (a, b) {
+        var aAssignee = (a.dataset.assigneeName || '(미배정)');
+        var bAssignee = (b.dataset.assigneeName || '(미배정)');
+        var cmp = aAssignee.localeCompare(bAssignee);
+        if (cmp !== 0) return cmp;
         return (a.dataset.title || '').localeCompare(b.dataset.title || '');
       });
-      // 정렬된 순서로 DOM 재배치
-      items.forEach(function (item) { body.appendChild(item); });
+      // DOM 재배치 + 담당자 그룹 헤더 삽입
+      var lastAssignee = null;
+      items.forEach(function (item) {
+        var assignee = item.dataset.assigneeName || '(미배정)';
+        if (assignee !== lastAssignee) {
+          var header = document.createElement('div');
+          header.className = 'queue-group-header';
+          header.textContent = assignee;
+          body.appendChild(header);
+          lastAssignee = assignee;
+        }
+        body.appendChild(item);
+      });
     }
     sortItems();
 

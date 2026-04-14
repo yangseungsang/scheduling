@@ -61,6 +61,7 @@
         '<button class="dropdown-item" data-action="memo"><i class="bi bi-sticky"></i> 메모</button>' +
         '<button class="dropdown-item" data-action="split"><i class="bi bi-scissors"></i> 분리</button>' +
         '<button class="dropdown-item" data-action="to-queue"><i class="bi bi-arrow-left-square"></i> 큐로 보내기</button>' +
+        '<button class="dropdown-item" data-action="partial-return"><i class="bi bi-box-arrow-left"></i> 일부 큐로 보내기</button>' +
         '<button class="dropdown-item" data-action="lock"><i class="bi bi-lock"></i> 잠금 토글</button>' +
         '<button class="dropdown-item text-danger" data-action="delete"><i class="bi bi-trash"></i> 삭제</button>';
       document.body.appendChild(menu);
@@ -152,6 +153,56 @@
                 keep_identifier_ids: keepIds
               }).then(function () {
                 showToast('블록이 분리되었습니다.', 'success');
+                setTimeout(function () { location.reload(); }, 300);
+              }).catch(function (err) { showToast(err.message, 'danger'); });
+            });
+          });
+        } else if (btn.dataset.action === 'partial-return') {
+          // 일부 식별자를 큐로 되돌리기
+          var taskId = block.dataset.taskId;
+          if (!taskId) { showToast('태스크가 연결되지 않은 블록입니다.', 'danger'); return; }
+          Promise.all([
+            api('GET', '/tasks/api/' + taskId),
+            api('GET', '/schedule/api/blocks/by-task/' + taskId).catch(function() { return {blocks: []}; }),
+          ]).then(function (results) {
+            var tsk = results[0].task;
+            var allBlocks = (results[1] && results[1].blocks) || [];
+            if (!tsk || !tsk.identifiers || tsk.identifiers.length < 2) {
+              showToast('식별자가 2개 이상이어야 일부를 큐로 보낼 수 있습니다.', 'danger');
+              return;
+            }
+            // 현재 블록의 식별자 파악
+            var blockIdIds = null;
+            try { if (block.dataset.identifierIds) blockIdIds = JSON.parse(block.dataset.identifierIds); } catch(ex) {}
+            var currentIds;
+            if (blockIdIds) {
+              currentIds = blockIdIds;
+            } else {
+              var otherIds = {};
+              allBlocks.forEach(function (b) {
+                if (b.id === blockId || !b.identifier_ids) return;
+                b.identifier_ids.forEach(function (id) { otherIds[id] = true; });
+              });
+              currentIds = tsk.identifiers
+                .map(function(it) { return typeof it === 'object' ? it.id : it; })
+                .filter(function(id) { return !otherIds[id]; });
+            }
+            var blockTestList = tsk.identifiers.filter(function(it) {
+              var iid = typeof it === 'object' ? it.id : it;
+              return currentIds.indexOf(iid) !== -1;
+            });
+            if (blockTestList.length < 2) {
+              showToast('이 블록의 식별자가 2개 이상이어야 합니다. 전체를 보내려면 "큐로 보내기"를 사용하세요.', 'info');
+              return;
+            }
+            // 피커 표시: 체크 유지=블록에 남김, 체크 해제=큐로 되돌림
+            App.showSplitPicker(blockTestList, function (keepItems) {
+              if (!keepItems) return;
+              var keepIds = keepItems.map(function (s) { return typeof s === 'object' ? s.id : s; });
+              api('POST', '/schedule/api/blocks/' + blockId + '/return-identifiers', {
+                keep_identifier_ids: keepIds
+              }).then(function () {
+                showToast('선택한 식별자를 큐로 되돌렸습니다.', 'success');
                 setTimeout(function () { location.reload(); }, 300);
               }).catch(function (err) { showToast(err.message, 'danger'); });
             });
