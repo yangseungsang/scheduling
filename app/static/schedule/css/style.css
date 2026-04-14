@@ -387,6 +387,11 @@ body {
 .queue-task-item.dragging {
   opacity: 0.35;
 }
+.queue-task-item.queue-item-selected {
+  outline: 2px solid #0d6efd;
+  outline-offset: -2px;
+  background: #e8f0fe;
+}
 .queue-card-color {
   width: 4px;
   flex-shrink: 0;

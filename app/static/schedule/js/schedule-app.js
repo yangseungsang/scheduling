@@ -30,7 +30,7 @@
     App.initShiftSchedule();    // 일정 일괄 이동
     App.initAddButtons();       // 태스크/블록 추가 버튼
     App.initMonthMoreToggle();  // 월간뷰 더보기 토글
-    App.initBatchPlace();       // 큐 일괄 배치 (체크박스)
+    App.initQueueMultiSelect(); // 큐 Shift+클릭 다중 선택
   }
 
   App.initAll = initAll;

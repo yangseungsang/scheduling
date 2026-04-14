@@ -28,6 +28,59 @@
   function initQueueDrag() {
     document.querySelectorAll('.queue-task-item[data-task-id]').forEach(function (item) {
       item.addEventListener('mousedown', function (e) {
+        // 다중 선택된 아이템이 있고 현재 아이템이 선택된 상태면 다중 드래그
+        var selectedItems = App.getSelectedQueueItems ? App.getSelectedQueueItems() : [];
+        var isMulti = selectedItems.length > 1 && item.classList.contains('queue-item-selected');
+
+        if (isMulti) {
+          // ── 다중 드래그 ──
+          var totalMin = 0;
+          selectedItems.forEach(function (si) { totalMin += parseFloat(si.dataset.remainingMinutes) || 1; });
+          var ghostH = (Math.round(totalMin) / App.GRID_MINUTES) * SLOT_HEIGHT;
+
+          startDrag(e, {
+            sourceEl: item,
+            ghostText: selectedItems.length + '건 일괄 배치',
+            ghostColor: '#0d6efd',
+            ghostWidth: 150,
+            ghostHeight: Math.min(ghostH, 200),
+            onDrop: function (target) {
+              if (target.type === 'queue') return;
+              if (target.type !== 'slot' && target.type !== 'month') return;
+
+              var dropDate = target.date;
+              var curMin = target.type === 'slot' ? App.snapToBlockEdge(target.el) : timeToMin('08:30');
+              var dropLocId = (target.type === 'slot' ? target.locationId : '') || '';
+
+              var chain = Promise.resolve();
+              selectedItems.forEach(function (si) {
+                chain = chain.then(function () {
+                  var rem = Math.round(parseFloat(si.dataset.remainingMinutes) || 1);
+                  var payload = {
+                    task_id: si.dataset.taskId,
+                    assignee_names: si.dataset.assigneeNames ? si.dataset.assigneeNames.split(',').filter(Boolean) : [],
+                    location_id: dropLocId || si.dataset.locationId || '',
+                    date: dropDate,
+                    start_time: minToTime(curMin),
+                    end_time: minToTime(curMin + rem),
+                  };
+                  curMin += rem;
+                  return api('POST', '/schedule/api/blocks', payload);
+                });
+              });
+              chain.then(function () {
+                showToast(selectedItems.length + '건 일괄 배치 완료', 'success');
+                App.softReload();
+              }).catch(function (err) {
+                showToast(err.message, 'danger');
+                App.softReload();
+              });
+            },
+          });
+          return; // 다중 드래그 처리 완료
+        }
+
+        // ── 단일 드래그 (기존 로직) ──
         var taskId = item.dataset.taskId;
         // 담당자 이름 배열 파싱 (쉼표 구분 문자열)
         var assigneeNames = item.dataset.assigneeNames ? item.dataset.assigneeNames.split(',').filter(Boolean) : [];

@@ -324,118 +324,72 @@
   }
 
   // =====================================================================
-  // 큐 일괄 배치 (체크박스 선택 → 일괄 배치)
+  // 큐 다중 선택 (클릭 + Shift+클릭 범위 선택)
   // =====================================================================
-  function initBatchPlace() {
-    var bar = document.getElementById('queue-batch-bar');
-    var countSpan = document.getElementById('batch-count');
-    var clearBtn = document.getElementById('btn-batch-clear');
-    var placeBtn = document.getElementById('btn-batch-place');
-    if (!bar || !placeBtn) return;
+  function initQueueMultiSelect() {
+    var body = document.getElementById('task-queue-body');
+    if (!body) return;
+    var lastClicked = null; // 마지막 클릭한 아이템 (Shift 범위 기준)
 
-    function updateBar() {
-      var checked = document.querySelectorAll('.queue-batch-check:checked');
-      if (checked.length > 0) {
-        bar.style.display = '';
-        countSpan.textContent = checked.length;
+    /** 모든 visible 큐 아이템을 순서대로 반환 */
+    function getVisibleItems() {
+      return Array.from(body.querySelectorAll('.queue-task-item')).filter(function (el) {
+        return el.style.display !== 'none';
+      });
+    }
+
+    body.addEventListener('click', function (e) {
+      var item = e.target.closest('.queue-task-item');
+      if (!item) return;
+      // 드래그 중 또는 다른 인터랙션이면 무시
+      if (e.target.closest('.queue-card-color')) return;
+
+      if (e.shiftKey && lastClicked && lastClicked !== item) {
+        // Shift+클릭: lastClicked ~ item 범위 선택
+        e.preventDefault();
+        var items = getVisibleItems();
+        var i1 = items.indexOf(lastClicked);
+        var i2 = items.indexOf(item);
+        if (i1 < 0 || i2 < 0) return;
+        var start = Math.min(i1, i2);
+        var end = Math.max(i1, i2);
+        for (var i = start; i <= end; i++) {
+          items[i].classList.add('queue-item-selected');
+        }
+      } else if (e.ctrlKey || e.metaKey) {
+        // Ctrl+클릭: 개별 토글
+        item.classList.toggle('queue-item-selected');
+        lastClicked = item;
       } else {
-        bar.style.display = 'none';
+        // 일반 클릭: 기존 선택 해제 + 이 항목만 선택
+        body.querySelectorAll('.queue-item-selected').forEach(function (el) {
+          el.classList.remove('queue-item-selected');
+        });
+        item.classList.add('queue-item-selected');
+        lastClicked = item;
       }
-    }
-
-    document.querySelectorAll('.queue-batch-check').forEach(function (cb) {
-      cb.addEventListener('change', updateBar);
-      // 체크박스 클릭이 드래그로 전파되지 않도록
-      cb.addEventListener('mousedown', function (e) { e.stopPropagation(); });
     });
 
-    if (clearBtn) {
-      clearBtn.addEventListener('click', function () {
-        document.querySelectorAll('.queue-batch-check:checked').forEach(function (cb) { cb.checked = false; });
-        updateBar();
-      });
-    }
-
-    placeBtn.addEventListener('click', function () {
-      if (App.isReadonly()) return;
-      var checked = document.querySelectorAll('.queue-batch-check:checked');
-      if (checked.length === 0) return;
-
-      // 선택된 큐 아이템 데이터 수집
-      var items = [];
-      checked.forEach(function (cb) {
-        var item = cb.closest('.queue-task-item');
-        if (item) items.push(item);
-      });
-
-      // 배치 대상 날짜+시간+장소 입력 팝업
-      var params = new URLSearchParams(window.location.search);
-      var defaultDate = params.get('date') || new Date().toISOString().slice(0, 10);
-
-      var old = document.getElementById('batch-place-popup');
-      if (old) old.remove();
-      var overlay = document.createElement('div');
-      overlay.id = 'batch-place-popup';
-      overlay.className = 'block-detail-overlay';
-      overlay.innerHTML =
-        '<div class="bd-box" style="max-width:380px">' +
-          '<div class="bd-header"><div class="bd-header-left"><span class="bd-id">일괄 배치 (' + items.length + '건)</span></div>' +
-            '<button class="bd-x" id="batch-close">&times;</button></div>' +
-          '<div class="bd-divider"></div>' +
-          '<div style="padding:12px">' +
-            '<label class="form-label">날짜</label>' +
-            '<input type="date" class="form-control form-control-sm mb-2" id="batch-date" value="' + defaultDate + '">' +
-            '<label class="form-label">시작 시간</label>' +
-            '<input type="time" class="form-control form-control-sm mb-2" id="batch-start" value="08:30">' +
-            '<div class="form-text mb-2">선택한 항목을 순차적으로 배치합니다. 각 항목의 예상 시간만큼 이어서 배치됩니다.</div>' +
-            '<button class="btn btn-sm btn-primary w-100" id="batch-ok">배치 실행</button>' +
-          '</div>' +
-        '</div>';
-      document.body.appendChild(overlay);
-
-      overlay.addEventListener('click', function (ev) { if (ev.target === overlay) overlay.remove(); });
-      document.getElementById('batch-close').addEventListener('click', function () { overlay.remove(); });
-
-      document.getElementById('batch-ok').addEventListener('click', function () {
-        var batchDate = document.getElementById('batch-date').value;
-        var startTime = document.getElementById('batch-start').value;
-        if (!batchDate || !startTime) { showToast('날짜와 시작 시간을 입력하세요.', 'danger'); return; }
-        overlay.remove();
-
-        // 순차 배치: 각 항목을 이전 블록 종료 시간부터 이어서 배치
-        var currentStart = App.timeToMin(startTime);
-        var chain = Promise.resolve();
-        items.forEach(function (item) {
-          chain = chain.then(function () {
-            var remaining = parseFloat(item.dataset.remainingMinutes) || 1;
-            var endMin = currentStart + Math.round(remaining);
-            var payload = {
-              task_id: item.dataset.taskId,
-              assignee_names: item.dataset.assigneeNames ? item.dataset.assigneeNames.split(',').filter(Boolean) : [],
-              location_id: item.dataset.locationId || '',
-              date: batchDate,
-              start_time: App.minToTime(currentStart),
-              end_time: App.minToTime(endMin),
-            };
-            currentStart = endMin; // 다음 블록 시작 시간
-            return api('POST', '/schedule/api/blocks', payload);
-          });
+    // Esc로 선택 해제
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        body.querySelectorAll('.queue-item-selected').forEach(function (el) {
+          el.classList.remove('queue-item-selected');
         });
-        chain.then(function () {
-          showToast(items.length + '건 일괄 배치 완료', 'success');
-          setTimeout(function () { location.reload(); }, 500);
-        }).catch(function (err) {
-          showToast(err.message, 'danger');
-          setTimeout(function () { location.reload(); }, 500);
-        });
-      });
+      }
     });
+  }
+
+  /** 현재 선택된 큐 아이템 목록 반환 (다른 모듈에서 사용) */
+  function getSelectedQueueItems() {
+    return Array.from(document.querySelectorAll('.queue-task-item.queue-item-selected'));
   }
 
   App.initWeekendToggle = initWeekendToggle;
   App.initShiftSchedule = initShiftSchedule;
   App.initAddButtons = initAddButtons;
   App.initMonthMoreToggle = initMonthMoreToggle;
-  App.initBatchPlace = initBatchPlace;
+  App.initQueueMultiSelect = initQueueMultiSelect;
+  App.getSelectedQueueItems = getSelectedQueueItems;
   window.ScheduleApp = App;
 })();
