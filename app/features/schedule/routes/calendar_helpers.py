@@ -15,7 +15,7 @@ from app.features.schedule.helpers.time_utils import (
 from app.features.schedule.models import schedule_block, settings, task
 
 # 요일 이름 (월요일 시작, 주간/월간 뷰 헤더에 사용)
-DAY_NAMES = ['월', '화', '수', '목', '금', '토', '일']
+DAY_NAMES = ['월', '화', '수', '목', '금']
 
 # 블록에 허용되는 상태 값 집합
 VALID_BLOCK_STATUSES = {'pending', 'in_progress', 'completed', 'cancelled'}

@@ -342,17 +342,18 @@ def build_month_weeks(year, month, blocks_by_date):
         blocks_by_date: {날짜문자열: [블록 목록]} 딕셔너리.
 
     Returns:
-        list: 주 단위 리스트. 각 주는 7개 요소(월~일)로 구성.
+        list: 주 단위 리스트. 각 주는 5개 요소(월~금)로 구성.
               해당 월이 아닌 날은 None, 해당 월 날짜는
               {'date': date, 'day': int, 'blocks': list} 형태.
     """
     calendar = cal_module.Calendar(firstweekday=0)  # 월요일 시작
     weeks = []
     for week in calendar.monthdayscalendar(year, month):
+        # 월~금(인덱스 0~4)만 사용, 토/일 제거
+        weekday_only = week[:5]
         week_data = []
-        for day_num in week:
+        for day_num in weekday_only:
             if day_num == 0:
-                # 이전/다음 월에 해당하는 빈 셀
                 week_data.append(None)
             else:
                 d = date(year, month, day_num)

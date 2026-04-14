@@ -81,9 +81,9 @@ def export_xlsx(enriched_blocks, start_date, end_date):
     d_start = datetime.strptime(start_date, '%Y-%m-%d').date()
     d_end = datetime.strptime(end_date, '%Y-%m-%d').date()
     week_start = d_start - timedelta(days=d_start.weekday())  # 월요일로 맞춤
-    week_end = d_end + timedelta(days=6 - d_end.weekday())    # 일요일로 맞춤
+    week_end = d_end + timedelta(days=4 - d_end.weekday()) if d_end.weekday() < 5 else d_end  # 금요일까지
 
-    day_names = ['월', '화', '수', '목', '금', '토', '일']
+    day_names = ['월', '화', '수', '목', '금']
 
     # 엑셀 스타일 정의
     thin_border = Border(
@@ -95,24 +95,23 @@ def export_xlsx(enriched_blocks, start_date, end_date):
     date_font = Font(bold=True, size=10)
     block_font = Font(size=9)
     today_fill = PatternFill(start_color='E8F4FD', end_color='E8F4FD', fill_type='solid')
-    weekend_fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
     center_align = Alignment(horizontal='center', vertical='top', wrap_text=True)
     top_align = Alignment(vertical='top', wrap_text=True)
     today = date.today()
 
-    # 1행: 제목 (7열 병합)
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=7)
+    # 1행: 제목 (5열 병합)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
     title_cell = ws.cell(row=1, column=1, value=f'스케줄: {start_date} ~ {end_date}')
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal='center')
 
-    # 열 너비 설정 (7일 = 7열)
-    for c in range(1, 8):
-        ws.column_dimensions[get_column_letter(c)].width = 22
+    # 열 너비 설정 (5일 = 5열)
+    for c in range(1, 6):
+        ws.column_dimensions[get_column_letter(c)].width = 26
 
-    # 3행: 요일 헤더 (월~일)
+    # 3행: 요일 헤더 (월~금)
     row = 3
-    for i in range(7):
+    for i in range(5):
         cell = ws.cell(row=row, column=i + 1, value=day_names[i])
         cell.font = header_font_white
         cell.fill = header_fill
@@ -120,28 +119,24 @@ def export_xlsx(enriched_blocks, start_date, end_date):
         cell.border = thin_border
     row += 1
 
-    # 주간 반복: 날짜 행 + 내용 행
+    # 주간 반복: 날짜 행 + 내용 행 (월~금만)
     current = week_start
     while current <= week_end:
-        # 날짜 행: 각 요일의 날짜(MM/DD) 표시
-        for i in range(7):
+        # 날짜 행
+        for i in range(5):
             day = current + timedelta(days=i)
-            # 내보내기 범위 밖의 날짜는 빈 문자열
             label = day.strftime('%m/%d') if d_start <= day <= d_end else ''
             cell = ws.cell(row=row, column=i + 1, value=label)
             cell.font = date_font
             cell.alignment = center_align
             cell.border = thin_border
-            # 오늘 날짜와 주말에 배경색 적용
             if day == today:
                 cell.fill = today_fill
-            elif day.weekday() >= 5:
-                cell.fill = weekend_fill
         row += 1
 
-        # 내용 행: 해당 날짜의 문서명을 줄바꿈으로 합쳐서 표시
+        # 내용 행
         max_lines = 1
-        for i in range(7):
+        for i in range(5):
             day = current + timedelta(days=i)
             day_blocks = blocks_by_date.get(day.isoformat(), [])
             sections = []
@@ -157,13 +152,10 @@ def export_xlsx(enriched_blocks, start_date, end_date):
 
             if day == today:
                 cell.fill = today_fill
-            elif day.weekday() >= 5:
-                cell.fill = weekend_fill
 
             if len(sections) > max_lines:
                 max_lines = len(sections)
 
-        # 행 높이를 내용 줄 수에 비례하여 조정 (최소 30px)
         ws.row_dimensions[row].height = max(30, max_lines * 15)
         row += 1
 

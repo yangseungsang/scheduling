@@ -251,8 +251,8 @@ class TestScheduleViewAPIs:
         r = client.get('/schedule/api/week?date=2026-03-10')
         assert r.status_code == 200
         data = r.get_json()
-        assert len(data['week_days']) == 7
-        assert len(data['day_names']) == 7
+        assert len(data['week_days']) == 5
+        assert len(data['day_names']) == 5
 
     def test_api_month_data(self, client):
         r = client.get('/schedule/api/month?date=2026-03-10')
