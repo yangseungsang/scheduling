@@ -65,7 +65,8 @@
                 </div>
                 <div class="week-day-slots">
                   {% for slot in time_slots %}
-                  <div class="week-time-slot time-slot{% if slot in break_slots %} break-slot{% endif %}"
+                  {% set is_break = slot in break_slots %}
+                  <div class="week-time-slot time-slot{% if is_break %} break-slot{% endif %}"
                        data-date="{{ day.isoformat() }}"
                        data-time="{{ slot }}"
                        data-location-id="{{ loc.id }}">

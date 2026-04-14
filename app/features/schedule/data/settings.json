@@ -4,15 +4,15 @@
   "actual_work_start": "08:30",
   "actual_work_end": "16:30",
   "lunch_start": "12:00",
-  "lunch_end": "13:00",
+  "lunch_end": "13:30",
   "breaks": [
     {
       "start": "10:00",
-      "end": "10:00"
+      "end": "10:15"
     },
     {
       "start": "15:00",
-      "end": "15:00"
+      "end": "15:15"
     }
   ],
   "grid_interval_minutes": 15,

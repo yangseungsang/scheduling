@@ -643,7 +643,24 @@ body {
   border-bottom: 1px solid #eee;
   position: relative;
 }
-.time-slot.break-slot { background: #f0f0f0; }
+.time-slot.break-slot {
+  background: repeating-linear-gradient(
+    -45deg, #f3f4f6, #f3f4f6 3px, #e5e7eb 3px, #e5e7eb 6px
+  );
+  position: relative;
+}
+.time-slot.break-slot[data-break-label]::after {
+  content: attr(data-break-label);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.55rem;
+  color: #9ca3af;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
 .time-slot:hover { background: #e8f4fd; }
 .time-slot.drag-over {
   background-color: #cfe2ff !important;
@@ -915,7 +932,11 @@ body {
   height: 24px;
   border-bottom: 1px solid #eee;
 }
-.week-time-slot.break-slot { background: #f0f0f0; }
+.week-time-slot.break-slot {
+  background: repeating-linear-gradient(
+    -45deg, #f3f4f6, #f3f4f6 3px, #e5e7eb 3px, #e5e7eb 6px
+  );
+}
 .week-block {
   left: 0;
   right: 0;
