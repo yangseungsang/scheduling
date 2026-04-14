@@ -29,6 +29,7 @@
     App.initWeekendToggle();    // 주말 표시 토글
     App.initShiftSchedule();    // 일정 일괄 이동
     App.initAddButtons();       // 태스크/블록 추가 버튼
+    App.initMonthBlockLimit();  // 월간뷰 초과 블록 숨김
     App.initMonthMoreToggle();  // 월간뷰 더보기 토글
     App.initQueueMultiSelect(); // 큐 Shift+클릭 다중 선택
   }

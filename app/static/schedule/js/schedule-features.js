@@ -331,11 +331,35 @@
   App.initTaskHoverLink = initTaskHoverLink;
 
   // =====================================================================
-  // 월간뷰 "더보기" 토글
+  // 월간뷰 블록 수 제한 + "더보기" 토글
   // =====================================================================
+  var MAX_MONTH_ITEMS = 3;
+
+  /**
+   * 월간뷰 각 셀에서 MAX_MONTH_ITEMS 초과 블록을 숨기고
+   * '+N개 더' 토글 링크를 동적으로 삽입한다.
+   */
+  function initMonthBlockLimit() {
+    document.querySelectorAll('.month-day-cell').forEach(function (cell) {
+      // 이미 처리된 셀은 건너뜀
+      if (cell.querySelector('.month-more-toggle')) return;
+
+      var blocks = cell.querySelectorAll('.month-block-item');
+      if (blocks.length <= MAX_MONTH_ITEMS) return;
+
+      for (var i = MAX_MONTH_ITEMS; i < blocks.length; i++) {
+        blocks[i].classList.add('month-block-hidden');
+      }
+
+      var toggle = document.createElement('span');
+      toggle.className = 'month-more-toggle';
+      toggle.textContent = '+' + (blocks.length - MAX_MONTH_ITEMS) + '개 더';
+      cell.appendChild(toggle);
+    });
+  }
+
   /**
    * 월간뷰 셀에서 숨겨진 블록의 '더보기/접기' 토글을 초기화한다.
-   * 셀에 블록이 많으면 일부를 숨기고 '+N개 더' 링크로 표시한다.
    */
   function initMonthMoreToggle() {
     document.querySelectorAll('.month-more-toggle').forEach(function (el) {
@@ -347,7 +371,6 @@
         if (expanded) {
           el.textContent = '접기';
         } else {
-          // 숨겨진 블록 수를 세어 표시
           var hidden = cell.querySelectorAll('.month-block-hidden').length;
           el.textContent = '+' + hidden + '개 더';
         }
@@ -420,6 +443,7 @@
   App.initWeekendToggle = initWeekendToggle;
   App.initShiftSchedule = initShiftSchedule;
   App.initAddButtons = initAddButtons;
+  App.initMonthBlockLimit = initMonthBlockLimit;
   App.initMonthMoreToggle = initMonthMoreToggle;
   App.initQueueMultiSelect = initQueueMultiSelect;
   App.getSelectedQueueItems = getSelectedQueueItems;
