@@ -86,12 +86,20 @@
         });
       });
 
-      // 식별자 목록 HTML 구성
+      // 식별자 목록 HTML 구성 (체크박스 포함)
       var testListHtml = '-';
       var idTotalMin = 0; // 식별자별 시간 합계
+      // 이 블록에 속한 식별자 목록 (체크박스 액션 대상)
+      var thisBlockIds = [];
       if (allTestList.length) {
-        testListHtml = '<table style="font-size:0.78rem;border-collapse:collapse;border-spacing:0;white-space:nowrap">' +
+        testListHtml =
+          '<div class="d-flex gap-1 mb-1">' +
+            '<button type="button" class="btn btn-outline-secondary" style="font-size:0.65rem;padding:1px 6px" id="bd-id-select-all">전체 선택</button>' +
+            '<button type="button" class="btn btn-outline-secondary" style="font-size:0.65rem;padding:1px 6px" id="bd-id-deselect-all">전체 해제</button>' +
+          '</div>' +
+          '<table style="font-size:0.78rem;border-collapse:collapse;border-spacing:0;white-space:nowrap">' +
           '<tr style="color:#9ca3af;font-size:0.68rem;border-bottom:1px solid #f3f4f6">' +
+            '<td style="padding:3px 4px"></td>' +
             '<td style="padding:3px 10px 3px 4px">식별자</td><td style="padding:3px 10px 3px 4px">시험항목</td><td style="padding:3px 10px 3px 4px">시간</td>' +
             '<td style="padding:3px 10px 3px 4px">작성자</td><td style="padding:3px 4px">배치</td></tr>' +
           allTestList.map(function(item) {
@@ -101,10 +109,10 @@
               var ow = (item.owners || []).join(', ') || '-';
               // 이 블록에 속한 식별자인지 여부 (분할 블록이 아니면 모두 해당)
               var inThisBlock = !isSplit || blockIdSet[item.id];
+              if (inThisBlock) thisBlockIds.push(item.id);
               var sched = idScheduleMap[item.id];
               var schedHtml;
               if (sched) {
-                // 배치된 식별자: 날짜/시간 링크 + 상태 배지 표시
                 var statusColors = {completed:'#16a34a', in_progress:'#2563eb', cancelled:'#dc2626', pending:'#6c757d'};
                 var statusLabels = {completed:'완료', in_progress:'진행', cancelled:'불가', pending:'대기'};
                 var sColor = statusColors[sched.status] || '#6c757d';
@@ -116,26 +124,34 @@
               } else {
                 schedHtml = '<span style="color:#adb5bd">미배치</span>';
               }
-              // 타 블록에 속한 식별자는 반투명 처리
               var rowStyle = inThisBlock
                 ? 'border-bottom:1px solid #f9fafb'
                 : 'border-bottom:1px solid #f9fafb;opacity:0.45';
               var marker = inThisBlock ? '' : ' <span style="font-size:0.6rem;color:#9ca3af">타 블록</span>';
               var itemName = item.name || '-';
+              var cbDisabled = !inThisBlock ? ' disabled' : '';
+              var cbChecked = inThisBlock ? ' checked' : '';
               return '<tr style="' + rowStyle + '">' +
+                '<td style="padding:3px 4px"><input type="checkbox" class="bd-id-check" data-id="' + item.id + '"' + cbChecked + cbDisabled + '></td>' +
                 '<td style="padding:3px 10px 3px 4px;font-weight:600;white-space:nowrap">' + item.id + marker + '</td>' +
                 '<td style="padding:3px 10px 3px 4px;color:#475569">' + itemName + '</td>' +
                 '<td style="padding:3px 10px 3px 4px;white-space:nowrap">' + mins + '분</td>' +
                 '<td style="padding:3px 10px 3px 4px;color:#6c757d">' + ow + '</td>' +
                 '<td style="padding:3px 4px">' + schedHtml + '</td></tr>';
             }
-            return '<tr><td colspan="5" style="padding:3px 4px">' + item + '</td></tr>';
+            return '<tr><td colspan="6" style="padding:3px 4px">' + item + '</td></tr>';
           }).join('') +
           '<tr style="border-top:1px solid #e5e7eb">' +
-            '<td style="padding:4px;font-weight:700">합계</td>' +
+            '<td></td><td style="padding:4px;font-weight:700">합계</td>' +
             '<td style="padding:4px;font-weight:700" colspan="2"><span id="bd-id-total">' + idTotalMin + '</span>분</td>' +
             '<td colspan="2"></td></tr>' +
-          '</table>';
+          '</table>' +
+          (blockId && thisBlockIds.length >= 2
+            ? '<div class="d-flex gap-1 mt-2">' +
+                '<button type="button" class="btn btn-sm btn-outline-primary flex-fill" id="bd-id-split"><i class="bi bi-scissors"></i> 선택 분리</button>' +
+                '<button type="button" class="btn btn-sm btn-outline-secondary flex-fill" id="bd-id-to-queue"><i class="bi bi-box-arrow-left"></i> 선택 큐로</button>' +
+              '</div>'
+            : '');
       }
       // 분할 블록일 때 (현재 블록 식별자 수 / 전체 식별자 수) 표시
       var splitInfo = '';
@@ -213,6 +229,63 @@
       overlay.addEventListener('click', function (ev) {
         if (ev.target === overlay) overlay.remove();
       });
+
+      // 식별자 체크박스 전체 선택/해제
+      var selectAllBtn = document.getElementById('bd-id-select-all');
+      var deselectAllBtn = document.getElementById('bd-id-deselect-all');
+      if (selectAllBtn) {
+        selectAllBtn.addEventListener('click', function () {
+          overlay.querySelectorAll('.bd-id-check:not(:disabled)').forEach(function (cb) { cb.checked = true; });
+        });
+      }
+      if (deselectAllBtn) {
+        deselectAllBtn.addEventListener('click', function () {
+          overlay.querySelectorAll('.bd-id-check:not(:disabled)').forEach(function (cb) { cb.checked = false; });
+        });
+      }
+
+      // 선택 분리 버튼
+      var splitBtn = document.getElementById('bd-id-split');
+      if (splitBtn && blockId) {
+        splitBtn.addEventListener('click', function () {
+          var checked = [];
+          overlay.querySelectorAll('.bd-id-check:checked').forEach(function (cb) { checked.push(cb.dataset.id); });
+          if (checked.length === 0) { showToast('최소 1개는 선택하세요.', 'danger'); return; }
+          if (checked.length === thisBlockIds.length) { showToast('전체를 남기면 분리되지 않습니다.', 'info'); return; }
+          overlay.remove();
+          api('POST', '/schedule/api/blocks/' + blockId + '/split', {
+            keep_identifier_ids: checked
+          }).then(function () {
+            showToast('블록이 분리되었습니다.', 'success');
+            App.softReload();
+          }).catch(function (err) { showToast(err.message, 'danger'); });
+        });
+      }
+
+      // 선택 큐로 보내기 버튼
+      var toQueueBtn = document.getElementById('bd-id-to-queue');
+      if (toQueueBtn && blockId) {
+        toQueueBtn.addEventListener('click', function () {
+          var checked = [];
+          overlay.querySelectorAll('.bd-id-check:checked').forEach(function (cb) { checked.push(cb.dataset.id); });
+          var unchecked = thisBlockIds.filter(function (id) { return checked.indexOf(id) === -1; });
+          if (unchecked.length === 0) { showToast('큐로 보낼 식별자를 해제하세요. (체크 해제 = 큐로)', 'info'); return; }
+          overlay.remove();
+          if (checked.length === 0) {
+            // 전체 큐로 → 블록 삭제
+            api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+              .then(function () { showToast('전체를 큐로 되돌렸습니다.', 'success'); App.softReload(); })
+              .catch(function (err) { showToast(err.message, 'danger'); });
+          } else {
+            api('POST', '/schedule/api/blocks/' + blockId + '/return-identifiers', {
+              keep_identifier_ids: checked
+            }).then(function () {
+              showToast(unchecked.length + '건을 큐로 되돌렸습니다.', 'success');
+              App.softReload();
+            }).catch(function (err) { showToast(err.message, 'danger'); });
+          }
+        });
+      }
 
       // 배치 시간 인풋이 있으면 실시간 소요시간 표시
       var startInput = document.getElementById('bd-start-time');
