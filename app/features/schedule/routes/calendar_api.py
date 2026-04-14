@@ -98,12 +98,14 @@ def api_create_block():
 
     new_identifier_ids = data.get('identifier_ids')
 
-    # 초과 배치 시간(분) 계산: actual_work_end 기준으로 항상 백엔드에서 산출
+    # 초과 배치 시간(분) 계산: actual_work_end 기준, 순수 작업 시간으로 산출
     work_end_str = sttngs.get('actual_work_end') or sttngs.get('work_end', '17:00')
     work_end_min = time_to_minutes(work_end_str)
     adjusted_end_min = time_to_minutes(adjusted_end)
     if adjusted_end_min > work_end_min:
-        overflow_minutes = adjusted_end_min - work_end_min
+        # 초과분의 순수 작업 시간만 계산 (휴식 제외)
+        overflow_minutes = work_minutes_in_range(
+            work_end_str, adjusted_end, sttngs)
         adjusted_end = work_end_str
     else:
         overflow_minutes = 0
