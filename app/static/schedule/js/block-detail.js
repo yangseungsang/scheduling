@@ -101,7 +101,8 @@
           '<tr style="color:#9ca3af;font-size:0.68rem;border-bottom:1px solid #f3f4f6">' +
             '<td style="padding:3px 4px"></td>' +
             '<td style="padding:3px 10px 3px 4px">식별자</td><td style="padding:3px 10px 3px 4px">시험항목</td><td style="padding:3px 10px 3px 4px">시간</td>' +
-            '<td style="padding:3px 10px 3px 4px">작성자</td><td style="padding:3px 4px">배치</td></tr>' +
+            '<td style="padding:3px 10px 3px 4px">작성자</td><td style="padding:3px 4px">배치</td>' +
+            (blockId ? '<td style="padding:3px 4px"></td>' : '') + '</tr>' +
           allTestList.map(function(item) {
             if (typeof item === 'object' && item.id) {
               var mins = item.estimated_minutes || 0;
@@ -137,14 +138,18 @@
                 '<td style="padding:3px 10px 3px 4px;color:#475569">' + itemName + '</td>' +
                 '<td style="padding:3px 10px 3px 4px;white-space:nowrap">' + mins + '분</td>' +
                 '<td style="padding:3px 10px 3px 4px;color:#6c757d">' + ow + '</td>' +
-                '<td style="padding:3px 4px">' + schedHtml + '</td></tr>';
+                '<td style="padding:3px 4px">' + schedHtml + '</td>' +
+                (blockId && inThisBlock && thisBlockIds.length > 0
+                  ? '<td style="padding:3px 4px"><button type="button" class="btn btn-outline-secondary bd-row-to-queue" data-id="' + item.id + '" style="font-size:0.6rem;padding:0 4px;line-height:1.4" title="이 식별자를 큐로 되돌리기"><i class="bi bi-box-arrow-left"></i></button></td>'
+                  : (blockId ? '<td></td>' : '')) +
+                '</tr>';
             }
-            return '<tr><td colspan="6" style="padding:3px 4px">' + item + '</td></tr>';
+            return '<tr><td colspan="' + (blockId ? '7' : '6') + '" style="padding:3px 4px">' + item + '</td></tr>';
           }).join('') +
           '<tr style="border-top:1px solid #e5e7eb">' +
             '<td></td><td style="padding:4px;font-weight:700">합계</td>' +
             '<td style="padding:4px;font-weight:700" colspan="2"><span id="bd-id-total">' + idTotalMin + '</span>분</td>' +
-            '<td colspan="2"></td></tr>' +
+            '<td colspan="' + (blockId ? '3' : '2') + '"></td></tr>' +
           '</table>' +
           (blockId && thisBlockIds.length >= 2
             ? '<div class="d-flex gap-1 mt-2">' +
@@ -286,6 +291,28 @@
           }
         });
       }
+
+      // 행별 큐로 보내기 버튼
+      overlay.querySelectorAll('.bd-row-to-queue').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var removeId = btn.dataset.id;
+          var keepIds = thisBlockIds.filter(function (id) { return id !== removeId; });
+          if (keepIds.length === 0) {
+            // 마지막 식별자 → 블록 전체 삭제
+            api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+              .then(function () { showToast('큐로 되돌렸습니다.', 'success'); overlay.remove(); App.softReload(); })
+              .catch(function (err) { showToast(err.message, 'danger'); });
+          } else {
+            api('POST', '/schedule/api/blocks/' + blockId + '/return-identifiers', {
+              keep_identifier_ids: keepIds
+            }).then(function () {
+              showToast(removeId + '을(를) 큐로 되돌렸습니다.', 'success');
+              overlay.remove();
+              App.softReload();
+            }).catch(function (err) { showToast(err.message, 'danger'); });
+          }
+        });
+      });
 
       // 배치 시간 인풋이 있으면 실시간 소요시간 표시
       var startInput = document.getElementById('bd-start-time');
