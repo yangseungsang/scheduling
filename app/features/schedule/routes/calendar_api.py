@@ -98,8 +98,16 @@ def api_create_block():
 
     new_identifier_ids = data.get('identifier_ids')
 
-    # 초과 배치 시간(분) — 예상 시간보다 긴 블록을 큐에서 배치할 때 사용
+    # 초과 배치 시간(분) 계산: 프론트 전달값 또는 actual_work_end 기준 자동 산출
+    work_end_str = sttngs.get('actual_work_end') or sttngs.get('work_end', '17:00')
+    work_end_min = time_to_minutes(work_end_str)
+    adjusted_end_min = time_to_minutes(adjusted_end)
     overflow_minutes = int(data.get('overflow_minutes', 0) or 0)
+    # 프론트에서 overflow를 안 보냈어도 백엔드에서 자동 감지
+    if overflow_minutes == 0 and adjusted_end_min > work_end_min:
+        overflow_minutes = adjusted_end_min - work_end_min
+        # 블록 종료 시간을 근무 종료 시간으로 클램핑
+        adjusted_end = work_end_str
 
     block = schedule_block.create(
         task_id=data['task_id'],
@@ -123,19 +131,26 @@ def api_create_block():
     continuation = None
     if overflow_minutes > 0 and data['task_id']:
         from datetime import date as date_cls, timedelta
-        sttngs = sttngs if 'sttngs' in dir() else settings.get()
         work_start = sttngs.get('actual_work_start') or sttngs.get('work_start', '08:30')
         # 다음 근무일 계산 (주말 건너뜀)
         next_day = date_cls.fromisoformat(data['date']) + timedelta(days=1)
         while next_day.weekday() >= 5:
             next_day += timedelta(days=1)
         next_date = next_day.isoformat()
+        # 다음날 같은 장소의 기존 블록 뒤에 이어 배치
+        cont_start = work_start
+        if location_id:
+            existing = schedule_block.get_by_location_and_date(location_id, next_date)
+            for eb in sorted(existing, key=lambda b: b['end_time']):
+                eb_end_min = time_to_minutes(eb['end_time'])
+                if eb_end_min > time_to_minutes(cont_start):
+                    cont_start = minutes_to_time(eb_end_min)
         # 연속 블록 종료 시간 계산
-        cont_raw_end = minutes_to_time(time_to_minutes(work_start) + overflow_minutes)
-        cont_end = adjust_end_for_breaks(work_start, cont_raw_end, sttngs)
-        # 다음날 같은 장소 겹침 검사
+        cont_raw_end = minutes_to_time(time_to_minutes(cont_start) + overflow_minutes)
+        cont_end = adjust_end_for_breaks(cont_start, cont_raw_end, sttngs)
+        # 겹침 검사 (이어 배치 후에도 안전한지)
         cont_overlap = check_overlap(
-            assignee_names, location_id, next_date, work_start, cont_end,
+            assignee_names, location_id, next_date, cont_start, cont_end,
         )
         if not cont_overlap:
             continuation = schedule_block.create(
@@ -143,7 +158,7 @@ def api_create_block():
                 assignee_names=assignee_names,
                 location_id=location_id,
                 date=next_date,
-                start_time=work_start,
+                start_time=cont_start,
                 end_time=cont_end,
                 identifier_ids=new_identifier_ids,
             )
