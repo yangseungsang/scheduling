@@ -53,8 +53,12 @@
     var input = document.getElementById('queue-search');
     if (!body || !input) return;
 
-    /** 큐 아이템을 담당자 → 제목 순으로 정렬 */
+    var grouped = localStorage.getItem('queueGrouped') === 'true';
+
+    /** 큐 아이템 정렬 + 그룹 헤더 관리 */
     function sortItems() {
+      // 기존 그룹 헤더 제거
+      body.querySelectorAll('.queue-group-header').forEach(function (h) { h.remove(); });
       var items = Array.from(body.querySelectorAll('.queue-task-item'));
       // 1차 담당자명, 2차 제목 순 정렬
       items.sort(function (a, b) {
@@ -64,8 +68,38 @@
         if (cmp !== 0) return cmp;
         return (a.dataset.title || '').localeCompare(b.dataset.title || '');
       });
-      items.forEach(function (item) { body.appendChild(item); });
+      // 그룹화 모드: 담당자 헤더 삽입
+      var lastAssignee = null;
+      items.forEach(function (item) {
+        if (grouped) {
+          var assignee = item.dataset.assigneeName || '(미배정)';
+          if (assignee !== lastAssignee) {
+            var header = document.createElement('div');
+            header.className = 'queue-group-header';
+            header.textContent = assignee;
+            body.appendChild(header);
+            lastAssignee = assignee;
+          }
+        }
+        body.appendChild(item);
+      });
     }
+
+    // 그룹화 토글 버튼
+    var groupBtn = document.getElementById('btn-queue-group');
+    function updateGroupBtn() {
+      if (groupBtn) groupBtn.classList.toggle('active', grouped);
+    }
+    if (groupBtn) {
+      updateGroupBtn();
+      groupBtn.addEventListener('click', function () {
+        grouped = !grouped;
+        localStorage.setItem('queueGrouped', grouped);
+        updateGroupBtn();
+        sortItems();
+      });
+    }
+
     sortItems();
 
     // 검색어 입력 시 실시간 필터링

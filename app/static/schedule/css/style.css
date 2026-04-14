@@ -457,6 +457,21 @@ body {
   font-size: 1.4rem;
 }
 
+.queue-group-header {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #475569;
+  padding: 6px 10px 2px;
+  border-bottom: 1px solid #e5e7eb;
+  margin-top: 4px;
+  background: #f8fafc;
+}
+#btn-queue-group.active {
+  background: #0d6efd;
+  color: #fff;
+  border-color: #0d6efd;
+}
+
 /* Queue card — section title as main label */
 .queue-card-section-title {
   font-size: 0.78rem;
