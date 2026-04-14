@@ -154,6 +154,8 @@
                           contCount++;
                           curDate = res.continuation.date;
                           curMin = timeToMin(res.continuation.end_time);
+                        } else if (res.continuation_failed) {
+                          showToast(res.continuation_failed, 'danger');
                         }
                       });
                   });
@@ -172,6 +174,7 @@
                 api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate)
                   .then(function (res) {
                     if (res && res.continuation) showToast('초과분이 ' + res.continuation.date + '에 자동 배치되었습니다.', 'info');
+                    else if (res && res.continuation_failed) showToast(res.continuation_failed, 'danger');
                     softReload();
                   })
                   .catch(function (err) { showToast(err.message, 'danger'); });

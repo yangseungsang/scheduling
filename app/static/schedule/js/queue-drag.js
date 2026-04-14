@@ -185,6 +185,8 @@
                   // 다음날 연속 블록 생성 알림
                   if (res && res.continuation) {
                     showToast('당일 초과분이 ' + res.continuation.date + '에 자동 배치되었습니다.', 'info');
+                  } else if (res && res.continuation_failed) {
+                    showToast(res.continuation_failed, 'danger');
                   }
                   // 전체 배치일 때만 잔여 시간 경고 확인
                   if (!isPartial) return checkRemainingAfterPlace(taskId, title.trim(), prevRem);

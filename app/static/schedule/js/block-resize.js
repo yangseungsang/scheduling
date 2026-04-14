@@ -113,6 +113,7 @@
                 resize: true, // 서버에 리사이즈 동작임을 알림
               }).then(function (res) {
                   if (res && res.continuation) showToast('초과분이 ' + res.continuation.date + '에 자동 배치되었습니다.', 'info');
+                  else if (res && res.continuation_failed) showToast(res.continuation_failed, 'danger');
                   return App.softReload();
                 })
                 .catch(function (err) {
