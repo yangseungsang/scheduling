@@ -52,8 +52,8 @@
         var endTime = block.dataset.endTime;
         // 휴식 시간 제외한 실제 업무 시간 계산
         var durationMin = workMinutes(timeToMin(startTime), timeToMin(endTime));
-        // 고스트 높이: 블록의 실제 높이 또는 시간 비례 계산
-        var ghostH = block.offsetHeight || (durationMin / App.GRID_MINUTES) * SLOT_HEIGHT;
+        // 고스트 높이: 순수 작업 시간 기준 (adjustedDuration이 휴식 추가)
+        var ghostH = (durationMin / App.GRID_MINUTES) * SLOT_HEIGHT;
 
         // 다중 선택된 블록 수집 (현재 드래그 블록 포함)
         var selectedBlocks = Array.from(document.querySelectorAll('.schedule-block.block-selected'));
