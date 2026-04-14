@@ -112,7 +112,7 @@
       }
     ],
     "estimated_minutes": 134,
-    "remaining_minutes": 134,
+    "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T09:00:00"
@@ -314,7 +314,7 @@
       }
     ],
     "estimated_minutes": 64,
-    "remaining_minutes": 64,
+    "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T09:00:00"
@@ -331,17 +331,17 @@
     "doc_name": "온도 시험",
     "identifiers": [
       {
+        "estimated_minutes": 57,
         "id": "TC-040",
         "name": "고온 환경 동작 시험",
-        "estimated_minutes": 57,
         "owners": [
           "이지은"
         ]
       },
       {
+        "estimated_minutes": 44,
         "id": "TC-041",
         "name": "저온 환경 동작 시험",
-        "estimated_minutes": 44,
         "owners": [
           "최수연"
         ]
@@ -367,88 +367,88 @@
     "doc_name": "센서 데이터 처리",
     "identifiers": [
       {
+        "estimated_minutes": 15,
         "id": "TC-050",
         "name": "센서 입력 검증",
         "owners": [
           "김민수"
-        ],
-        "estimated_minutes": 15
+        ]
       },
       {
+        "estimated_minutes": 25,
         "id": "TC-051",
         "name": "센서 캘리브레이션",
         "owners": [
           "김민수"
-        ],
-        "estimated_minutes": 25
+        ]
       },
       {
+        "estimated_minutes": 18,
         "id": "TC-052",
         "name": "데이터 수집 시험",
         "owners": [
           "이지은"
-        ],
-        "estimated_minutes": 18
+        ]
       },
       {
+        "estimated_minutes": 22,
         "id": "TC-053",
         "name": "데이터 필터링 검증",
         "owners": [
           "이지은"
-        ],
-        "estimated_minutes": 22
+        ]
       },
       {
+        "estimated_minutes": 35,
         "id": "TC-054",
         "name": "실시간 처리 시험",
         "owners": [
           "박준혁"
-        ],
-        "estimated_minutes": 35
+        ]
       },
       {
+        "estimated_minutes": 12,
         "id": "TC-055",
         "name": "처리 지연 허용치 검증",
         "owners": [
           "박준혁"
-        ],
-        "estimated_minutes": 12
+        ]
       },
       {
+        "estimated_minutes": 28,
         "id": "TC-056",
         "name": "출력 정합성 시험",
         "owners": [
           "최수연"
-        ],
-        "estimated_minutes": 28
+        ]
       },
       {
+        "estimated_minutes": 20,
         "id": "TC-057",
         "name": "경계값 처리 검증",
         "owners": [
           "최수연"
-        ],
-        "estimated_minutes": 20
+        ]
       },
       {
+        "estimated_minutes": 30,
         "id": "TC-058",
         "name": "오류 복구 시험",
         "owners": [
           "김민수"
-        ],
-        "estimated_minutes": 30
+        ]
       },
       {
+        "estimated_minutes": 45,
         "id": "TC-059",
         "name": "장시간 안정성 시험",
         "owners": [
           "이지은"
-        ],
-        "estimated_minutes": 45
+        ]
       }
     ],
     "estimated_minutes": 250,
-    "remaining_minutes": 250,
+    "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-14T09:00:00"

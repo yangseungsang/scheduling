@@ -15,7 +15,7 @@
       "end": "15:00"
     }
   ],
-  "grid_interval_minutes": 10,
+  "grid_interval_minutes": 15,
   "max_schedule_days": 14,
   "block_color_by": "location"
 }
