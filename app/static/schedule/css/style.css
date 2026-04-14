@@ -968,7 +968,6 @@ body {
 .month-body { padding: 0; overflow: hidden; }
 .month-table {
   width: 100%;
-  height: 100%;
   table-layout: fixed;
   border-collapse: collapse;
 }
@@ -984,8 +983,6 @@ body {
   border: 1px solid #dee2e6;
   vertical-align: top;
   padding: 2px;
-  min-height: 60px;
-  height: auto;
 }
 .month-table tbody td.empty-cell { background: #fafafa; }
 .month-table tbody td.today-cell { background: #e8f4fd; }
