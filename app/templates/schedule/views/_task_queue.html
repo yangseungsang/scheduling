@@ -48,6 +48,9 @@
           <span class="queue-card-section-title">{{ task.doc_name }}</span>
           {% if task.get('is_simple') %}<span class="badge bg-secondary" style="font-size:0.6rem;vertical-align:middle;margin-left:4px">준비</span>{% endif %}
         </div>
+        <div class="queue-card-assignee" style="font-size:0.7rem;color:#6b7280">
+          {{ task.assignee_name }}
+        </div>
         <div class="queue-card-hours">
           남은: {{ task.remaining_unscheduled_minutes }}분 / 전체: {{ task.estimated_minutes }}분
         </div>
