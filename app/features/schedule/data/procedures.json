@@ -7,19 +7,25 @@
       {
         "id": "TC-001",
         "name": "시스템 전원 투입 시험",
-        "owners": ["김민수"],
+        "owners": [
+          "김민수"
+        ],
         "estimated_minutes": 12
       },
       {
         "id": "TC-002",
         "name": "초기화 절차 검증",
-        "owners": ["김민수"],
+        "owners": [
+          "김민수"
+        ],
         "estimated_minutes": 45
       },
       {
         "id": "TC-003",
         "name": "자체점검 결과 확인",
-        "owners": ["김민수"],
+        "owners": [
+          "김민수"
+        ],
         "estimated_minutes": 23
       }
     ]
@@ -32,13 +38,17 @@
       {
         "id": "TC-004",
         "name": "통신 링크 설정 시험",
-        "owners": ["이지은"],
+        "owners": [
+          "이지은"
+        ],
         "estimated_minutes": 58
       },
       {
         "id": "TC-005",
         "name": "데이터 송수신 검증",
-        "owners": ["이지은"],
+        "owners": [
+          "이지은"
+        ],
         "estimated_minutes": 34
       }
     ]
@@ -51,20 +61,113 @@
       {
         "id": "TC-010",
         "name": "항법 데이터 입력 시험",
-        "owners": ["박준혁"],
+        "owners": [
+          "박준혁"
+        ],
         "estimated_minutes": 67
       },
       {
         "id": "TC-011",
         "name": "연산 정확도 검증",
-        "owners": ["박준혁"],
+        "owners": [
+          "박준혁"
+        ],
         "estimated_minutes": 89
       },
       {
         "id": "TC-012",
         "name": "항법 오류 처리 시험",
-        "owners": ["박준혁"],
+        "owners": [
+          "박준혁"
+        ],
         "estimated_minutes": 41
+      }
+    ]
+  },
+  {
+    "version_id": "MAE31F",
+    "doc_id": 11,
+    "doc_name": "센서 데이터 처리",
+    "identifiers": [
+      {
+        "id": "TC-050",
+        "name": "센서 입력 검증",
+        "owners": [
+          "김민수"
+        ],
+        "estimated_minutes": 15
+      },
+      {
+        "id": "TC-051",
+        "name": "센서 캘리브레이션",
+        "owners": [
+          "김민수"
+        ],
+        "estimated_minutes": 25
+      },
+      {
+        "id": "TC-052",
+        "name": "데이터 수집 시험",
+        "owners": [
+          "이지은"
+        ],
+        "estimated_minutes": 18
+      },
+      {
+        "id": "TC-053",
+        "name": "데이터 필터링 검증",
+        "owners": [
+          "이지은"
+        ],
+        "estimated_minutes": 22
+      },
+      {
+        "id": "TC-054",
+        "name": "실시간 처리 시험",
+        "owners": [
+          "박준혁"
+        ],
+        "estimated_minutes": 35
+      },
+      {
+        "id": "TC-055",
+        "name": "처리 지연 허용치 검증",
+        "owners": [
+          "박준혁"
+        ],
+        "estimated_minutes": 12
+      },
+      {
+        "id": "TC-056",
+        "name": "출력 정합성 시험",
+        "owners": [
+          "최수연"
+        ],
+        "estimated_minutes": 28
+      },
+      {
+        "id": "TC-057",
+        "name": "경계값 처리 검증",
+        "owners": [
+          "최수연"
+        ],
+        "estimated_minutes": 20
+      },
+      {
+        "id": "TC-058",
+        "name": "오류 복구 시험",
+        "owners": [
+          "김민수"
+        ],
+        "estimated_minutes": 30
+      },
+      {
+        "id": "TC-059",
+        "name": "장시간 안정성 시험",
+        "owners": [
+          "이지은"
+        ],
+        "estimated_minutes": 45
       }
     ]
   }
