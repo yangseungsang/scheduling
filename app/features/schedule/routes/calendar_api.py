@@ -138,18 +138,11 @@ def api_create_block():
         while next_day.weekday() >= 5:
             next_day += timedelta(days=1)
         next_date = next_day.isoformat()
-        # 다음날 같은 장소의 기존 블록 뒤에 이어 배치
+        # 다음날 시작 시간부터 배치
         cont_start = work_start
-        if location_id:
-            existing = schedule_block.get_by_location_and_date(location_id, next_date)
-            for eb in sorted(existing, key=lambda b: b['end_time']):
-                eb_end_min = time_to_minutes(eb['end_time'])
-                if eb_end_min > time_to_minutes(cont_start):
-                    cont_start = minutes_to_time(eb_end_min)
-        # 연속 블록 종료 시간 계산
         cont_raw_end = minutes_to_time(time_to_minutes(cont_start) + overflow_minutes)
         cont_end = adjust_end_for_breaks(cont_start, cont_raw_end, sttngs)
-        # 겹침 검사 (이어 배치 후에도 안전한지)
+        # 겹침 검사
         cont_overlap = check_overlap(
             assignee_names, location_id, next_date, cont_start, cont_end,
         )
@@ -257,14 +250,8 @@ def api_update_block(block_id):
             while next_day.weekday() >= 5:
                 next_day += timedelta(days=1)
             next_date = next_day.isoformat()
-            # 다음날 같은 장소 기존 블록 뒤에 이어 배치
+            # 다음날 시작 시간부터 배치
             cont_start = work_start
-            if location_id:
-                existing = schedule_block.get_by_location_and_date(location_id, next_date)
-                for eb in sorted(existing, key=lambda b: b['end_time']):
-                    eb_end_min = time_to_minutes(eb['end_time'])
-                    if eb_end_min > time_to_minutes(cont_start):
-                        cont_start = minutes_to_time(eb_end_min)
             cont_raw_end = minutes_to_time(time_to_minutes(cont_start) + overflow_minutes)
             cont_end = adjust_end_for_breaks(cont_start, cont_raw_end, sttngs)
             cont_overlap = check_overlap(
