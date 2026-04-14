@@ -329,13 +329,28 @@
         document.body.style.cursor = 'grabbing';
       }
 
-      // 고스트를 마우스 위치에 맞춰 이동
-      ghost.style.left = ev.clientX - (ghost.offsetWidth / 2) + 'px';
-      ghost.style.top = ev.clientY - 10 + 'px';
-
       // 현재 커서 아래의 드롭 대상 탐색 및 하이라이트
       var target = findTarget(ev.clientX, ev.clientY);
       setHighlight(target, ev.clientX);
+
+      // 고스트를 마우스 위치에 맞춰 이동 (슬롯 위에서는 그리드에 스냅)
+      var ghostLeft = ev.clientX - (ghost.offsetWidth / 2);
+      var ghostTop = ev.clientY - 10;
+      if (target && target.type === 'slot' && target.el) {
+        // 슬롯 컬럼의 상대 위치에서 그리드 스냅 계산
+        var slotsContainer = target.el.closest('.week-day-slots, .day-loc-body');
+        if (slotsContainer) {
+          var containerRect = slotsContainer.getBoundingClientRect();
+          var slotH = App.SLOT_HEIGHT || 24;
+          var relY = ev.clientY - containerRect.top + slotsContainer.scrollTop;
+          var snappedSlot = Math.round(relY / slotH);
+          ghostTop = containerRect.top - slotsContainer.scrollTop + (snappedSlot * slotH);
+          ghostLeft = containerRect.left;
+          ghost.style.width = containerRect.width + 'px';
+        }
+      }
+      ghost.style.left = ghostLeft + 'px';
+      ghost.style.top = ghostTop + 'px';
     }
 
     /** 마우스 업 핸들러 — 드래그 종료 처리 */
