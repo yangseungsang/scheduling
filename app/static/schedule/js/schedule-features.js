@@ -72,11 +72,9 @@
     input.addEventListener('input', function () {
       var query = input.value.trim().toLowerCase();
       body.querySelectorAll('.queue-task-item').forEach(function (item) {
-        var id = (item.dataset.title || '').toLowerCase();
-        var section = (item.querySelector('.queue-card-section') || {}).textContent || '';
-        section = section.toLowerCase();
-        // 제목 또는 섹션명에 검색어가 포함되면 표시
-        var match = !query || id.indexOf(query) !== -1 || section.indexOf(query) !== -1;
+        var title = (item.dataset.title || '').toLowerCase();
+        var assignee = (item.dataset.assigneeName || '').toLowerCase();
+        var match = !query || title.indexOf(query) !== -1 || assignee.indexOf(query) !== -1;
         item.style.display = match ? '' : 'none';
       });
     });
