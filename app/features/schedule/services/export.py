@@ -15,18 +15,19 @@ HEADERS = ['날짜', '문서명']
 
 
 def _block_to_row(b):
-    """블록 딕셔너리를 내보내기용 행(row) 데이터로 변환한다.
+    """블록 딕셔너리를 내보내기용 행(row) 데이터로 변환한다."""
+    name = b.get('doc_name', '') or b.get('task_title', '')
+    if b.get('is_split'):
+        name += ' (' + str(b.get('block_identifier_count', '?')) + '/' + str(b.get('total_identifier_count', '?')) + ')'
+    return [b.get('date', ''), name]
 
-    Args:
-        b: 보강된 스케줄 블록 딕셔너리.
 
-    Returns:
-        list: [날짜, 문서명(또는 태스크 제목)] 형태의 리스트.
-    """
-    return [
-        b.get('date', ''),
-        b.get('doc_name', '') or b.get('task_title', ''),
-    ]
+def _block_label(b):
+    """블록의 표시 라벨을 생성한다 (달력 시트용)."""
+    name = b.get('doc_name', '') or b.get('task_title', '')
+    if b.get('is_split'):
+        name += ' (' + str(b.get('block_identifier_count', '?')) + '/' + str(b.get('total_identifier_count', '?')) + ')'
+    return name
 
 
 def export_csv(enriched_blocks):
@@ -94,10 +95,8 @@ def export_xlsx(enriched_blocks, start_date, end_date):
     header_font_white = Font(bold=True, size=11, color='FFFFFF')
     date_font = Font(bold=True, size=10)
     block_font = Font(size=9)
-    today_fill = PatternFill(start_color='E8F4FD', end_color='E8F4FD', fill_type='solid')
     center_align = Alignment(horizontal='center', vertical='top', wrap_text=True)
     top_align = Alignment(vertical='top', wrap_text=True)
-    today = date.today()
 
     # 1행: 제목 (5열 병합)
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
@@ -130,28 +129,19 @@ def export_xlsx(enriched_blocks, start_date, end_date):
             cell.font = date_font
             cell.alignment = center_align
             cell.border = thin_border
-            if day == today:
-                cell.fill = today_fill
         row += 1
 
-        # 내용 행
+        # 내용 행 (분리 블록 표시 포함)
         max_lines = 1
         for i in range(5):
             day = current + timedelta(days=i)
             day_blocks = blocks_by_date.get(day.isoformat(), [])
-            sections = []
-            for b in day_blocks:
-                section = b.get('doc_name', '') or b.get('task_title', '')
-                if section:
-                    sections.append(section)
+            sections = [_block_label(b) for b in day_blocks if _block_label(b)]
 
             cell = ws.cell(row=row, column=i + 1, value='\n'.join(sections) if sections else '')
             cell.font = block_font
             cell.alignment = top_align
             cell.border = thin_border
-
-            if day == today:
-                cell.fill = today_fill
 
             if len(sections) > max_lines:
                 max_lines = len(sections)
