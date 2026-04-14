@@ -27,13 +27,55 @@
    * 블록을 다른 시간 슬롯, 월간 셀, 또는 큐로 이동할 수 있다.
    */
   function initBlockMove() {
-    // Ctrl+클릭으로 블록 다중 선택
+    // Ctrl+클릭 토글 / Shift+클릭 범위 선택
+    var lastClickedBlock = null;
+    function getAllBlocks() {
+      return Array.from(document.querySelectorAll('.schedule-block[data-block-id]'));
+    }
+    function updateSelectionCount() {
+      var count = document.querySelectorAll('.schedule-block.block-selected').length;
+      var badge = document.getElementById('block-select-count');
+      if (count > 1) {
+        if (!badge) {
+          badge = document.createElement('div');
+          badge.id = 'block-select-count';
+          badge.style.cssText = 'position:fixed;top:8px;left:50%;transform:translateX(-50%);z-index:9999;background:#0d6efd;color:#fff;padding:4px 12px;border-radius:16px;font-size:0.8rem;font-weight:600;box-shadow:0 2px 8px rgba(0,0,0,0.2);';
+          document.body.appendChild(badge);
+        }
+        badge.textContent = count + '개 선택됨 (드래그로 이동, Esc 해제)';
+      } else if (badge) {
+        badge.remove();
+      }
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        document.querySelectorAll('.block-selected').forEach(function (el) { el.classList.remove('block-selected'); });
+        updateSelectionCount();
+      }
+    });
+
     document.querySelectorAll('.schedule-block[data-block-id]').forEach(function (block) {
       block.addEventListener('click', function (e) {
-        if (!e.ctrlKey && !e.metaKey) return; // Ctrl/Cmd 없으면 무시
+        if (!e.ctrlKey && !e.metaKey && !e.shiftKey) return;
         e.preventDefault();
         e.stopPropagation();
-        block.classList.toggle('block-selected');
+
+        if (e.shiftKey && lastClickedBlock && lastClickedBlock !== block) {
+          // Shift+클릭: 시간순 범위 선택
+          var all = getAllBlocks().sort(function (a, b) {
+            return (a.dataset.startTime || '').localeCompare(b.dataset.startTime || '');
+          });
+          var i1 = all.indexOf(lastClickedBlock);
+          var i2 = all.indexOf(block);
+          if (i1 >= 0 && i2 >= 0) {
+            var start = Math.min(i1, i2), end = Math.max(i1, i2);
+            for (var i = start; i <= end; i++) all[i].classList.add('block-selected');
+          }
+        } else {
+          block.classList.toggle('block-selected');
+          lastClickedBlock = block;
+        }
+        updateSelectionCount();
       });
     });
 
@@ -41,8 +83,8 @@
       block.addEventListener('mousedown', function (e) {
         // 리사이즈 핸들 클릭 시에는 이동 처리하지 않음
         if (e.target.closest('.resize-handle')) return;
-        // Ctrl+클릭은 선택 모드이므로 드래그 하지 않음
-        if (e.ctrlKey || e.metaKey) return;
+        // Ctrl/Shift+클릭은 선택 모드이므로 드래그 하지 않음
+        if (e.ctrlKey || e.metaKey || e.shiftKey) return;
 
         var blockId = block.dataset.blockId;
         var taskId = block.dataset.taskId;
