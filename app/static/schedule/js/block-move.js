@@ -131,14 +131,39 @@
             } else if (target.type === 'slot') {
               var t = App.snapToBlockEdge(target.el);
               if (isMulti) {
-                // 다중 선택 블록 순차 이동 — API 응답의 실제 end_time 기준으로 다음 블록 시작
+                // 다중 선택 블록 순차 이동 — 종료시간 초과 시 다음 근무일로 전환
                 var curDate = target.date;
                 var curMin = t;
                 var chain = Promise.resolve();
                 var contCount = 0;
+                // 근무 종료 시간 (슬롯에서 읽거나 기본 16:30)
+                var workEndMin = (function () {
+                  var slots = document.querySelectorAll('.time-slot[data-time]');
+                  var max = 0;
+                  slots.forEach(function (s) { var t2 = timeToMin(s.dataset.time); if (t2 > max) max = t2; });
+                  return max || timeToMin('16:30');
+                })();
+                // 근무 시작 시간 (첫 슬롯)
+                var workStartMin = (function () {
+                  var first = document.querySelector('.time-slot[data-time]');
+                  return first ? timeToMin(first.dataset.time) : timeToMin('08:30');
+                })();
+                function nextWorkday(dateStr) {
+                  var d = new Date(dateStr + 'T00:00:00');
+                  d.setDate(d.getDate() + 1);
+                  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
+                  return d.toISOString().slice(0, 10);
+                }
+
                 selectedBlocks.forEach(function (sb) {
                   chain = chain.then(function () {
                     var dur = workMinutes(timeToMin(sb.dataset.startTime), timeToMin(sb.dataset.endTime));
+                    // 현재 시간이 종료시간 이상이면 다음 근무일로 전환
+                    if (curMin >= workEndMin) {
+                      curDate = nextWorkday(curDate);
+                      curMin = workStartMin;
+                      contCount++;
+                    }
                     var moveUpdate = {
                       date: curDate,
                       start_time: minToTime(curMin),
@@ -147,21 +172,22 @@
                     if (target.locationId) moveUpdate.location_id = target.locationId;
                     return api('PUT', '/schedule/api/blocks/' + sb.dataset.blockId, moveUpdate)
                       .then(function (res) {
-                        // 다음 블록 시작 = 이 블록의 실제 종료 시간
                         curMin = timeToMin(res.end_time);
-                        // 다음날로 넘어간 경우 날짜/시작시간 갱신
                         if (res.continuation) {
                           contCount++;
                           curDate = res.continuation.date;
                           curMin = timeToMin(res.continuation.end_time);
                         } else if (res.continuation_failed) {
                           showToast(res.continuation_failed, 'danger');
+                          // 실패해도 다음날로 전환
+                          curDate = nextWorkday(curDate);
+                          curMin = workStartMin;
                         }
                       });
                   });
                 });
                 chain.then(function () {
-                  if (contCount > 0) showToast('초과분이 다음 근무일에 자동 배치되었습니다.', 'info');
+                  if (contCount > 0) showToast('일부 항목이 다음 근무일에 배치되었습니다.', 'info');
                   softReload();
                 }).catch(function (err) { showToast(err.message, 'danger'); });
               } else {
