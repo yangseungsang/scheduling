@@ -128,7 +128,11 @@
                   // 초과 시간이 있으면 서버에 알림
                   if (overflowMin > 0) payload.overflow_minutes = overflowMin;
                   return api('POST', '/schedule/api/blocks', payload);
-                }).then(function () {
+                }).then(function (res) {
+                  // 다음날 연속 블록 생성 알림
+                  if (res && res.continuation) {
+                    showToast('당일 초과분이 ' + res.continuation.date + '에 자동 배치되었습니다.', 'info');
+                  }
                   // 전체 배치일 때만 잔여 시간 경고 확인
                   if (!isPartial) return checkRemainingAfterPlace(taskId, title.trim(), prevRem);
                 }).then(function () { return App.softReload(); })

@@ -20,6 +20,12 @@
       <i class="bi bi-plus-square"></i> 블록 추가
     </button>
   </div>
+  <div class="queue-batch-bar d-flex gap-1 px-2 py-1" id="queue-batch-bar" style="display:none">
+    <button class="btn btn-sm btn-primary flex-fill" id="btn-batch-place">
+      <i class="bi bi-calendar-plus"></i> 선택 일괄 배치 (<span id="batch-count">0</span>)
+    </button>
+    <button class="btn btn-sm btn-outline-secondary" id="btn-batch-clear">해제</button>
+  </div>
   <div class="task-queue-body" id="task-queue-body">
     {% if queue_tasks %}
     {% for task in queue_tasks %}
@@ -35,6 +41,7 @@
          data-assignee-name="{{ task.assignee_name }}"
          data-queue-color="{{ queue_color }}"
          data-identifiers='{{ task.identifiers|tojson }}'>
+      <input type="checkbox" class="queue-batch-check" style="margin:auto 0 auto 6px;flex-shrink:0" title="일괄 배치 선택">
       <div class="queue-card-color" style="background:{{ queue_color if not task.get('is_simple') else '#94a3b8' }}"></div>
       <div class="queue-card-body">
         <div class="queue-card-top">

@@ -119,9 +119,42 @@ def api_create_block():
             data['task_id'], block['id'], new_identifier_ids, sttngs,
         )
 
+    # 초과 시간이 있으면 다음 근무일에 연속 블록 자동 생성
+    continuation = None
+    if overflow_minutes > 0 and data['task_id']:
+        from datetime import date as date_cls, timedelta
+        sttngs = sttngs if 'sttngs' in dir() else settings.get()
+        work_start = sttngs.get('actual_work_start') or sttngs.get('work_start', '08:30')
+        # 다음 근무일 계산 (주말 건너뜀)
+        next_day = date_cls.fromisoformat(data['date']) + timedelta(days=1)
+        while next_day.weekday() >= 5:
+            next_day += timedelta(days=1)
+        next_date = next_day.isoformat()
+        # 연속 블록 종료 시간 계산
+        cont_raw_end = minutes_to_time(time_to_minutes(work_start) + overflow_minutes)
+        cont_end = adjust_end_for_breaks(work_start, cont_raw_end, sttngs)
+        # 다음날 같은 장소 겹침 검사
+        cont_overlap = check_overlap(
+            assignee_names, location_id, next_date, work_start, cont_end,
+        )
+        if not cont_overlap:
+            continuation = schedule_block.create(
+                task_id=data['task_id'],
+                assignee_names=assignee_names,
+                location_id=location_id,
+                date=next_date,
+                start_time=work_start,
+                end_time=cont_end,
+                identifier_ids=new_identifier_ids,
+            )
+
     # 태스크의 잔여 시간을 블록 배치 현황에 맞게 동기화
     sync_task_remaining_minutes(data['task_id'])
-    return jsonify(block), 201
+
+    result = dict(block)
+    if continuation:
+        result['continuation'] = continuation
+    return jsonify(result), 201
 
 
 @schedule_bp.route('/api/blocks/<block_id>', methods=['PUT'])

@@ -27,10 +27,22 @@
    * 블록을 다른 시간 슬롯, 월간 셀, 또는 큐로 이동할 수 있다.
    */
   function initBlockMove() {
+    // Ctrl+클릭으로 블록 다중 선택
+    document.querySelectorAll('.schedule-block[data-block-id]').forEach(function (block) {
+      block.addEventListener('click', function (e) {
+        if (!e.ctrlKey && !e.metaKey) return; // Ctrl/Cmd 없으면 무시
+        e.preventDefault();
+        e.stopPropagation();
+        block.classList.toggle('block-selected');
+      });
+    });
+
     document.querySelectorAll('.schedule-block[data-block-id]').forEach(function (block) {
       block.addEventListener('mousedown', function (e) {
         // 리사이즈 핸들 클릭 시에는 이동 처리하지 않음
         if (e.target.closest('.resize-handle')) return;
+        // Ctrl+클릭은 선택 모드이므로 드래그 하지 않음
+        if (e.ctrlKey || e.metaKey) return;
 
         var blockId = block.dataset.blockId;
         var taskId = block.dataset.taskId;
@@ -43,38 +55,87 @@
         // 고스트 높이: 블록의 실제 높이 또는 시간 비례 계산
         var ghostH = block.offsetHeight || (durationMin / App.GRID_MINUTES) * SLOT_HEIGHT;
 
+        // 다중 선택된 블록 수집 (현재 드래그 블록 포함)
+        var selectedBlocks = Array.from(document.querySelectorAll('.schedule-block.block-selected'));
+        var isMulti = selectedBlocks.length > 0 && (block.classList.contains('block-selected') || selectedBlocks.length > 0);
+        if (isMulti && !block.classList.contains('block-selected')) {
+          // 드래그 대상이 선택 안 된 블록이면 단일 드래그
+          isMulti = false;
+        }
+
         startDrag(e, {
           sourceEl: block,
-          ghostText: title,
+          ghostText: isMulti ? title + ' 외 ' + (selectedBlocks.length - 1) + '건' : title,
           ghostColor: color,
           ghostWidth: block.offsetWidth,
           ghostHeight: ghostH,
           onDrop: function (target) {
             if (target.type === 'queue') {
-              // 큐로 되돌리기: 블록 삭제 + 태스크 잔여시간 복원
-              api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
-                .then(function () { softReload(); })
-                .catch(function (err) { showToast(err.message, 'danger'); });
+              if (isMulti) {
+                // 다중 선택 블록 일괄 큐로 보내기
+                var chain = Promise.resolve();
+                selectedBlocks.forEach(function (sb) {
+                  chain = chain.then(function () {
+                    return api('DELETE', '/schedule/api/blocks/' + sb.dataset.blockId + '?restore=1');
+                  });
+                });
+                chain.then(function () { softReload(); })
+                  .catch(function (err) { showToast(err.message, 'danger'); });
+              } else {
+                api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+                  .then(function () { softReload(); })
+                  .catch(function (err) { showToast(err.message, 'danger'); });
+              }
             } else if (target.type === 'slot') {
-              // 시간 슬롯에 드롭: 인접 블록 끝에 스냅하여 배치
               var t = App.snapToBlockEdge(target.el);
-              var moveUpdate = {
-                date: target.date,
-                start_time: minToTime(t),
-                end_time: minToTime(t + durationMin),
-              };
-              if (target.locationId) moveUpdate.location_id = target.locationId;
-              api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate)
-                .then(function (res) {
-                  if (res && res.warning) showToast(res.warning, 'warning');
-                  softReload();
-                })
-                .catch(function (err) { showToast(err.message, 'danger'); });
+              if (isMulti) {
+                // 다중 선택 블록 순차 이동 (이어 배치)
+                var curMin = t;
+                var chain = Promise.resolve();
+                selectedBlocks.forEach(function (sb) {
+                  chain = chain.then(function () {
+                    var dur = workMinutes(timeToMin(sb.dataset.startTime), timeToMin(sb.dataset.endTime));
+                    var moveUpdate = {
+                      date: target.date,
+                      start_time: minToTime(curMin),
+                      end_time: minToTime(curMin + dur),
+                    };
+                    if (target.locationId) moveUpdate.location_id = target.locationId;
+                    curMin += dur;
+                    return api('PUT', '/schedule/api/blocks/' + sb.dataset.blockId, moveUpdate);
+                  });
+                });
+                chain.then(function () { softReload(); })
+                  .catch(function (err) { showToast(err.message, 'danger'); });
+              } else {
+                var moveUpdate = {
+                  date: target.date,
+                  start_time: minToTime(t),
+                  end_time: minToTime(t + durationMin),
+                };
+                if (target.locationId) moveUpdate.location_id = target.locationId;
+                api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate)
+                  .then(function (res) {
+                    if (res && res.warning) showToast(res.warning, 'warning');
+                    softReload();
+                  })
+                  .catch(function (err) { showToast(err.message, 'danger'); });
+              }
             } else if (target.type === 'month') {
-              // 월간뷰 셀에 드롭: 날짜만 변경
-              api('PUT', '/schedule/api/blocks/' + blockId, { date: target.date })
-                .then(function () { softReload(); })
-                .catch(function (err) { showToast(err.message, 'danger'); });
+              if (isMulti) {
+                var chain = Promise.resolve();
+                selectedBlocks.forEach(function (sb) {
+                  chain = chain.then(function () {
+                    return api('PUT', '/schedule/api/blocks/' + sb.dataset.blockId, { date: target.date });
+                  });
+                });
+                chain.then(function () { softReload(); })
+                  .catch(function (err) { showToast(err.message, 'danger'); });
+              } else {
+                api('PUT', '/schedule/api/blocks/' + blockId, { date: target.date })
+                  .then(function () { softReload(); })
+                  .catch(function (err) { showToast(err.message, 'danger'); });
+              }
             }
           },
         });
