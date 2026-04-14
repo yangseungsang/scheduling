@@ -892,9 +892,9 @@ body {
 }
 .week-time-slot.break-slot { background: #f0f0f0; }
 .week-block {
-  left: 2px;
-  right: 2px;
-  padding: 2px 4px;
+  left: 0;
+  right: 0;
+  padding: 1px 3px;
   font-size: 0.7rem;
 }
 .week-block .block-title { font-size: 0.7rem; }
