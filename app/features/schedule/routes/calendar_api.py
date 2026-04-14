@@ -171,8 +171,8 @@ def api_create_block():
     elif overflow_minutes > 0:
         result['continuation_failed'] = (
             next_date + ' ' + cont_start + '~' + cont_end +
-            ' 시간대에 다른 시험이 있어 초과분(' + str(overflow_minutes) + '분)을 배치하지 못했습니다. '
-            '해당 초과분은 시험 큐에 남아있으니 수동으로 배치해 주세요.'
+            ' 시간대에 다른 시험이 있어 배치하지 못했습니다. '
+            '초과분(' + str(overflow_minutes) + '분)은 줄어듭니다.'
         )
     return jsonify(result), 201
 
@@ -297,8 +297,8 @@ def api_update_block(block_id):
     elif overflow_minutes > 0 if 'overflow_minutes' in dir() else False:
         result['continuation_failed'] = (
             next_date + ' ' + cont_start + '~' + cont_end +
-            ' 시간대에 다른 시험이 있어 초과분(' + str(overflow_minutes) + '분)을 배치하지 못했습니다. '
-            '해당 초과분은 시험 큐에 남아있으니 수동으로 배치해 주세요.'
+            ' 시간대에 다른 시험이 있어 배치하지 못했습니다. '
+            '초과분(' + str(overflow_minutes) + '분)은 줄어듭니다.'
         )
     return jsonify(result)
 
