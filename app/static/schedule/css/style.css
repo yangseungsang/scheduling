@@ -801,13 +801,6 @@ body {
   align-items: center;
   justify-content: center;
 }
-.block-break-overlay::after {
-  content: attr(data-label);
-  font-size: 0.6rem;
-  font-weight: 700;
-  color: rgba(255,255,255,0.85);
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-}
 
 /* ---- Resize Handles ---- */
 .resize-handle {
