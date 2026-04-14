@@ -52,20 +52,10 @@
           <div class="day-loc-body">
             {# Time slot grid #}
             {% for slot in time_slots %}
-            {% set is_break = slot in break_slots %}
-            {% set break_label = '' %}
-            {% if is_break %}
-              {% if settings.lunch_start <= slot < settings.lunch_end %}
-                {% set break_label = '점심' %}
-              {% else %}
-                {% set break_label = '휴식' %}
-              {% endif %}
-            {% endif %}
-            <div class="time-slot{% if is_break %} break-slot{% endif %}"
+            <div class="time-slot{% if slot in break_slots %} break-slot{% endif %}"
                  data-date="{{ current_date.isoformat() }}"
                  data-time="{{ slot }}"
-                 data-location-id="{{ loc.id }}"
-                 {% if break_label %}data-break-label="{{ break_label }}"{% endif %}>
+                 data-location-id="{{ loc.id }}">
             </div>
             {% endfor %}
             <div class="time-slot" data-date="{{ current_date.isoformat() }}" data-time="{{ settings.work_end }}" data-location-id="{{ loc.id }}"></div>

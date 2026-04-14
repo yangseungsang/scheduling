@@ -653,18 +653,6 @@ body {
 .time-slot.break-slot + .time-slot:not(.break-slot) {
   border-top: 1px solid #dee2e6;
 }
-.time-slot.break-slot[data-break-label]::after {
-  content: attr(data-break-label);
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 0.55rem;
-  color: #9ca3af;
-  font-weight: 600;
-  white-space: nowrap;
-  pointer-events: none;
-}
 .time-slot:hover { background: #e8f4fd; }
 .time-slot.drag-over {
   background-color: #cfe2ff !important;
