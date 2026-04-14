@@ -125,6 +125,29 @@
                       <i class="bi bi-arrow-left-square"></i>
                     </button>
                     <div class="resize-handle resize-handle-bottom"></div>
+                    {# Break overlays #}
+                    {% set block_start_min = block.start_time.split(':')[0]|int * 60 + block.start_time.split(':')[1]|int %}
+                    {% set block_end_min = block.end_time.split(':')[0]|int * 60 + block.end_time.split(':')[1]|int %}
+                    {% set lunch_start_min = settings.lunch_start.split(':')[0]|int * 60 + settings.lunch_start.split(':')[1]|int %}
+                    {% set lunch_end_min = settings.lunch_end.split(':')[0]|int * 60 + settings.lunch_end.split(':')[1]|int %}
+                    {% set ov_start = [block_start_min, lunch_start_min]|max %}
+                    {% set ov_end = [block_end_min, lunch_end_min]|min %}
+                    {% if ov_start < ov_end %}
+                    {% set ov_top = ((ov_start - block_start_min) / interval * slot_height)|int %}
+                    {% set ov_height = ((ov_end - ov_start) / interval * slot_height)|int %}
+                    <div class="block-break-overlay" data-label="점심" style="top:{{ ov_top }}px;height:{{ ov_height }}px;"></div>
+                    {% endif %}
+                    {% for brk in settings.breaks %}
+                    {% set brk_start_min = brk.start.split(':')[0]|int * 60 + brk.start.split(':')[1]|int %}
+                    {% set brk_end_min = brk.end.split(':')[0]|int * 60 + brk.end.split(':')[1]|int %}
+                    {% set ov_start = [block_start_min, brk_start_min]|max %}
+                    {% set ov_end = [block_end_min, brk_end_min]|min %}
+                    {% if ov_start < ov_end %}
+                    {% set ov_top = ((ov_start - block_start_min) / interval * slot_height)|int %}
+                    {% set ov_height = ((ov_end - ov_start) / interval * slot_height)|int %}
+                    <div class="block-break-overlay" data-label="휴식" style="top:{{ ov_top }}px;height:{{ ov_height }}px;"></div>
+                    {% endif %}
+                    {% endfor %}
                   </div>
                   {% endfor %}
                 </div>

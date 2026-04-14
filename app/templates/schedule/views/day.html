@@ -128,7 +128,7 @@
               {% if ov_start < ov_end %}
               {% set ov_top = ((ov_start - block_start_min) / interval * slot_height)|int %}
               {% set ov_height = ((ov_end - ov_start) / interval * slot_height)|int %}
-              <div class="block-break-overlay" style="top:{{ ov_top }}px;height:{{ ov_height }}px;"></div>
+              <div class="block-break-overlay" data-label="점심 {{ settings.lunch_start }}–{{ settings.lunch_end }}" style="top:{{ ov_top }}px;height:{{ ov_height }}px;"></div>
               {% endif %}
               {% for brk in settings.breaks %}
               {% set brk_start_min = brk.start.split(':')[0]|int * 60 + brk.start.split(':')[1]|int %}
@@ -138,7 +138,7 @@
               {% if ov_start < ov_end %}
               {% set ov_top = ((ov_start - block_start_min) / interval * slot_height)|int %}
               {% set ov_height = ((ov_end - ov_start) / interval * slot_height)|int %}
-              <div class="block-break-overlay" style="top:{{ ov_top }}px;height:{{ ov_height }}px;"></div>
+              <div class="block-break-overlay" data-label="휴식 {{ brk.start }}–{{ brk.end }}" style="top:{{ ov_top }}px;height:{{ ov_height }}px;"></div>
               {% endif %}
               {% endfor %}
             </div>
