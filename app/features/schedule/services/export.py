@@ -108,8 +108,8 @@ def export_xlsx(enriched_blocks, start_date, end_date):
     for c in range(1, 6):
         ws.column_dimensions[get_column_letter(c)].width = 26
 
-    # 3행: 요일 헤더 (월~금)
-    row = 3
+    # 2행: 요일 헤더 (월~금)
+    row = 2
     for i in range(5):
         cell = ws.cell(row=row, column=i + 1, value=day_names[i])
         cell.font = header_font_white
