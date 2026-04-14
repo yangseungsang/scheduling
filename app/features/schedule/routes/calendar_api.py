@@ -239,11 +239,49 @@ def api_update_block(block_id):
     if overlap:
         return jsonify({'error': '해당 시간에 이미 다른 시험이 배치되어 있습니다.'}), 409
 
-    # 근무 종료 시간 초과 차단 (기존 블록 이동/리사이즈는 다음날 넘김 불가)
+    # 근무 종료 시간 초과 시 클램핑 + 다음날 자동 넘김
     sttngs = sttngs if 'sttngs' in dir() else settings.get()
     work_end_str = sttngs.get('actual_work_end') or sttngs.get('work_end', '17:00')
-    if time_to_minutes(check_end) > time_to_minutes(work_end_str):
-        return jsonify({'error': '근무 종료 시간(' + work_end_str + ')을 초과할 수 없습니다.'}), 409
+    work_end_min = time_to_minutes(work_end_str)
+    check_end_min = time_to_minutes(check_end)
+    continuation = None
+    if check_end_min > work_end_min:
+        overflow_minutes = work_minutes_in_range(work_end_str, check_end, sttngs)
+        updates['end_time'] = work_end_str
+
+        if overflow_minutes > 0 and block.get('task_id'):
+            from datetime import date as date_cls, timedelta
+            work_start = sttngs.get('actual_work_start') or sttngs.get('work_start', '08:30')
+            move_date = updates.get('date', block['date'])
+            next_day = date_cls.fromisoformat(move_date) + timedelta(days=1)
+            while next_day.weekday() >= 5:
+                next_day += timedelta(days=1)
+            next_date = next_day.isoformat()
+            # 다음날 같은 장소 기존 블록 뒤에 이어 배치
+            cont_start = work_start
+            if location_id:
+                existing = schedule_block.get_by_location_and_date(location_id, next_date)
+                for eb in sorted(existing, key=lambda b: b['end_time']):
+                    eb_end_min = time_to_minutes(eb['end_time'])
+                    if eb_end_min > time_to_minutes(cont_start):
+                        cont_start = minutes_to_time(eb_end_min)
+            cont_raw_end = minutes_to_time(time_to_minutes(cont_start) + overflow_minutes)
+            cont_end = adjust_end_for_breaks(cont_start, cont_raw_end, sttngs)
+            cont_overlap = check_overlap(
+                assignee_names, location_id, next_date, cont_start, cont_end,
+            )
+            if not cont_overlap:
+                continuation = schedule_block.create(
+                    task_id=block.get('task_id'),
+                    assignee_names=block.get('assignee_names', []),
+                    location_id=location_id,
+                    date=next_date,
+                    start_time=cont_start,
+                    end_time=cont_end,
+                    identifier_ids=block.get('identifier_ids'),
+                )
+        # 겹침 재검사 (클램핑된 end_time 기준)
+        check_end = work_end_str
 
     updated = schedule_block.update(block_id, **updates)
 
@@ -251,7 +289,10 @@ def api_update_block(block_id):
     if block.get('task_id'):
         sync_task_remaining_minutes(block['task_id'])
 
-    return jsonify(updated)
+    result = dict(updated)
+    if continuation:
+        result['continuation'] = continuation
+    return jsonify(result)
 
 
 @schedule_bp.route('/api/blocks/<block_id>', methods=['DELETE'])

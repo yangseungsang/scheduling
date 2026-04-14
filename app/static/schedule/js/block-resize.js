@@ -111,7 +111,10 @@
                 start_time: newStart,
                 end_time: newEnd,
                 resize: true, // 서버에 리사이즈 동작임을 알림
-              }).then(function () { return App.softReload(); })
+              }).then(function (res) {
+                  if (res && res.continuation) showToast('초과분이 ' + res.continuation.date + '에 자동 배치되었습니다.', 'info');
+                  return App.softReload();
+                })
                 .catch(function (err) {
                   showToast(err.message, 'danger');
                   // 오류 시 원래 위치/크기로 복원

@@ -115,7 +115,10 @@
                 };
                 if (target.locationId) moveUpdate.location_id = target.locationId;
                 api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate)
-                  .then(function () { softReload(); })
+                  .then(function (res) {
+                    if (res && res.continuation) showToast('초과분이 ' + res.continuation.date + '에 자동 배치되었습니다.', 'info');
+                    softReload();
+                  })
                   .catch(function (err) { showToast(err.message, 'danger'); });
               }
             } else if (target.type === 'month') {
