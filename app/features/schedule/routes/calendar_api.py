@@ -98,16 +98,15 @@ def api_create_block():
 
     new_identifier_ids = data.get('identifier_ids')
 
-    # 초과 배치 시간(분) 계산: 프론트 전달값 또는 actual_work_end 기준 자동 산출
+    # 초과 배치 시간(분) 계산: actual_work_end 기준으로 항상 백엔드에서 산출
     work_end_str = sttngs.get('actual_work_end') or sttngs.get('work_end', '17:00')
     work_end_min = time_to_minutes(work_end_str)
     adjusted_end_min = time_to_minutes(adjusted_end)
-    overflow_minutes = int(data.get('overflow_minutes', 0) or 0)
-    # 프론트에서 overflow를 안 보냈어도 백엔드에서 자동 감지
-    if overflow_minutes == 0 and adjusted_end_min > work_end_min:
+    if adjusted_end_min > work_end_min:
         overflow_minutes = adjusted_end_min - work_end_min
-        # 블록 종료 시간을 근무 종료 시간으로 클램핑
         adjusted_end = work_end_str
+    else:
+        overflow_minutes = 0
 
     block = schedule_block.create(
         task_id=data['task_id'],
