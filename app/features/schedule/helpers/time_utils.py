@@ -159,8 +159,8 @@ def generate_time_slots(settings):
     """
     from datetime import datetime, timedelta
     interval = settings.get('grid_interval_minutes', 15)
-    start = datetime.strptime(settings['work_start'], '%H:%M')
-    end = datetime.strptime(settings['work_end'], '%H:%M')
+    start = datetime.strptime(settings.get('actual_work_start') or settings['work_start'], '%H:%M')
+    end = datetime.strptime(settings.get('actual_work_end') or settings['work_end'], '%H:%M')
     slots = []
     current = start
     while current < end:

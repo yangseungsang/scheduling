@@ -898,8 +898,8 @@ body {
   border: 1px solid #dee2e6;
   vertical-align: top;
   padding: 4px;
-  height: 110px;
-  overflow: hidden;
+  min-height: 80px;
+  height: auto;
 }
 .month-table tbody td.empty-cell { background: #fafafa; }
 .month-table tbody td.today-cell { background: #e8f4fd; }

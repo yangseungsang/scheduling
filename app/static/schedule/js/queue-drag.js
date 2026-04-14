@@ -280,12 +280,23 @@
         '<div class="bd-divider"></div>' +
         '<div style="padding:12px">' +
           '<div class="form-text mb-2">배치할 식별자를 선택하세요</div>' +
+          '<div class="d-flex gap-1 mb-2">' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm" id="picker-select-all">전체 선택</button>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm" id="picker-deselect-all">전체 해제</button>' +
+          '</div>' +
           '<div id="picker-list">' + rows + '</div>' +
           '<button class="btn btn-sm btn-primary w-100 mt-2" id="picker-ok">확인</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(overlay);
 
+    // 전체 선택/해제 버튼
+    document.getElementById('picker-select-all').addEventListener('click', function () {
+      overlay.querySelectorAll('#picker-list input[type="checkbox"]').forEach(function (cb) { cb.checked = true; });
+    });
+    document.getElementById('picker-deselect-all').addEventListener('click', function () {
+      overlay.querySelectorAll('#picker-list input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+    });
     // 오버레이 바깥 클릭 시 취소
     overlay.addEventListener('click', function (ev) { if (ev.target === overlay) { document.removeEventListener('keydown', onSpace); overlay.remove(); callback(null); } });
     // 닫기 버튼 클릭 시 취소

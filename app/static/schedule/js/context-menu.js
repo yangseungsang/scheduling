@@ -221,12 +221,23 @@
         '<div class="bd-divider"></div>' +
         '<div style="padding:12px">' +
           '<div class="form-text mb-2"><strong>체크 유지</strong> = 이 블록에 남김<br><strong>체크 해제</strong> = 새 블록으로 분리</div>' +
+          '<div class="d-flex gap-1 mb-2">' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm" id="picker-select-all">전체 선택</button>' +
+            '<button type="button" class="btn btn-outline-secondary btn-sm" id="picker-deselect-all">전체 해제</button>' +
+          '</div>' +
           '<div id="picker-list">' + rows + '</div>' +
           '<button class="btn btn-sm btn-primary w-100 mt-2" id="picker-ok">분리</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(overlay);
 
+    // 전체 선택/해제 버튼
+    document.getElementById('picker-select-all').addEventListener('click', function () {
+      overlay.querySelectorAll('#picker-list input[type="checkbox"]').forEach(function (cb) { cb.checked = true; });
+    });
+    document.getElementById('picker-deselect-all').addEventListener('click', function () {
+      overlay.querySelectorAll('#picker-list input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+    });
     /** 스페이스 키로 분리 버튼 빠른 실행 */
     function onSpace(ev) {
       if (ev.key === ' ') {
