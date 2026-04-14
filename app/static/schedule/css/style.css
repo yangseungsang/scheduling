@@ -648,6 +648,10 @@ body {
     -45deg, #f3f4f6, #f3f4f6 3px, #e5e7eb 3px, #e5e7eb 6px
   );
   position: relative;
+  border-bottom-color: transparent;
+}
+.time-slot.break-slot + .time-slot:not(.break-slot) {
+  border-top: 1px solid #dee2e6;
 }
 .time-slot.break-slot[data-break-label]::after {
   content: attr(data-break-label);
