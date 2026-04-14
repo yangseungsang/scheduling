@@ -90,6 +90,7 @@
                  data-location-name="{{ block.location_name }}"
                  data-estimated-minutes="{{ block.get('estimated_minutes', 0) if block.get('task_id') else 0 }}"
                  data-identifier-ids='{{ block.identifier_ids|tojson if block.identifier_ids else "" }}'
+                 title="{{ block.doc_name or block.task_title }} ({{ block.assignee_name }}) {{ block.start_time }}–{{ block.end_time }}"
                    style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }}; left: {{ col_left }}%; width: {{ col_width }}%; right: auto; ">
               <div class="resize-handle resize-handle-top"></div>
               <div class="block-title">
