@@ -231,12 +231,40 @@ window.ScheduleApp = window.ScheduleApp || {};
     return best;
   }
 
+  /**
+   * 시작 시간(분)과 작업 시간(분)으로 휴식 포함 총 소요 시간(분)을 계산한다.
+   * adjust_end_for_breaks의 JS 버전.
+   * @param {number} startMin - 시작 시간 (분)
+   * @param {number} durationMin - 순수 작업 시간 (분)
+   * @returns {number} 휴식 포함 총 소요 시간 (분, 슬롯 기준)
+   */
+  function adjustedDuration(startMin, durationMin) {
+    var breaks = window.SCHEDULE_BREAKS || [];
+    // 휴식 구간을 시작 시간 순으로 정렬
+    var sorted = breaks.map(function (b) { return { s: timeToMin(b.start), e: timeToMin(b.end) }; })
+      .filter(function (b) { return b.e > b.s; }) // 유효한 휴식만
+      .sort(function (a, b) { return a.s - b.s; });
+    var current = startMin;
+    var remaining = durationMin;
+    for (var i = 0; i < sorted.length && remaining > 0; i++) {
+      var bs = sorted[i].s, be = sorted[i].e;
+      if (be <= current) continue;
+      if (bs <= current) { current = be; continue; }
+      var available = bs - current;
+      if (available >= remaining) { current += remaining; remaining = 0; }
+      else { remaining -= available; current = be; }
+    }
+    if (remaining > 0) current += remaining;
+    return current - startMin;
+  }
+
   App.pad = pad;
   App.timeToMin = timeToMin;
   App.minToTime = minToTime;
   App.snapMin = snapMin;
   App.snapToBlockEdge = snapToBlockEdge;
   App.workMinutes = workMinutes;
+  App.adjustedDuration = adjustedDuration;
 
   // =====================================================================
   // 소프트 리로드 — 전체 페이지 새로고침 없이 메인 콘텐츠만 교체

@@ -342,11 +342,23 @@
         if (slotsContainer) {
           var containerRect = slotsContainer.getBoundingClientRect();
           var slotH = App.SLOT_HEIGHT || 24;
+          var gridMin = App.GRID_MINUTES || 15;
           var relY = ev.clientY - containerRect.top + slotsContainer.scrollTop;
           var snappedSlot = Math.floor(relY / slotH);
           ghostTop = containerRect.top - slotsContainer.scrollTop + (snappedSlot * slotH);
           ghostLeft = containerRect.left;
           ghost.style.width = containerRect.width + 'px';
+          // 휴식 시간 포함 고스트 높이 재계산
+          if (opts.ghostHeight && App.adjustedDuration) {
+            var firstSlot = slotsContainer.querySelector('.time-slot[data-time]');
+            if (firstSlot) {
+              var baseMin = App.timeToMin(firstSlot.dataset.time);
+              var dropStartMin = baseMin + snappedSlot * gridMin;
+              var workDur = Math.round(opts.ghostHeight / slotH * gridMin);
+              var totalDur = App.adjustedDuration(dropStartMin, workDur);
+              ghost.style.height = (totalDur / gridMin * slotH) + 'px';
+            }
+          }
         }
       }
       ghost.style.left = ghostLeft + 'px';
