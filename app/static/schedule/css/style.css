@@ -983,7 +983,7 @@ body {
   border: 1px solid #dee2e6;
   vertical-align: top;
   padding: 2px;
-  height: 150px;
+  height: 90px;
 }
 .month-table tbody td.empty-cell { background: #fafafa; }
 .month-table tbody td.today-cell { background: #e8f4fd; }
