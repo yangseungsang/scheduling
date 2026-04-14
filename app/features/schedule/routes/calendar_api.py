@@ -464,6 +464,7 @@ def api_export():
     except ValueError:
         return jsonify({'error': '날짜 형식이 올바르지 않습니다. (YYYY-MM-DD)'}), 400
 
+    from app.features.schedule.models import version as version_model
     users_map, tasks_map, locations_map = build_maps()
     sttngs = settings.get()
     blocks = schedule_block.get_by_date_range(start_date, end_date)
@@ -474,24 +475,30 @@ def api_export():
     # 날짜 → 시작 시간 순으로 정렬
     enriched.sort(key=lambda b: (b.get('date', ''), b.get('start_time', '')))
 
+    # 버전 정보
+    versions = version_model.get_all()
+    version_name = versions[0]['name'] if versions else ''
+
     from app.features.schedule.services.export import export_xlsx, export_csv
+
+    safe_ver = version_name.replace('/', '_').replace('\\', '_') if version_name else ''
+    filename_base = f'schedule_{safe_ver}_{start_date}_{end_date}' if safe_ver else f'schedule_{start_date}_{end_date}'
 
     if fmt == 'xlsx':
         try:
-            data = export_xlsx(enriched, start_date, end_date)
+            data = export_xlsx(enriched, start_date, end_date, version_name=version_name)
             return Response(
                 data,
                 mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="schedule_{start_date}_{end_date}.xlsx"'},
+                headers={'Content-Disposition': f'attachment; filename="{filename_base}.xlsx"'},
             )
         except ImportError:
-            # openpyxl 미설치 시 CSV로 대체
             fmt = 'csv'
 
     return Response(
         export_csv(enriched),
         mimetype='text/csv; charset=utf-8',
-        headers={'Content-Disposition': f'attachment; filename="schedule_{start_date}_{end_date}.csv"'},
+        headers={'Content-Disposition': f'attachment; filename="{filename_base}.csv"'},
     )
 
 

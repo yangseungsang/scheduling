@@ -50,7 +50,7 @@ def export_csv(enriched_blocks):
     return buf.getvalue()
 
 
-def export_xlsx(enriched_blocks, start_date, end_date):
+def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
     """보강된 블록 목록을 달력 형태의 XLSX 파일로 변환한다.
 
     첫 번째 시트('스케줄')에는 주간 달력 레이아웃으로 각 날짜에
@@ -61,6 +61,7 @@ def export_xlsx(enriched_blocks, start_date, end_date):
         enriched_blocks: 보강된 스케줄 블록 딕셔너리 목록.
         start_date: 내보내기 시작 날짜 ('YYYY-MM-DD').
         end_date: 내보내기 종료 날짜 ('YYYY-MM-DD').
+        version_name: 소프트웨어 버전명 (선택).
 
     Returns:
         bytes: XLSX 파일 바이너리 데이터.
@@ -100,7 +101,10 @@ def export_xlsx(enriched_blocks, start_date, end_date):
 
     # 1행: 제목 (5열 병합)
     ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
-    title_cell = ws.cell(row=1, column=1, value=f'스케줄: {start_date} ~ {end_date}')
+    title_text = f'스케줄: {start_date} ~ {end_date}'
+    if version_name:
+        title_text = f'[{version_name}] {title_text}'
+    title_cell = ws.cell(row=1, column=1, value=title_text)
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal='center')
 
