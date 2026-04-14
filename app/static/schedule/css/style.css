@@ -908,8 +908,8 @@ body {
 .month-table tbody td {
   border: 1px solid #dee2e6;
   vertical-align: top;
-  padding: 4px;
-  min-height: 80px;
+  padding: 2px;
+  min-height: 60px;
   height: auto;
 }
 .month-table tbody td.empty-cell { background: #fafafa; }
@@ -921,9 +921,9 @@ body {
 }
 .month-block-item {
   cursor: grab;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   padding: 1px 4px;
-  margin-bottom: 2px;
+  margin-bottom: 0;
   border-radius: 2px;
   color: #fff;
   white-space: nowrap;
