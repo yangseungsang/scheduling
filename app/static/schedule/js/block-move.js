@@ -131,24 +131,37 @@
             } else if (target.type === 'slot') {
               var t = App.snapToBlockEdge(target.el);
               if (isMulti) {
-                // 다중 선택 블록 순차 이동 (이어 배치)
+                // 다중 선택 블록 순차 이동 — API 응답의 실제 end_time 기준으로 다음 블록 시작
+                var curDate = target.date;
                 var curMin = t;
                 var chain = Promise.resolve();
+                var contCount = 0;
                 selectedBlocks.forEach(function (sb) {
                   chain = chain.then(function () {
                     var dur = workMinutes(timeToMin(sb.dataset.startTime), timeToMin(sb.dataset.endTime));
                     var moveUpdate = {
-                      date: target.date,
+                      date: curDate,
                       start_time: minToTime(curMin),
                       end_time: minToTime(curMin + dur),
                     };
                     if (target.locationId) moveUpdate.location_id = target.locationId;
-                    curMin += dur;
-                    return api('PUT', '/schedule/api/blocks/' + sb.dataset.blockId, moveUpdate);
+                    return api('PUT', '/schedule/api/blocks/' + sb.dataset.blockId, moveUpdate)
+                      .then(function (res) {
+                        // 다음 블록 시작 = 이 블록의 실제 종료 시간
+                        curMin = timeToMin(res.end_time);
+                        // 다음날로 넘어간 경우 날짜/시작시간 갱신
+                        if (res.continuation) {
+                          contCount++;
+                          curDate = res.continuation.date;
+                          curMin = timeToMin(res.continuation.end_time);
+                        }
+                      });
                   });
                 });
-                chain.then(function () { softReload(); })
-                  .catch(function (err) { showToast(err.message, 'danger'); });
+                chain.then(function () {
+                  if (contCount > 0) showToast('초과분이 다음 근무일에 자동 배치되었습니다.', 'info');
+                  softReload();
+                }).catch(function (err) { showToast(err.message, 'danger'); });
               } else {
                 var moveUpdate = {
                   date: target.date,
