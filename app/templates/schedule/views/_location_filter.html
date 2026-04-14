@@ -58,26 +58,28 @@
 
   function layoutBlocks(visibleLocs) {
     if (!visibleLocs.length) visibleLocs = locIds;
-    var locCount = visibleLocs.length || 1;
     var visibleSet = {};
     visibleLocs.forEach(function(id) { visibleSet[id] = true; });
 
-    var blocks = document.querySelectorAll('.week-block[data-location-id], .schedule-block[data-location-id]');
-    blocks.forEach(function(el) {
-      if (el.closest('.day-loc-body')) return;
-      var blockLoc = el.dataset.locationId;
-      var locIndex = visibleLocs.indexOf(blockLoc);
-      if (locIndex === -1) {
-        el.style.display = 'none';
-        return;
+    // 주간 뷰 장소 컬럼 표시/숨김
+    document.querySelectorAll('.week-loc-col').forEach(function(col) {
+      var slots = col.querySelectorAll('.time-slot[data-location-id]');
+      if (slots.length) {
+        var colLocId = slots[0].dataset.locationId;
+        col.style.display = visibleSet[colLocId] ? '' : 'none';
       }
-      el.style.display = '';
-      var subWidth = 100.0 / locCount;
-      el.style.left = (subWidth * locIndex) + '%';
-      el.style.width = subWidth + '%';
-      el.style.right = 'auto';
     });
 
+    // 일간 뷰 장소 컬럼 표시/숨김
+    document.querySelectorAll('.day-loc-col').forEach(function(col) {
+      var slots = col.querySelectorAll('.time-slot[data-location-id]');
+      if (slots.length) {
+        var colLocId = slots[0].dataset.locationId;
+        col.style.display = visibleSet[colLocId] ? '' : 'none';
+      }
+    });
+
+    // 월간 뷰 블록 표시/숨김
     document.querySelectorAll('.month-block-item[data-location-id]').forEach(function(el) {
       el.style.display = visibleSet[el.dataset.locationId] ? '' : 'none';
     });
