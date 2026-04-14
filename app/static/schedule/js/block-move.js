@@ -65,7 +65,10 @@
               };
               if (target.locationId) moveUpdate.location_id = target.locationId;
               api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate)
-                .then(function () { softReload(); })
+                .then(function (res) {
+                  if (res && res.warning) showToast(res.warning, 'warning');
+                  softReload();
+                })
                 .catch(function (err) { showToast(err.message, 'danger'); });
             } else if (target.type === 'month') {
               // 월간뷰 셀에 드롭: 날짜만 변경

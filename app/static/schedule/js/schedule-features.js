@@ -177,7 +177,9 @@
       var old = document.getElementById('shift-schedule-popup');
       if (old) old.remove();
 
-      var today = new Date().toISOString().slice(0, 10);
+      // URL의 date 파라미터 또는 오늘 날짜를 기본값으로 사용
+      var params = new URLSearchParams(window.location.search);
+      var defaultDate = params.get('date') || new Date().toISOString().slice(0, 10);
       // 이동 설정 팝업 생성
       var overlay = document.createElement('div');
       overlay.id = 'shift-schedule-popup';
@@ -189,7 +191,7 @@
           '<div class="bd-divider"></div>' +
           '<div style="padding:12px">' +
             '<label class="form-label">기준 날짜 (이 날짜 이후 전체 이동)</label>' +
-            '<input type="date" class="form-control form-control-sm mb-2" id="shift-from-date" value="' + today + '">' +
+            '<input type="date" class="form-control form-control-sm mb-2" id="shift-from-date" value="' + defaultDate + '">' +
             '<label class="form-label">방향</label>' +
             '<select class="form-select form-select-sm mb-2" id="shift-direction">' +
               '<option value="1">+1일 (뒤로 밀기)</option>' +

@@ -196,7 +196,13 @@ def api_update_block(block_id):
     if block.get('task_id'):
         sync_task_remaining_minutes(block['task_id'])
 
-    return jsonify(updated)
+    # 근무 종료 시간 초과 경고
+    sttngs = sttngs if 'sttngs' in dir() else settings.get()
+    work_end_str = sttngs.get('actual_work_end') or sttngs.get('work_end', '17:00')
+    result = dict(updated)
+    if time_to_minutes(updated.get('end_time', '00:00')) > time_to_minutes(work_end_str):
+        result['warning'] = '근무 종료 시간(' + work_end_str + ')을 초과합니다.'
+    return jsonify(result)
 
 
 @schedule_bp.route('/api/blocks/<block_id>', methods=['DELETE'])

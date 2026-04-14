@@ -111,10 +111,6 @@ def adjust_end_for_breaks(start_time, end_time, settings):
                 remaining_work -= available
                 current = be
 
-    # 근무 종료 시간을 초과하지 않도록 제한
-    if current > work_end:
-        current = work_end
-
     return minutes_to_time(current)
 
 
