@@ -157,6 +157,11 @@ def api_create_block():
                 identifier_ids=new_identifier_ids,
             )
 
+    # continuation 실패 시 overflow_minutes를 0으로 리셋 (큐에 잔여시간 복원)
+    if overflow_minutes > 0 and not continuation:
+        schedule_block.update(block['id'], overflow_minutes=0)
+        block['overflow_minutes'] = 0
+
     # 태스크의 잔여 시간을 블록 배치 현황에 맞게 동기화
     sync_task_remaining_minutes(data['task_id'])
 
@@ -275,6 +280,10 @@ def api_update_block(block_id):
                 )
         # 겹침 재검사 (클램핑된 end_time 기준)
         check_end = work_end_str
+
+    # continuation 실패 시 overflow_minutes를 0으로 (큐에 잔여시간 복원)
+    if 'overflow_minutes' in dir() and overflow_minutes > 0 and not continuation:
+        updates['overflow_minutes'] = 0
 
     updated = schedule_block.update(block_id, **updates)
 

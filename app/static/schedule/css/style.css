@@ -653,6 +653,18 @@ body {
 .time-slot.break-slot + .time-slot:not(.break-slot) {
   border-top: 1px solid #dee2e6;
 }
+.time-slot.break-slot:hover {
+  background: repeating-linear-gradient(
+    -45deg, #f3f4f6, #f3f4f6 3px, #e5e7eb 3px, #e5e7eb 6px
+  ) !important;
+  cursor: default;
+}
+.week-time-slot.break-slot:hover {
+  background: repeating-linear-gradient(
+    -45deg, #f3f4f6, #f3f4f6 3px, #e5e7eb 3px, #e5e7eb 6px
+  ) !important;
+  cursor: default;
+}
 .time-slot:hover { background: #e8f4fd; }
 .time-slot.drag-over {
   background-color: #cfe2ff !important;
