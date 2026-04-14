@@ -343,7 +343,7 @@
           var containerRect = slotsContainer.getBoundingClientRect();
           var slotH = App.SLOT_HEIGHT || 24;
           var relY = ev.clientY - containerRect.top + slotsContainer.scrollTop;
-          var snappedSlot = Math.round(relY / slotH);
+          var snappedSlot = Math.floor(relY / slotH);
           ghostTop = containerRect.top - slotsContainer.scrollTop + (snappedSlot * slotH);
           ghostLeft = containerRect.left;
           ghost.style.width = containerRect.width + 'px';
