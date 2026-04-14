@@ -239,19 +239,19 @@ def api_update_block(block_id):
     if overlap:
         return jsonify({'error': '해당 시간에 이미 다른 시험이 배치되어 있습니다.'}), 409
 
+    # 근무 종료 시간 초과 차단 (기존 블록 이동/리사이즈는 다음날 넘김 불가)
+    sttngs = sttngs if 'sttngs' in dir() else settings.get()
+    work_end_str = sttngs.get('actual_work_end') or sttngs.get('work_end', '17:00')
+    if time_to_minutes(check_end) > time_to_minutes(work_end_str):
+        return jsonify({'error': '근무 종료 시간(' + work_end_str + ')을 초과할 수 없습니다.'}), 409
+
     updated = schedule_block.update(block_id, **updates)
 
     # 이동/리사이즈 후 항상 잔여 시간 동기화
     if block.get('task_id'):
         sync_task_remaining_minutes(block['task_id'])
 
-    # 근무 종료 시간 초과 경고
-    sttngs = sttngs if 'sttngs' in dir() else settings.get()
-    work_end_str = sttngs.get('actual_work_end') or sttngs.get('work_end', '17:00')
-    result = dict(updated)
-    if time_to_minutes(updated.get('end_time', '00:00')) > time_to_minutes(work_end_str):
-        result['warning'] = '근무 종료 시간(' + work_end_str + ')을 초과합니다.'
-    return jsonify(result)
+    return jsonify(updated)
 
 
 @schedule_bp.route('/api/blocks/<block_id>', methods=['DELETE'])

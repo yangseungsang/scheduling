@@ -115,10 +115,7 @@
                 };
                 if (target.locationId) moveUpdate.location_id = target.locationId;
                 api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate)
-                  .then(function (res) {
-                    if (res && res.warning) showToast(res.warning, 'warning');
-                    softReload();
-                  })
+                  .then(function () { softReload(); })
                   .catch(function (err) { showToast(err.message, 'danger'); });
               }
             } else if (target.type === 'month') {
