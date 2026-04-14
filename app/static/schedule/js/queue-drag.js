@@ -210,7 +210,7 @@
                     return;
                   }
                   if (!confirm('종료 시간이 ' + minToTime(workEnd) + '을 초과합니다.\n' +
-                    minToTime(workEnd) + '까지 ' + clampedMin + '분만 배치하고, 초과 ' + overflow + '분은 줄어든 시간으로 처리됩니다.\n계속하시겠습니까?')) {
+                    '당일 ' + clampedMin + '분 배치 후, 초과 ' + overflow + '분은 다음 근무일에 자동 배치됩니다.\n계속하시겠습니까?')) {
                     return;
                   }
                   // 업무 종료 시간까지만 배치, 초과분은 overflow로 전달
