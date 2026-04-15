@@ -170,5 +170,76 @@
         "estimated_minutes": 45
       }
     ]
+  },
+  {
+    "version_id": "MAE31F",
+    "doc_id": 12,
+    "doc_name": "환경 시험 종합",
+    "identifiers": [
+      {
+        "id": "TC-060",
+        "name": "환경 초기 설정",
+        "owners": [
+          "김민수"
+        ],
+        "estimated_minutes": 120
+      },
+      {
+        "id": "TC-061",
+        "name": "전자파 적합성 시험",
+        "owners": [
+          "김민수"
+        ],
+        "estimated_minutes": 150
+      },
+      {
+        "id": "TC-062",
+        "name": "진동 내구성 시험",
+        "owners": [
+          "이지은"
+        ],
+        "estimated_minutes": 180
+      },
+      {
+        "id": "TC-063",
+        "name": "방수 방진 시험",
+        "owners": [
+          "이지은"
+        ],
+        "estimated_minutes": 130
+      },
+      {
+        "id": "TC-064",
+        "name": "고온 환경 장시간 시험",
+        "owners": [
+          "박준혁"
+        ],
+        "estimated_minutes": 200
+      },
+      {
+        "id": "TC-065",
+        "name": "저온 환경 장시간 시험",
+        "owners": [
+          "박준혁"
+        ],
+        "estimated_minutes": 200
+      },
+      {
+        "id": "TC-066",
+        "name": "습도 변화 시험",
+        "owners": [
+          "최수연"
+        ],
+        "estimated_minutes": 120
+      },
+      {
+        "id": "TC-067",
+        "name": "종합 환경 스트레스 시험",
+        "owners": [
+          "최수연"
+        ],
+        "estimated_minutes": 100
+      }
+    ]
   }
 ]

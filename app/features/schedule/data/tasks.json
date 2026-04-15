@@ -112,7 +112,7 @@
       }
     ],
     "estimated_minutes": 134,
-    "remaining_minutes": 0,
+    "remaining_minutes": 104,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T09:00:00"
@@ -213,7 +213,7 @@
       }
     ],
     "estimated_minutes": 60,
-    "remaining_minutes": 0,
+    "remaining_minutes": 18,
     "status": "waiting",
     "memo": "new memo",
     "created_at": "2026-04-01T09:00:00"
@@ -280,7 +280,7 @@
       }
     ],
     "estimated_minutes": 79,
-    "remaining_minutes": 79,
+    "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T09:00:00"
@@ -314,7 +314,7 @@
       }
     ],
     "estimated_minutes": 64,
-    "remaining_minutes": 0,
+    "remaining_minutes": 15,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T09:00:00"
@@ -348,7 +348,7 @@
       }
     ],
     "estimated_minutes": 101,
-    "remaining_minutes": 101,
+    "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T09:00:00"
@@ -452,5 +452,89 @@
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-14T09:00:00"
+  },
+  {
+    "id": "t_012",
+    "doc_id": 12,
+    "version_id": "MAE31F",
+    "assignee_names": [
+      "김민수",
+      "이지은",
+      "박준혁",
+      "최수연"
+    ],
+    "location_id": "",
+    "doc_name": "환경 시험 종합",
+    "identifiers": [
+      {
+        "id": "TC-060",
+        "name": "환경 초기 설정",
+        "owners": [
+          "김민수"
+        ],
+        "estimated_minutes": 120
+      },
+      {
+        "id": "TC-061",
+        "name": "전자파 적합성 시험",
+        "owners": [
+          "김민수"
+        ],
+        "estimated_minutes": 150
+      },
+      {
+        "id": "TC-062",
+        "name": "진동 내구성 시험",
+        "owners": [
+          "이지은"
+        ],
+        "estimated_minutes": 180
+      },
+      {
+        "id": "TC-063",
+        "name": "방수 방진 시험",
+        "owners": [
+          "이지은"
+        ],
+        "estimated_minutes": 130
+      },
+      {
+        "id": "TC-064",
+        "name": "고온 환경 장시간 시험",
+        "owners": [
+          "박준혁"
+        ],
+        "estimated_minutes": 200
+      },
+      {
+        "id": "TC-065",
+        "name": "저온 환경 장시간 시험",
+        "owners": [
+          "박준혁"
+        ],
+        "estimated_minutes": 200
+      },
+      {
+        "id": "TC-066",
+        "name": "습도 변화 시험",
+        "owners": [
+          "최수연"
+        ],
+        "estimated_minutes": 120
+      },
+      {
+        "id": "TC-067",
+        "name": "종합 환경 스트레스 시험",
+        "owners": [
+          "최수연"
+        ],
+        "estimated_minutes": 100
+      }
+    ],
+    "estimated_minutes": 1200,
+    "remaining_minutes": 0,
+    "status": "waiting",
+    "memo": "",
+    "created_at": "2026-04-16T09:00:00"
   }
 ]
