@@ -1,0 +1,149 @@
+/* Execution page styles */
+.exec-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #1e293b;
+  color: #fff;
+}
+.exec-toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.exec-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.exec-nav {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+}
+.exec-summary {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 0.85rem;
+}
+.exec-summary-counts {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.exec-summary-counts span { font-weight: 600; }
+.exec-progress {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.exec-progress-bar {
+  height: 100%;
+  background: #16a34a;
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+/* Block card */
+.exec-block {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+.exec-block-header {
+  background: #f1f5f9;
+  padding: 10px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+}
+.exec-block-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.exec-block-meta {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+/* Identifier row */
+.exec-id-row {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.exec-id-row:last-child { border-bottom: none; }
+.exec-id-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.exec-id-name {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.exec-id-info {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+.exec-status-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.exec-status-pending { background: #f3f4f6; color: #6b7280; }
+.exec-status-in_progress { background: #dbeafe; color: #1d4ed8; }
+.exec-status-completed { background: #dcfce7; color: #15803d; }
+
+.exec-id-body {
+  margin-top: 6px;
+}
+.exec-field-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+  align-items: center;
+}
+.exec-field-row label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #475569;
+  min-width: 65px;
+  flex-shrink: 0;
+}
+.exec-field-row input,
+.exec-field-row textarea {
+  font-size: 0.8rem;
+}
+.exec-field-row textarea {
+  resize: vertical;
+  min-height: 32px;
+}
+.exec-result-display {
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+.exec-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Empty state */
+.exec-empty {
+  text-align: center;
+  padding: 3rem;
+  color: #94a3b8;
+}
+.exec-empty i { font-size: 2rem; }

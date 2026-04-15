@@ -71,6 +71,10 @@ def create_app():
     from app.features.schedule import register_blueprints
     register_blueprints(app)
 
+    # 시험 실행 블루프린트 등록
+    from app.features.execution import register_blueprints as register_execution
+    register_execution(app)
+
     @app.route('/')
     def index():
         """루트 URL 접속 시 주간 시간표 뷰로 리다이렉트한다."""
