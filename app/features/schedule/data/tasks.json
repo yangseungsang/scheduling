@@ -7,7 +7,7 @@
       "김민수",
       "이지은"
     ],
-    "location_id": "",
+    "location_id": "loc_003",
     "doc_name": "시스템 초기화",
     "identifiers": [
       {
@@ -49,7 +49,7 @@
       "이지은",
       "박준혁"
     ],
-    "location_id": "",
+    "location_id": "loc_002",
     "doc_name": "통신 기능",
     "identifiers": [
       {
@@ -83,7 +83,7 @@
       "박준혁",
       "최수연"
     ],
-    "location_id": "",
+    "location_id": "loc_002",
     "doc_name": "항법 연산",
     "identifiers": [
       {
@@ -125,7 +125,7 @@
       "김민수",
       "최수연"
     ],
-    "location_id": "",
+    "location_id": "loc_001",
     "doc_name": "항법 데이터 출력",
     "identifiers": [
       {
@@ -192,7 +192,7 @@
       "김민수",
       "박준혁"
     ],
-    "location_id": "",
+    "location_id": "loc_002",
     "doc_name": "자가진단",
     "identifiers": [
       {
@@ -226,7 +226,7 @@
       "박준혁",
       "최수연"
     ],
-    "location_id": "",
+    "location_id": "loc_003",
     "doc_name": "내부 버스 통신",
     "identifiers": [
       {
@@ -259,7 +259,7 @@
     "assignee_names": [
       "최수연"
     ],
-    "location_id": "",
+    "location_id": "loc_002",
     "doc_name": "보안 기능 검증",
     "identifiers": [
       {
@@ -293,7 +293,7 @@
       "김민수",
       "이지은"
     ],
-    "location_id": "",
+    "location_id": "loc_001",
     "doc_name": "모드 전환",
     "identifiers": [
       {
@@ -327,7 +327,7 @@
       "이지은",
       "최수연"
     ],
-    "location_id": "",
+    "location_id": "loc_001",
     "doc_name": "온도 시험",
     "identifiers": [
       {
@@ -463,7 +463,7 @@
       "박준혁",
       "최수연"
     ],
-    "location_id": "",
+    "location_id": "loc_002",
     "doc_name": "환경 시험 종합",
     "identifiers": [
       {

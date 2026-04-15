@@ -122,6 +122,12 @@ def api_create_block():
         overflow_minutes=overflow_minutes,
     )
 
+    # 블록 장소를 태스크에 동기화 (태스크에 장소가 없으면 블록 장소로 설정)
+    if location_id and data['task_id']:
+        t = task.get_by_id(data['task_id'])
+        if t and not t.get('location_id'):
+            task.patch(data['task_id'], location_id=location_id)
+
     # 특정 식별자만 선택하여 배치한 경우, 다른 블록에서 해당 식별자를 제거
     if new_identifier_ids and data['task_id']:
         remove_identifiers_from_other_blocks(
@@ -318,6 +324,10 @@ def api_update_block(block_id):
         updates['overflow_minutes'] = 0
 
     updated = schedule_block.update(block_id, **updates)
+
+    # 블록 장소 변경 시 태스크에도 동기화
+    if 'location_id' in updates and updates['location_id'] and block.get('task_id'):
+        task.patch(block['task_id'], location_id=updates['location_id'])
 
     if block.get('task_id'):
         sync_task_remaining_minutes(block['task_id'])
