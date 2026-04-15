@@ -192,7 +192,7 @@
       "김민수",
       "박준혁"
     ],
-    "location_id": "loc_002",
+    "location_id": "loc_001",
     "doc_name": "자가진단",
     "identifiers": [
       {
@@ -213,7 +213,7 @@
       }
     ],
     "estimated_minutes": 60,
-    "remaining_minutes": 18,
+    "remaining_minutes": 8,
     "status": "waiting",
     "memo": "new memo",
     "created_at": "2026-04-01T09:00:00"
@@ -314,7 +314,7 @@
       }
     ],
     "estimated_minutes": 64,
-    "remaining_minutes": 15,
+    "remaining_minutes": 0,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-01T09:00:00"
@@ -532,7 +532,7 @@
       }
     ],
     "estimated_minutes": 1200,
-    "remaining_minutes": 825,
+    "remaining_minutes": 735,
     "status": "waiting",
     "memo": "",
     "created_at": "2026-04-16T09:00:00"
