@@ -97,6 +97,29 @@ class TestExecutionRepository:
             ]
             assert ExecutionRepository.compute_elapsed_seconds(segments) == 2700
 
+    def test_pause_on_already_paused_returns_none(self, exec_app):
+        with exec_app.app_context():
+            from app.features.execution.models.execution import ExecutionRepository
+            ex = ExecutionRepository.start('TC-011', 't_001', total_count=5)
+            ExecutionRepository.pause(ex['id'])
+            result = ExecutionRepository.pause(ex['id'])  # already paused
+            assert result is None
+
+    def test_resume_on_non_paused_returns_none(self, exec_app):
+        with exec_app.app_context():
+            from app.features.execution.models.execution import ExecutionRepository
+            ex = ExecutionRepository.start('TC-012', 't_001', total_count=5)
+            result = ExecutionRepository.resume(ex['id'])  # in_progress, not paused
+            assert result is None
+
+    def test_complete_on_pending_returns_none(self, exec_app):
+        with exec_app.app_context():
+            from app.features.execution.models.execution import ExecutionRepository
+            ex = ExecutionRepository.start('TC-013', 't_001', total_count=5)
+            ExecutionRepository.reset(ex['id'])  # → pending
+            result = ExecutionRepository.complete(ex['id'], fail_count=1)
+            assert result is None
+
 
 class TestExecutionAPI:
     def test_start(self, exec_client):

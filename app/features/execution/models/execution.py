@@ -83,9 +83,9 @@ class ExecutionRepository:
         if not ex or ex['status'] != 'in_progress':
             return None
         now = datetime.now().isoformat(timespec='seconds')
-        segments = ex['segments']
-        if segments and segments[-1]['end'] is None:
-            segments[-1]['end'] = now
+        segments = list(ex['segments'])
+        if segments:
+            segments[-1] = {**segments[-1], 'end': now}
         return cls._patch(execution_id, status='paused', segments=segments)
 
     @classmethod
@@ -102,10 +102,12 @@ class ExecutionRepository:
         ex = cls.get_by_id(execution_id)
         if not ex:
             return None
+        if ex['status'] not in ('in_progress', 'paused'):
+            return None
         now = datetime.now().isoformat(timespec='seconds')
-        segments = ex['segments']
-        if segments and segments[-1]['end'] is None:
-            segments[-1]['end'] = now
+        segments = list(ex['segments'])
+        if segments:
+            segments[-1] = {**segments[-1], 'end': now}
         total_count = ex.get('total_count', 0)
         pass_count = max(0, total_count - int(fail_count))
         return cls._patch(
