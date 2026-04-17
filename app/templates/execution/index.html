@@ -1,0 +1,66 @@
+{% extends "schedule/base.html" %}
+{% block title %}시험 실행{% endblock %}
+
+{% block content_sub %}
+<div class="container-fluid py-3">
+  <div class="d-flex align-items-center gap-3 mb-3">
+    <h4 class="mb-0">시험 실행</h4>
+  </div>
+
+  <!-- 필터 바 -->
+  <div class="d-flex gap-2 mb-3">
+    <select id="filter-date" class="form-select form-select-sm" style="width:auto">
+      <option value="">전체 날짜</option>
+      {% for d in dates %}
+      <option value="{{ d }}">{{ d }}</option>
+      {% endfor %}
+    </select>
+    <select id="filter-location" class="form-select form-select-sm" style="width:auto">
+      <option value="">전체 장소</option>
+      {% for loc in locations %}
+      <option value="{{ loc.id }}">{{ loc.name }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-sm btn-outline-secondary" onclick="loadList()">
+      <i class="bi bi-arrow-clockwise"></i> 새로고침
+    </button>
+  </div>
+
+  <!-- 식별자 목록 테이블 -->
+  <div class="table-responsive">
+    <table class="table table-hover table-sm align-middle" id="exec-table">
+      <thead class="table-light">
+        <tr>
+          <th style="width:100px">TC</th>
+          <th>식별자명</th>
+          <th style="width:140px">문서</th>
+          <th style="width:90px">장소</th>
+          <th style="width:90px">날짜</th>
+          <th style="width:130px">상태</th>
+        </tr>
+      </thead>
+      <tbody id="exec-tbody">
+        <tr><td colspan="6" class="text-center text-muted py-4">로딩 중...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 실행 모달 -->
+<div class="modal fade" id="execModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="execModalTitle">시험 실행</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="execModalBody">
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block head %}
+<script src="{{ url_for('static', filename='execution/js/execution-app.js') }}?v={{ cache_bust }}" defer></script>
+{% endblock %}

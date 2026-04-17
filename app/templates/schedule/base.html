@@ -26,6 +26,9 @@
         <a href="{{ url_for('tasks.task_list') }}" class="toolbar-tab">
           <i class="bi bi-list-check"></i> 시험 항목
         </a>
+        <a href="{{ url_for('execution.index') }}" class="toolbar-tab">
+          <i class="bi bi-play-circle"></i> 시험 실행
+        </a>
       </div>
       {% block toolbar_extra %}{% endblock %}
     </div>
