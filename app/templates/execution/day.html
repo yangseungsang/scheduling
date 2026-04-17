@@ -1,0 +1,33 @@
+{% extends "execution/base.html" %}
+{% block title %}시험 실행 — {{ current_date.strftime('%Y-%m-%d') }}{% endblock %}
+
+{% block content %}
+<div class="exec-nav">
+  <a href="{{ url_for('execution.day_view', date=prev_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-chevron-left"></i>
+  </a>
+  <h5 class="mb-0 mx-3">{{ current_date.strftime('%Y년 %m월 %d일') }}
+    {% set weekdays = ['월','화','수','목','금','토','일'] %}
+    ({{ weekdays[current_date.weekday()] }})
+  </h5>
+  <a href="{{ url_for('execution.day_view', date=next_date.isoformat()) }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-chevron-right"></i>
+  </a>
+  <input type="date" class="form-control form-control-sm ms-2" id="exec-date-picker"
+         value="{{ current_date.isoformat() }}" style="width:auto">
+</div>
+
+<!-- 요약 바 -->
+<div class="exec-summary" id="exec-summary"></div>
+
+<!-- 블록 목록 -->
+<div id="exec-blocks"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  var EXEC_DATE = '{{ current_date.isoformat() }}';
+</script>
+<script src="{{ url_for('static', filename='execution/js/execution-app.js') }}"></script>
+{% endblock %}
