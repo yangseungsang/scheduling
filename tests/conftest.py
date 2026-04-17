@@ -15,11 +15,15 @@ from app import create_app
 def app(tmp_path):
     """Create app with a temporary data directory."""
     data_dir = str(tmp_path / 'data')
+    exec_dir = str(tmp_path / 'exec_data')
     os.makedirs(data_dir)
+    os.makedirs(exec_dir)
 
     for name in ('users', 'locations', 'tasks', 'schedule_blocks', 'versions', 'procedures'):
         with open(os.path.join(data_dir, f'{name}.json'), 'w') as f:
             json.dump([], f)
+    with open(os.path.join(exec_dir, 'executions.json'), 'w') as f:
+        json.dump([], f)
 
     with open(os.path.join(data_dir, 'settings.json'), 'w') as f:
         json.dump({
@@ -40,6 +44,7 @@ def app(tmp_path):
 
     application = create_app()
     application.config['DATA_DIR'] = data_dir
+    application.config['EXECUTION_DATA_DIR'] = exec_dir
     application.config['TESTING'] = True
     yield application
 
