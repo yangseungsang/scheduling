@@ -17,6 +17,11 @@ _START_TIME = int(time.time())
 SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
 # JSON 데이터 파일이 저장되는 디렉토리 경로
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'features', 'schedule', 'data')
+# 시험실행(Execution) 데이터 파일이 저장되는 디렉토리 경로
+EXECUTION_DATA_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    'features', 'execution', 'data'
+)
 
 
 def create_app():
@@ -41,11 +46,13 @@ def create_app():
     )
     app.config['SECRET_KEY'] = SECRET_KEY
     app.config['DATA_DIR'] = DATA_DIR
+    app.config['EXECUTION_DATA_DIR'] = EXECUTION_DATA_DIR
     # 개발 환경: 정적 파일 캐시 비활성화
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
     # 데이터 디렉토리가 없으면 자동 생성
     os.makedirs(app.config['DATA_DIR'], exist_ok=True)
+    os.makedirs(app.config['EXECUTION_DATA_DIR'], exist_ok=True)
 
     # 템플릿에서 정적 파일 URL에 cache_bust 파라미터로 사용
     app.jinja_env.globals['cache_bust'] = _START_TIME
