@@ -17,6 +17,15 @@ function formatElapsed(seconds) {
   return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
 }
 
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function apiFetch(url, method = 'GET', body = null) {
   const opts = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) opts.body = JSON.stringify(body);
@@ -70,10 +79,10 @@ function renderTable(items) {
   }
   tbody.innerHTML = items.map(item => `
     <tr data-id="${item.identifier_id}" data-item='${JSON.stringify(item).replace(/'/g, "&#39;")}' style="cursor:pointer">
-      <td><code>${item.identifier_id}</code></td>
-      <td>${item.identifier_name}</td>
-      <td class="text-muted small">${item.doc_name}</td>
-      <td class="text-muted small">${item.location_name || '-'}</td>
+      <td><code>${escHtml(item.identifier_id)}</code></td>
+      <td>${escHtml(item.identifier_name)}</td>
+      <td class="text-muted small">${escHtml(item.doc_name)}</td>
+      <td class="text-muted small">${item.location_name ? escHtml(item.location_name) : '-'}</td>
       <td class="text-muted small">${item.scheduled_date || '-'}</td>
       <td>${statusBadge(item)}</td>
     </tr>
@@ -259,6 +268,7 @@ async function doComplete() {
 }
 
 async function doReset() {
+  if (!_currentItem?.execution?.id) return;
   if (!confirm('재시험하면 현재 기록이 초기화됩니다. 계속할까요?')) return;
   try {
     await apiFetch('/execution/api/reset', 'POST', {
