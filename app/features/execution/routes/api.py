@@ -16,7 +16,7 @@ def _execution_response(ex):
     return {
         'id': ex['id'],
         'status': ex['status'],
-        'elapsed_seconds': ExecutionRepository.compute_elapsed_seconds(ex['segments']),
+        'elapsed_seconds': ExecutionRepository.compute_elapsed_seconds(ex.get('segments', [])),
         'total_count': ex.get('total_count', 0),
         'fail_count': ex.get('fail_count', 0),
         'pass_count': ex.get('pass_count', 0),
