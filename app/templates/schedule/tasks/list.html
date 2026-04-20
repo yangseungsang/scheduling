@@ -17,7 +17,7 @@
       {% endif %}
     </div>
     <div class="d-flex gap-2">
-      <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-sync" onclick="runSync()">
+      <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-sync">
         <i class="bi bi-arrow-repeat"></i> 동기화
       </button>
       <a href="{{ url_for('tasks.task_new') }}" class="btn btn-primary btn-sm">
@@ -195,11 +195,9 @@
 
 {% block scripts_sub %}
 <script>
-var syncModal = new bootstrap.Modal(document.getElementById('syncConfirmModal'));
-
-function runSync() {
-  syncModal.show();
-}
+document.getElementById('btn-sync').addEventListener('click', function() {
+  new bootstrap.Modal(document.getElementById('syncConfirmModal')).show();
+});
 
 document.getElementById('btn-sync-confirm').addEventListener('click', function() {
   var confirmBtn = this;
@@ -219,7 +217,7 @@ document.getElementById('btn-sync-confirm').addEventListener('click', function()
       var msgs = [];
       msgs.push('버전: +' + v.added + ' / 갱신 ' + v.updated + ' / 비활성 ' + v.deactivated);
       msgs.push('항목: +' + t.added + ' / 갱신 ' + t.updated + ' / 취소 ' + t.cancelled);
-      syncModal.hide();
+      bootstrap.Modal.getInstance(document.getElementById('syncConfirmModal')).hide();
       alert('동기화 완료\n' + msgs.join('\n'));
       location.reload();
     })
