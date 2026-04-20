@@ -20,6 +20,7 @@ def _execution_response(ex):
         'total_count': ex.get('total_count', 0),
         'fail_count': ex.get('fail_count', 0),
         'pass_count': ex.get('pass_count', 0),
+        'comment': ex.get('comment', ''),
     }
 
 
@@ -134,6 +135,19 @@ def complete():
     if ex is None:
         return jsonify({'error': 'not found or invalid state'}), 404
     return jsonify(ex)
+
+
+@api_bp.route('/comment', methods=['PUT'])
+def update_comment():
+    body = request.get_json(silent=True) or {}
+    execution_id = body.get('execution_id', '').strip()
+    comment = body.get('comment', '')
+    if not execution_id:
+        return jsonify({'error': 'execution_id required'}), 400
+    ex = ExecutionRepository.update_comment(execution_id, comment)
+    if ex is None:
+        return jsonify({'error': 'not found'}), 404
+    return jsonify({'ok': True})
 
 
 @api_bp.route('/reset', methods=['POST'])

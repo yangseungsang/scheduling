@@ -69,6 +69,7 @@ class ExecutionRepository:
             'total_count': total_count,
             'fail_count': 0,
             'pass_count': 0,
+            'comment': '',
             'created_at': now,
             'completed_at': None,
         }
@@ -120,6 +121,10 @@ class ExecutionRepository:
         )
 
     @classmethod
+    def update_comment(cls, execution_id, comment):
+        return cls._patch(execution_id, comment=comment)
+
+    @classmethod
     def reset(cls, execution_id):
         return cls._patch(
             execution_id,
@@ -127,5 +132,6 @@ class ExecutionRepository:
             segments=[],
             fail_count=0,
             pass_count=0,
+            comment='',
             completed_at=None,
         )
