@@ -23,4 +23,7 @@ def get_provider():
     provider_type = os.environ.get('PROVIDER_TYPE', 'json_file')
     if provider_type == 'json_file':
         return JsonFileProvider()
+    if provider_type == 'rest_api':
+        from app.features.schedule.providers.rest_api import RestApiProvider
+        return RestApiProvider()
     raise ValueError(f'Unknown provider type: {provider_type}')
