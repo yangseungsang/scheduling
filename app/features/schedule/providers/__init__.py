@@ -20,7 +20,7 @@ def get_provider():
     Raises:
         ValueError: 알 수 없는 프로바이더 타입이 지정된 경우.
     """
-    provider_type = os.environ.get('PROVIDER_TYPE', 'json_file')
+    provider_type = os.environ.get('PROVIDER_TYPE', 'rest_api')
     if provider_type == 'json_file':
         return JsonFileProvider()
     if provider_type == 'rest_api':
