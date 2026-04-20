@@ -126,6 +126,47 @@ function stopLocalTimer() {
   _localTimerStart = null;
 }
 
+function _infoHtml(item) {
+  const ex = item.execution;
+  const rows = [
+    ['TC', escHtml(item.identifier_id)],
+    ['식별자명', escHtml(item.identifier_name)],
+    item.doc_name ? ['문서', escHtml(item.doc_name)] : null,
+    item.location_name ? ['장소', escHtml(item.location_name)] : null,
+    item.scheduled_date ? ['예정일', escHtml(item.scheduled_date)] : null,
+    ex ? ['총 건수', `${ex.total_count}건`] : null,
+  ].filter(Boolean);
+  return `<div class="bg-light rounded p-2 mb-3 small">
+    <div class="row g-1">${rows.map(([k, v]) =>
+      `<div class="col-4 text-muted">${k}</div><div class="col-8">${v}</div>`
+    ).join('')}</div>
+  </div>`;
+}
+
+function _commentHtml(ex) {
+  if (!ex) return '';
+  return `<div class="mt-3">
+    <label class="form-label small text-muted mb-1">코멘트</label>
+    <textarea id="comment-input" class="form-control form-control-sm" rows="2"
+      placeholder="시험 관련 코멘트 입력...">${escHtml(ex.comment || '')}</textarea>
+  </div>`;
+}
+
+function _attachCommentHandler() {
+  const ta = document.getElementById('comment-input');
+  if (!ta) return;
+  ta.addEventListener('blur', async () => {
+    if (!_currentItem?.execution?.id) return;
+    try {
+      await apiFetch('/execution/api/comment', 'PUT', {
+        execution_id: _currentItem.execution.id,
+        comment: ta.value,
+      });
+      _currentItem.execution.comment = ta.value;
+    } catch { /* 저장 실패 시 무시 */ }
+  });
+}
+
 function renderModalBody(item) {
   const ex = item.execution;
   const status = ex ? ex.status : 'pending';
@@ -133,6 +174,7 @@ function renderModalBody(item) {
 
   if (status === 'pending' || !ex) {
     body.innerHTML = `
+      ${_infoHtml(item)}
       <div class="text-center py-3">
         <button class="btn btn-success btn-lg" onclick="doStart()">
           <i class="bi bi-play-fill"></i> 시험시작
@@ -148,16 +190,19 @@ function renderModalBody(item) {
 
   if (status === 'completed') {
     body.innerHTML = `
+      ${_infoHtml(item)}
       <div class="text-center mb-3">
         <span class="fs-5">✅ 완료 &nbsp; 총 ${formatElapsed(elapsed)}</span>
       </div>
       <div class="text-center mb-3">
         PASS: <strong>${pass}</strong> &nbsp;&nbsp; FAIL: <strong>${fail}</strong> &nbsp;&nbsp; (총 ${total}건)
       </div>
-      <div class="d-flex justify-content-between">
+      ${_commentHtml(ex)}
+      <div class="d-flex justify-content-between mt-3">
         <button class="btn btn-outline-secondary btn-sm" onclick="doReset()">재시험</button>
         <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
       </div>`;
+    _attachCommentHandler();
     return;
   }
 
@@ -169,26 +214,28 @@ function renderModalBody(item) {
        <button class="btn btn-success ms-3" onclick="doResume()"><i class="bi bi-play-fill"></i> 재시작</button>`;
 
   body.innerHTML = `
+    ${_infoHtml(item)}
     <div class="d-flex align-items-center mb-3">
       ${status === 'in_progress' ? '⏱' : '⏸'} &nbsp; ${timerHtml}
     </div>
     <div class="mb-3">
-      <label class="form-label">총 시험: <strong>${total}건</strong></label>
       <div class="d-flex align-items-center gap-2">
         <label class="form-label mb-0">FAIL</label>
         <input type="number" id="fail-input" class="form-control form-control-sm" style="width:80px"
                min="0" max="${total}" value="${fail}" oninput="updatePass()">
         <span class="text-muted">→ PASS:</span>
         <strong id="pass-display">${pass}</strong>
-        <span class="text-muted">(자동계산)</span>
+        <span class="text-muted">/ ${total}건</span>
       </div>
     </div>
-    <div class="d-flex justify-content-between">
+    ${_commentHtml(ex)}
+    <div class="d-flex justify-content-between mt-3">
       <button class="btn btn-outline-secondary btn-sm" onclick="doReset()">재시험</button>
       <button class="btn btn-primary" onclick="doComplete()">
         <i class="bi bi-check-lg"></i> 시험완료
       </button>
     </div>`;
+  _attachCommentHandler();
 }
 
 function updatePass() {
