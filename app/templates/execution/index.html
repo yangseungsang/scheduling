@@ -8,7 +8,7 @@
   </div>
 
   <!-- 필터 바 -->
-  <div class="d-flex gap-2 mb-3">
+  <div class="d-flex flex-wrap gap-2 mb-2">
     <select id="filter-date" class="form-select form-select-sm" style="width:auto">
       <option value="">전체 날짜</option>
       {% for d in dates %}
@@ -21,27 +21,39 @@
       <option value="{{ loc.id }}">{{ loc.name }}</option>
       {% endfor %}
     </select>
+    <input id="search-input" type="search" class="form-control form-control-sm" style="width:220px"
+           placeholder="식별자 / 시험항목 검색...">
     <button class="btn btn-sm btn-outline-secondary" onclick="loadList()">
       <i class="bi bi-arrow-clockwise"></i> 새로고침
     </button>
   </div>
+
+  <!-- 담당자 뱃지 필터 -->
+  <div id="assignee-badges" class="mb-2 d-flex flex-wrap gap-1"></div>
 
   <!-- 식별자 목록 테이블 -->
   <div class="table-responsive">
     <table class="table table-hover table-sm align-middle" id="exec-table">
       <thead class="table-light">
         <tr>
-          <th style="width:160px">문서</th>
-          <th style="width:100px">TC</th>
-          <th>식별자명</th>
+          <th style="width:150px">문서</th>
+          <th style="width:100px">식별자</th>
+          <th>시험항목</th>
           <th style="width:100px">담당자</th>
-          <th style="width:90px">장소</th>
-          <th style="width:90px">날짜</th>
-          <th style="width:130px">상태</th>
+          <th class="sortable" data-sort="location" style="width:90px;cursor:pointer">
+            장소 <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
+          </th>
+          <th class="sortable" data-sort="date" style="width:90px;cursor:pointer">
+            날짜 <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
+          </th>
+          <th style="width:80px">소요시간</th>
+          <th class="sortable" data-sort="status" style="width:120px;cursor:pointer">
+            상태 <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
+          </th>
         </tr>
       </thead>
       <tbody id="exec-tbody">
-        <tr><td colspan="7" class="text-center text-muted py-4">로딩 중...</td></tr>
+        <tr><td colspan="8" class="text-center text-muted py-4">로딩 중...</td></tr>
       </tbody>
     </table>
   </div>
