@@ -6,6 +6,7 @@ let _sortCol = null;
 let _sortDir = 'asc';
 let _activeAssignees = new Set();
 let _searchText = '';
+let _pendingComment = '';  // 시험 시작 전 미리 입력된 코멘트
 
 // 타이머
 let _timerInterval = null;
@@ -293,14 +294,15 @@ function renderModalBody(item) {
     </div>`;
   }
 
-  // ── 코멘트 ────────────────────────────────────────────────────────────
+  // ── 코멘트 (모든 상태에서 편집 가능) ────────────────────────────────────
+  const commentValue = ex ? escHtml(ex.comment || '') : escHtml(_pendingComment);
   const commentHtml = `
   <div class="mb-3">
     <label class="form-label small text-muted mb-1">
       <i class="bi bi-chat-left-text me-1"></i>코멘트
     </label>
     <textarea id="comment-input" class="form-control form-control-sm" rows="2"
-      ${!ex ? 'disabled' : ''} placeholder="시험 관련 코멘트 입력…">${ex ? escHtml(ex.comment || '') : ''}</textarea>
+      placeholder="시험 관련 코멘트 입력…">${commentValue}</textarea>
   </div>`;
 
   // ── 하단 버튼 ─────────────────────────────────────────────────────────
@@ -334,7 +336,11 @@ function _attachCommentHandler() {
   const ta = document.getElementById('comment-input');
   if (!ta) return;
   const save = async () => {
-    if (!_currentItem?.execution?.id) return;
+    // pending: 로컬에만 저장, 시작 후 서버에 반영
+    if (!_currentItem?.execution?.id) {
+      _pendingComment = ta.value;
+      return;
+    }
     try {
       await apiFetch('/execution/api/comment', 'PUT', {
         execution_id: _currentItem.execution.id,
@@ -357,6 +363,10 @@ function updatePass() {
 // ── 액션 핸들러 ───────────────────────────────────────────────────────────
 
 async function doStart() {
+  // 시작 전 입력된 코멘트 캡처
+  const taComment = document.getElementById('comment-input');
+  if (taComment) _pendingComment = taComment.value;
+
   try {
     const ex = await apiFetch('/execution/api/start', 'POST', {
       identifier_id: _currentItem.identifier_id,
@@ -364,8 +374,16 @@ async function doStart() {
     });
     _currentItem.execution = {
       id: ex.id, status: ex.status, elapsed_seconds: 0,
-      total_count: ex.total_count, fail_count: 0, pass_count: 0, comment: '',
+      total_count: ex.total_count, fail_count: 0, pass_count: 0, comment: _pendingComment,
     };
+    // pending 코멘트가 있으면 서버에 저장
+    if (_pendingComment) {
+      await apiFetch('/execution/api/comment', 'PUT', {
+        execution_id: ex.id,
+        comment: _pendingComment,
+      });
+      _pendingComment = '';
+    }
     renderModalBody(_currentItem);
     startLocalTimer(_currentItem);
     await loadList();
@@ -435,7 +453,7 @@ function _computeElapsed(ex) {
 
 // ── 초기화 ────────────────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('filter-date').addEventListener('change', loadList);
   document.getElementById('filter-location').addEventListener('change', loadList);
   document.getElementById('search-input').addEventListener('input', e => {
@@ -444,9 +462,18 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.querySelectorAll('th[data-sort]').forEach(th =>
     th.addEventListener('click', () => setSort(th.dataset.sort)));
-  document.getElementById('execModal').addEventListener('hidden.bs.modal', stopLocalTimer);
+  document.getElementById('execModal').addEventListener('hidden.bs.modal', () => {
+    stopLocalTimer();
+    _pendingComment = '';
+  });
 
-  loadList();
+  await loadList();
+
+  // URL로 직접 접근 시 해당 항목 모달 자동 오픈 (#55)
+  if (typeof AUTO_OPEN_ID === 'string' && AUTO_OPEN_ID) {
+    const target = _allItems.find(i => i.identifier_id === AUTO_OPEN_ID);
+    if (target) openModal(target);
+  }
 
   // 스페이스바 단축키
   document.addEventListener('keydown', e => {
