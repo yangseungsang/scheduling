@@ -1,12 +1,30 @@
 'use strict';
 
 let _currentItem = null;
+let _allItems = [];
+let _sortCol = null;   // 'date' | 'location' | 'status'
+let _sortDir = 'asc';
+let _activeAssignees = new Set();
+let _searchText = '';
+
+const STATUS_ORDER = { pending: 0, in_progress: 1, paused: 2, completed: 3 };
+
+// ── 유틸 ──────────────────────────────────────────────────────────────────
 
 function formatElapsed(seconds) {
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
   return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
+}
+
+function formatMinutes(mins) {
+  if (!mins) return '-';
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h && m) return `${h}h ${m}m`;
+  if (h) return `${h}h`;
+  return `${m}m`;
 }
 
 function escHtml(s) {
@@ -36,15 +54,108 @@ async function loadList() {
   if (loc) params.set('location', loc);
 
   const tbody = document.getElementById('exec-tbody');
-  tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">로딩 중...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">로딩 중...</td></tr>';
 
   try {
-    const items = await apiFetch('/execution/api/list?' + params.toString());
-    renderTable(items);
+    _allItems = await apiFetch('/execution/api/list?' + params.toString());
+    renderAssigneeBadges();
+    applyAndRender();
   } catch {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">로드 실패</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">로드 실패</td></tr>';
   }
 }
+
+// ── 담당자 뱃지 필터 ───────────────────────────────────────────────────────
+
+function renderAssigneeBadges() {
+  const container = document.getElementById('assignee-badges');
+  const allAssignees = new Set();
+  _allItems.forEach(item => (item.assignee_names || []).forEach(a => allAssignees.add(a)));
+
+  if (!allAssignees.size) { container.innerHTML = ''; return; }
+
+  container.innerHTML = [...allAssignees].sort().map(a => {
+    const active = _activeAssignees.has(a);
+    return `<span class="badge me-1 mb-1 ${active ? 'bg-primary' : 'bg-light text-dark border'}"
+      style="cursor:pointer;font-size:.8rem" onclick="toggleAssignee(${JSON.stringify(escHtml(a))})"
+      title="담당자 필터">${escHtml(a)}</span>`;
+  }).join('');
+}
+
+function toggleAssignee(name) {
+  // name은 escHtml 처리된 문자열이므로 원본 복원 불필요 (텍스트 비교용)
+  if (_activeAssignees.has(name)) _activeAssignees.delete(name);
+  else _activeAssignees.add(name);
+  renderAssigneeBadges();
+  applyAndRender();
+}
+
+// ── 정렬 ──────────────────────────────────────────────────────────────────
+
+function setSort(col) {
+  if (_sortCol === col) _sortDir = _sortDir === 'asc' ? 'desc' : 'asc';
+  else { _sortCol = col; _sortDir = 'asc'; }
+  updateSortIcons();
+  applyAndRender();
+}
+
+function updateSortIcons() {
+  document.querySelectorAll('th[data-sort]').forEach(th => {
+    const icon = th.querySelector('i');
+    if (th.dataset.sort === _sortCol) {
+      icon.className = `bi ms-1 ${_sortDir === 'asc' ? 'bi-sort-up' : 'bi-sort-down'}`;
+      icon.classList.remove('text-muted');
+    } else {
+      icon.className = 'bi bi-arrow-down-up ms-1 text-muted';
+    }
+  });
+}
+
+// ── 필터+정렬 적용 ────────────────────────────────────────────────────────
+
+function applyAndRender() {
+  let items = [..._allItems];
+
+  // 검색 필터
+  const q = _searchText.toLowerCase();
+  if (q) {
+    items = items.filter(item =>
+      item.identifier_id.toLowerCase().includes(q) ||
+      item.identifier_name.toLowerCase().includes(q)
+    );
+  }
+
+  // 담당자 필터
+  if (_activeAssignees.size > 0) {
+    items = items.filter(item =>
+      (item.assignee_names || []).some(a => _activeAssignees.has(escHtml(a)))
+    );
+  }
+
+  // 정렬
+  if (_sortCol) {
+    items.sort((a, b) => {
+      let va, vb;
+      if (_sortCol === 'date') {
+        va = a.scheduled_date || '';
+        vb = b.scheduled_date || '';
+      } else if (_sortCol === 'location') {
+        va = a.location_name || '';
+        vb = b.location_name || '';
+      } else if (_sortCol === 'status') {
+        va = STATUS_ORDER[a.execution?.status ?? 'pending'] ?? 0;
+        vb = STATUS_ORDER[b.execution?.status ?? 'pending'] ?? 0;
+      }
+      if (va < vb) return _sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return _sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }
+
+  renderTable(items);
+}
+
+// ── 테이블 렌더링 ─────────────────────────────────────────────────────────
 
 function statusBadge(item) {
   const ex = item.execution;
@@ -61,7 +172,7 @@ function statusBadge(item) {
 function renderTable(items) {
   const tbody = document.getElementById('exec-tbody');
   if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">항목 없음</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">항목 없음</td></tr>';
     return;
   }
   tbody.innerHTML = items.map(item => {
@@ -74,6 +185,7 @@ function renderTable(items) {
       <td class="text-muted small">${escHtml(assignee)}</td>
       <td class="text-muted small">${item.location_name || '-'}</td>
       <td class="text-muted small">${item.scheduled_date || '-'}</td>
+      <td class="text-muted small">${formatMinutes(item.estimated_minutes)}</td>
       <td>${statusBadge(item)}</td>
     </tr>`;
   }).join('');
@@ -100,12 +212,13 @@ function _infoHtml(item) {
   const ex = item.execution;
   const assignee = (item.assignee_names || []).join(', ') || '-';
   const rows = [
-    ['TC', escHtml(item.identifier_id)],
-    ['식별자명', escHtml(item.identifier_name)],
+    ['식별자', escHtml(item.identifier_id)],
+    ['시험항목', escHtml(item.identifier_name)],
     ['문서', escHtml(item.doc_name || '-')],
     ['담당자', escHtml(assignee)],
     ['장소', escHtml(item.location_name || '-')],
     ['예정일', escHtml(item.scheduled_date || '-')],
+    ['소요시간', formatMinutes(item.estimated_minutes)],
     ex ? ['총 건수', `${ex.total_count}건`] : null,
   ].filter(Boolean);
   return `<div class="bg-light rounded p-2 mb-3 small">
@@ -202,11 +315,11 @@ function renderModalBody(item) {
       <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
     </div>`;
   } else {
-    const completeDisabled = !ex ? 'disabled' : '';
+    const disabledAttr = !ex ? 'disabled' : '';
     footerHtml = `
     <div class="d-flex justify-content-between mt-3">
-      <button class="btn btn-outline-secondary btn-sm" onclick="doReset()" ${!ex ? 'disabled' : ''}>재시험</button>
-      <button class="btn btn-primary" onclick="doComplete()" ${completeDisabled}>
+      <button class="btn btn-outline-secondary btn-sm" onclick="doReset()" ${disabledAttr}>재시험</button>
+      <button class="btn btn-primary" onclick="doComplete()" ${disabledAttr}>
         <i class="bi bi-check-lg"></i> 시험완료
       </button>
     </div>`;
@@ -327,9 +440,19 @@ function _computeElapsed(ex) {
 document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('filter-date').addEventListener('change', loadList);
   document.getElementById('filter-location').addEventListener('change', loadList);
+
+  document.getElementById('search-input').addEventListener('input', e => {
+    _searchText = e.target.value.trim();
+    applyAndRender();
+  });
+
+  document.querySelectorAll('th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => setSort(th.dataset.sort));
+  });
+
   loadList();
 
-  // 스페이스바 단축키: 시험시작 / 일시정지 / 재시작 (#49)
+  // 스페이스바 단축키: 시험시작 / 일시정지 / 재시작
   document.addEventListener('keydown', (e) => {
     if (e.code !== 'Space') return;
     const tag = document.activeElement.tagName;
