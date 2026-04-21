@@ -24,20 +24,15 @@ def _execution_response(ex):
     }
 
 
-@api_bp.route('/list')
-def execution_list():
+def _load_schedule_data():
     from app.features.schedule.models import task as task_repo
     from app.features.schedule.models import schedule_block as block_repo
     from app.features.schedule.models import location as loc_repo
-
-    date_filter = request.args.get('date', '')
-    location_filter = request.args.get('location', '')
 
     tasks = task_repo.get_all()
     blocks = block_repo.get_all()
     locations = {loc['id']: loc for loc in loc_repo.get_all()}
 
-    # 식별자 → 가장 이른 배치 날짜 매핑
     date_map = {}
     for block in blocks:
         block_date = block.get('date', '')
@@ -52,37 +47,63 @@ def execution_list():
                 if iid not in date_map or block_date < date_map[iid]:
                     date_map[iid] = block_date
 
+    return tasks, locations, date_map
+
+
+def _build_item_dict(task, identifier, loc_name, scheduled_date):
+    iid = identifier['id']
+    execution = ExecutionRepository.get_by_identifier(iid)
+    return {
+        'identifier_id': iid,
+        'identifier_name': identifier.get('name', ''),
+        'task_id': task['id'],
+        'doc_name': task.get('doc_name', ''),
+        'assignee_names': task.get('assignee_names', []),
+        'estimated_minutes': identifier.get('estimated_minutes', 0),
+        'location_id': task.get('location_id', ''),
+        'location_name': loc_name,
+        'scheduled_date': scheduled_date,
+        'execution': _execution_response(execution),
+    }
+
+
+@api_bp.route('/list')
+def execution_list():
+    date_filter = request.args.get('date', '')
+    location_filter = request.args.get('location', '')
+
+    tasks, locations, date_map = _load_schedule_data()
     result = []
     for task in tasks:
         loc_id = task.get('location_id', '')
         loc_name = locations.get(loc_id, {}).get('name', '') if loc_id else ''
-
         for identifier in task.get('identifiers', []):
             if not isinstance(identifier, dict):
                 continue
             iid = identifier['id']
             scheduled_date = date_map.get(iid, '')
-
             if date_filter and scheduled_date != date_filter:
                 continue
             if location_filter and loc_id != location_filter:
                 continue
-
-            execution = ExecutionRepository.get_by_identifier(iid)
-            result.append({
-                'identifier_id': iid,
-                'identifier_name': identifier.get('name', ''),
-                'task_id': task['id'],
-                'doc_name': task.get('doc_name', ''),
-                'assignee_names': task.get('assignee_names', []),
-                'estimated_minutes': identifier.get('estimated_minutes', 0),
-                'location_id': loc_id,
-                'location_name': loc_name,
-                'scheduled_date': scheduled_date,
-                'execution': _execution_response(execution),
-            })
+            result.append(_build_item_dict(task, identifier, loc_name, scheduled_date))
 
     return jsonify(result)
+
+
+@api_bp.route('/item/<identifier_id>')
+def get_item(identifier_id):
+    tasks, locations, date_map = _load_schedule_data()
+    for task in tasks:
+        loc_id = task.get('location_id', '')
+        loc_name = locations.get(loc_id, {}).get('name', '') if loc_id else ''
+        for identifier in task.get('identifiers', []):
+            if not isinstance(identifier, dict):
+                continue
+            if identifier['id'] != identifier_id:
+                continue
+            return jsonify(_build_item_dict(task, identifier, loc_name, date_map.get(identifier_id, '')))
+    return jsonify({'error': 'not found'}), 404
 
 
 @api_bp.route('/total-count/<identifier_id>')

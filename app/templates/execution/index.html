@@ -76,6 +76,5 @@
 {% endblock %}
 
 {% block scripts_sub %}
-<script>var AUTO_OPEN_ID = {{ auto_open_id | tojson }};</script>
 <script src="{{ url_for('static', filename='execution/js/execution-app.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}

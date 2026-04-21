@@ -189,7 +189,10 @@ function renderTable(items) {
   }).join('');
 
   tbody.querySelectorAll('tr').forEach(tr =>
-    tr.addEventListener('dblclick', () => openModal(JSON.parse(tr.dataset.item))));
+    tr.addEventListener('click', () => {
+      const item = JSON.parse(tr.dataset.item);
+      window.location.href = `/execution/${encodeURIComponent(item.identifier_id)}`;
+    }));
 }
 
 // ── 모달 ──────────────────────────────────────────────────────────────────
@@ -453,7 +456,7 @@ function _computeElapsed(ex) {
 
 // ── 초기화 ────────────────────────────────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('filter-date').addEventListener('change', loadList);
   document.getElementById('filter-location').addEventListener('change', loadList);
   document.getElementById('search-input').addEventListener('input', e => {
@@ -467,13 +470,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     _pendingComment = '';
   });
 
-  await loadList();
-
-  // URL로 직접 접근 시 해당 항목 모달 자동 오픈 (#55)
-  if (typeof AUTO_OPEN_ID === 'string' && AUTO_OPEN_ID) {
-    const target = _allItems.find(i => i.identifier_id === AUTO_OPEN_ID);
-    if (target) openModal(target);
-  }
+  loadList();
 
   // 스페이스바 단축키
   document.addEventListener('keydown', e => {
