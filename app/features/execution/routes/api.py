@@ -74,6 +74,7 @@ def execution_list():
                 'identifier_name': identifier.get('name', ''),
                 'task_id': task['id'],
                 'doc_name': task.get('doc_name', ''),
+                'assignee_names': task.get('assignee_names', []),
                 'location_id': loc_id,
                 'location_name': loc_name,
                 'scheduled_date': scheduled_date,
