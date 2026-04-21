@@ -15,9 +15,9 @@ def _index_context():
 
 @views_bp.route('/')
 def index():
-    return render_template('execution/index.html', auto_open_id='', **_index_context())
+    return render_template('execution/index.html', **_index_context())
 
 
 @views_bp.route('/<identifier_id>')
-def index_with_item(identifier_id):
-    return render_template('execution/index.html', auto_open_id=identifier_id, **_index_context())
+def detail(identifier_id):
+    return render_template('execution/detail.html', identifier_id=identifier_id)
