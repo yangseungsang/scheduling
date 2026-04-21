@@ -61,7 +61,7 @@
 
 <!-- 실행 모달 -->
 <div class="modal fade" id="execModal" tabindex="-1" aria-labelledby="execModalTitle" aria-hidden="true"
-     data-bs-backdrop="static">
+     data-bs-backdrop="static" data-bs-keyboard="false">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
       <div class="modal-header">
@@ -76,5 +76,6 @@
 {% endblock %}
 
 {% block scripts_sub %}
+<script>var AUTO_OPEN_ID = {{ auto_open_id | tojson }};</script>
 <script src="{{ url_for('static', filename='execution/js/execution-app.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
