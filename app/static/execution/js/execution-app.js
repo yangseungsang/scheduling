@@ -155,30 +155,35 @@ function renderModalBody(item) {
     actionHtml = `<span class="fs-5">✅ 완료 &nbsp; 총 ${formatElapsed(ex.elapsed_seconds)}</span>`;
   }
 
-  // FAIL/PASS 입력 (진행중/일시정지) 또는 결과 요약 (완료)
-  let failPassHtml = '';
-  if (ex && (status === 'in_progress' || status === 'paused')) {
-    failPassHtml = `
-    <div class="mb-3">
-      <div class="d-flex align-items-center gap-2">
-        <label class="form-label mb-0">FAIL</label>
-        <input type="number" id="fail-input" class="form-control form-control-sm" style="width:80px"
-               min="0" max="${ex.total_count}" value="${ex.fail_count}" oninput="updatePass()">
-        <span class="text-muted">→ PASS:</span>
-        <strong id="pass-display">${ex.pass_count}</strong>
-        <span class="text-muted">/ ${ex.total_count}건</span>
-      </div>
-    </div>`;
-  } else if (ex && status === 'completed') {
+  // FAIL/PASS 입력 — 항상 표시, pending/completed는 비활성
+  let failPassHtml;
+  if (status === 'completed') {
     failPassHtml = `
     <div class="mb-2 text-center small text-muted">
       PASS: <strong>${ex.pass_count}</strong> &nbsp;&nbsp;
       FAIL: <strong>${ex.fail_count}</strong> &nbsp;&nbsp;
       (총 ${ex.total_count}건)
     </div>`;
+  } else {
+    const failVal = ex ? ex.fail_count : 0;
+    const passVal = ex ? ex.pass_count : 0;
+    const totalLabel = ex ? `/ ${ex.total_count}건` : '';
+    const maxAttr = ex ? `max="${ex.total_count}"` : '';
+    const disabledAttr = !ex ? 'disabled' : '';
+    failPassHtml = `
+    <div class="mb-3">
+      <div class="d-flex align-items-center gap-2">
+        <label class="form-label mb-0">FAIL</label>
+        <input type="number" id="fail-input" class="form-control form-control-sm" style="width:80px"
+               min="0" ${maxAttr} value="${failVal}" ${disabledAttr} oninput="updatePass()">
+        <span class="text-muted">→ PASS:</span>
+        <strong id="pass-display">${passVal}</strong>
+        <span class="text-muted">${totalLabel}</span>
+      </div>
+    </div>`;
   }
 
-  // 코멘트 (pending일 때는 비활성, 나머지는 활성)
+  // 코멘트 — 항상 표시, pending은 비활성
   const commentDisabled = !ex ? 'disabled' : '';
   const commentValue = ex ? escHtml(ex.comment || '') : '';
   const commentHtml = `
@@ -188,21 +193,22 @@ function renderModalBody(item) {
       ${commentDisabled} placeholder="시험 관련 코멘트 입력...">${commentValue}</textarea>
   </div>`;
 
-  // 하단 버튼
-  let footerHtml = '';
-  if (status === 'in_progress' || status === 'paused') {
-    footerHtml = `
-    <div class="d-flex justify-content-between mt-3">
-      <button class="btn btn-outline-secondary btn-sm" onclick="doReset()">재시험</button>
-      <button class="btn btn-primary" onclick="doComplete()">
-        <i class="bi bi-check-lg"></i> 시험완료
-      </button>
-    </div>`;
-  } else if (status === 'completed') {
+  // 하단 버튼 — 항상 표시, pending은 비활성
+  let footerHtml;
+  if (status === 'completed') {
     footerHtml = `
     <div class="d-flex justify-content-between mt-3">
       <button class="btn btn-outline-secondary btn-sm" onclick="doReset()">재시험</button>
       <button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">닫기</button>
+    </div>`;
+  } else {
+    const completeDisabled = !ex ? 'disabled' : '';
+    footerHtml = `
+    <div class="d-flex justify-content-between mt-3">
+      <button class="btn btn-outline-secondary btn-sm" onclick="doReset()" ${!ex ? 'disabled' : ''}>재시험</button>
+      <button class="btn btn-primary" onclick="doComplete()" ${completeDisabled}>
+        <i class="bi bi-check-lg"></i> 시험완료
+      </button>
     </div>`;
   }
 
