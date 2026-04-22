@@ -3,8 +3,11 @@
 
 {% block content_sub %}
 <div class="container-fluid py-3">
-  <div class="d-flex align-items-center gap-3 mb-3">
+  <div class="d-flex align-items-center justify-content-between mb-3">
     <h4 class="mb-0">시험 실행</h4>
+    <button id="btn-fullscreen" class="btn btn-sm btn-outline-secondary" title="전체화면">
+      <i class="bi bi-fullscreen" id="fullscreen-icon"></i>
+    </button>
   </div>
 
   <!-- 필터 바 -->
@@ -46,7 +49,7 @@
           <th class="sortable" data-sort="date" style="width:90px;cursor:pointer">
             날짜 <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
           </th>
-          <th style="width:80px">소요시간</th>
+          <th style="width:80px">예상시간</th>
           <th class="sortable" data-sort="status" style="width:120px;cursor:pointer">
             상태 <i class="bi bi-arrow-down-up ms-1 text-muted"></i>
           </th>
