@@ -33,11 +33,7 @@ function formatElapsed(seconds) {
 
 function formatMinutes(mins) {
   if (!mins) return '-';
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  if (h && m) return `${h}h ${m}m`;
-  if (h) return `${h}h`;
-  return `${m}m`;
+  return `${mins}분`;
 }
 
 function escHtml(s) {
@@ -456,7 +452,23 @@ function _computeElapsed(ex) {
 
 // ── 초기화 ────────────────────────────────────────────────────────────────
 
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch(() => {});
+    document.getElementById('fullscreen-icon').className = 'bi bi-fullscreen-exit';
+  } else {
+    document.exitFullscreen();
+    document.getElementById('fullscreen-icon').className = 'bi bi-fullscreen';
+  }
+}
+
+document.addEventListener('fullscreenchange', () => {
+  const icon = document.getElementById('fullscreen-icon');
+  if (icon) icon.className = document.fullscreenElement ? 'bi bi-fullscreen-exit' : 'bi bi-fullscreen';
+});
+
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
   document.getElementById('filter-date').addEventListener('change', loadList);
   document.getElementById('filter-location').addEventListener('change', loadList);
   document.getElementById('search-input').addEventListener('input', e => {

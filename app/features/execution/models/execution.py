@@ -68,8 +68,10 @@ class ExecutionRepository:
             'segments': [{'start': now, 'end': None}],
             'total_count': total_count,
             'fail_count': 0,
+            'block_count': 0,
             'pass_count': 0,
             'comment': '',
+            'performer': '',
             'created_at': now,
             'completed_at': None,
         }
@@ -99,7 +101,7 @@ class ExecutionRepository:
         return cls._patch(execution_id, status='in_progress', segments=segments)
 
     @classmethod
-    def complete(cls, execution_id, fail_count):
+    def complete(cls, execution_id, fail_count, block_count=0):
         ex = cls.get_by_id(execution_id)
         if not ex:
             return None
@@ -110,12 +112,15 @@ class ExecutionRepository:
         if segments:
             segments[-1] = {**segments[-1], 'end': now}
         total_count = ex.get('total_count', 0)
-        pass_count = max(0, total_count - int(fail_count))
+        fail_count = int(fail_count)
+        block_count = int(block_count)
+        pass_count = max(0, total_count - fail_count - block_count)
         return cls._patch(
             execution_id,
             status='completed',
             segments=segments,
-            fail_count=int(fail_count),
+            fail_count=fail_count,
+            block_count=block_count,
             pass_count=pass_count,
             completed_at=now,
         )
@@ -125,13 +130,19 @@ class ExecutionRepository:
         return cls._patch(execution_id, comment=comment)
 
     @classmethod
+    def update_performer(cls, execution_id, performer):
+        return cls._patch(execution_id, performer=performer)
+
+    @classmethod
     def reset(cls, execution_id):
         return cls._patch(
             execution_id,
             status='pending',
             segments=[],
             fail_count=0,
+            block_count=0,
             pass_count=0,
             comment='',
+            performer='',
             completed_at=None,
         )
