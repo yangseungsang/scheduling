@@ -1,33 +1,29 @@
-{% extends "schedule/base.html" %}
+{% extends "execution/base.html" %}
 {% block title %}시험 실행 — {{ identifier_id }}{% endblock %}
 
-{% block content_sub %}
-<div class="container py-4" style="max-width:720px">
+{% block toolbar_right %}
+<a href="{{ url_for('execution.index') }}" class="btn btn-sm btn-outline-light">
+  <i class="bi bi-arrow-left"></i> 목록
+</a>
+<button id="btn-fullscreen" class="btn btn-sm btn-outline-light" title="전체화면">
+  <i class="bi bi-fullscreen" id="fullscreen-icon"></i>
+</button>
+{% endblock %}
 
-  <!-- 헤더 -->
-  <div class="d-flex align-items-center justify-content-between gap-3 mb-4">
-    <div class="d-flex align-items-center gap-3">
-      <a href="{{ url_for('execution.index') }}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> 목록
-      </a>
-      <h5 class="mb-0" id="page-title">{{ identifier_id }}</h5>
-    </div>
-    <button id="btn-fullscreen" class="btn btn-sm btn-outline-secondary" title="전체화면">
-      <i class="bi bi-fullscreen" id="fullscreen-icon"></i>
-    </button>
-  </div>
+{% block main_class %}container py-4{% endblock %}
 
-  <!-- 컨텐츠 영역 -->
+{% block content %}
+<div style="max-width:720px; margin:0 auto">
+  <h5 class="mb-4" id="page-title">{{ identifier_id }}</h5>
   <div id="detail-content">
     <div class="text-center py-5 text-muted">
       <div class="spinner-border spinner-border-sm me-2"></div>로딩 중…
     </div>
   </div>
-
 </div>
 {% endblock %}
 
-{% block scripts_sub %}
+{% block scripts %}
 <script>var IDENTIFIER_ID = {{ identifier_id | tojson }};</script>
 <script src="{{ url_for('static', filename='execution/js/execution-detail.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}

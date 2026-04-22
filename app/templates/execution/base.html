@@ -6,22 +6,20 @@
   <title>{% block title %}시험 실행{% endblock %}</title>
   <link href="{{ url_for('static', filename='schedule/vendor/bootstrap.min.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='schedule/vendor/bootstrap-icons.css') }}" rel="stylesheet">
-  <link href="{{ url_for('static', filename='execution/css/style.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='execution/css/style.css') }}?v={{ cache_bust }}" rel="stylesheet">
+  {% block head %}{% endblock %}
 </head>
 <body>
   <div class="exec-toolbar">
     <div class="exec-toolbar-left">
-      <i class="bi bi-clipboard-check"></i>
-      <span class="exec-toolbar-title">시험 실행</span>
+      <i class="bi bi-play-circle"></i> 시험 실행
     </div>
     <div class="exec-toolbar-right">
-      <a href="{{ url_for('schedule.week_view') }}" class="btn btn-sm btn-outline-secondary">
-        <i class="bi bi-calendar-week"></i> 시간표
-      </a>
+      {% block toolbar_right %}{% endblock %}
     </div>
   </div>
 
-  <main class="container mt-3">
+  <main class="{% block main_class %}container-fluid py-3{% endblock %}">
     {% block content %}{% endblock %}
   </main>
 
