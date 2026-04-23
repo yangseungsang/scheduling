@@ -80,7 +80,7 @@ async function loadList() {
   if (loc)  params.set('location', loc);
 
   document.getElementById('exec-tbody').innerHTML =
-    '<tr><td colspan="8" class="text-center text-muted py-3">로딩 중…</td></tr>';
+    '<tr><td colspan="8" class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>로딩 중…</td></tr>';
 
   try {
     _allItems = await apiFetch('/execution/api/list?' + params.toString());
@@ -88,7 +88,7 @@ async function loadList() {
     applyAndRender();
   } catch {
     document.getElementById('exec-tbody').innerHTML =
-      '<tr><td colspan="8" class="text-center text-danger">로드 실패</td></tr>';
+      '<tr><td colspan="8" class="text-center text-danger py-4"><i class="bi bi-exclamation-circle me-2"></i>로드 실패</td></tr>';
   }
 }
 
@@ -102,8 +102,8 @@ function renderAssigneeBadges() {
   container.innerHTML = [...all].sort().map(a => {
     const esc = escHtml(a);
     const active = _activeAssignees.has(esc);
-    return `<span class="badge me-1 mb-1 ${active ? 'bg-primary' : 'bg-light text-dark border'}"
-      style="cursor:pointer;font-size:.8rem" onclick="toggleAssignee(${JSON.stringify(esc)})">${esc}</span>`;
+    return `<span class="exec-assignee-badge ${active ? 'active' : ''}"
+      onclick="toggleAssignee(${JSON.stringify(esc)})">${esc}</span>`;
   }).join('');
 }
 
@@ -155,31 +155,33 @@ function applyAndRender() {
 // ── 테이블 렌더링 ─────────────────────────────────────────────────────────
 
 function statusBadge(item) {
-  const ex = item.execution;
-  const s = ex?.status || 'pending';
-  const cfg = STATUS_CFG[s] || STATUS_CFG.pending;
-  const icons = { pending: '○', in_progress: '🔵', paused: '⏸', completed: '✅' };
+  const s = item.execution?.status || 'pending';
   const labels = { pending: '대기', in_progress: '진행 중', paused: '일시정지', completed: '완료' };
-  return `<span class="badge ${cfg.badge}">${icons[s] || '-'} ${labels[s] || '-'}</span>`;
+  return `<span class="exec-badge exec-badge-${s}"><span class="exec-badge-dot"></span>${labels[s] || '-'}</span>`;
 }
 
 function renderTable(items) {
   const tbody = document.getElementById('exec-tbody');
+  const countEl = document.getElementById('item-count');
+  if (countEl) countEl.textContent = items.length ? `${items.length}건` : '';
+
   if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-4">항목 없음</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-5">항목 없음</td></tr>';
     return;
   }
   tbody.innerHTML = items.map(item => {
     const assignee = (item.assignee_names || []).join(', ') || '-';
+    const status = item.execution?.status || 'pending';
     return `
-    <tr data-id="${item.identifier_id}" data-item='${JSON.stringify(item).replace(/'/g,"&#39;")}' style="cursor:pointer">
-      <td class="text-muted small">${escHtml(item.doc_name || '-')}</td>
-      <td><code>${escHtml(item.identifier_id)}</code></td>
-      <td>${escHtml(item.identifier_name)}</td>
-      <td class="text-muted small">${escHtml(assignee)}</td>
-      <td class="text-muted small">${item.location_name || '-'}</td>
-      <td class="text-muted small">${item.scheduled_date || '-'}</td>
-      <td class="text-muted small">${formatMinutes(item.estimated_minutes)}</td>
+    <tr data-id="${item.identifier_id}" data-status="${status}"
+        data-item='${JSON.stringify(item).replace(/'/g,"&#39;")}'>
+      <td class="td-doc">${escHtml(item.doc_name || '-')}</td>
+      <td class="td-id">${escHtml(item.identifier_id)}</td>
+      <td class="td-name">${escHtml(item.identifier_name)}</td>
+      <td class="td-meta">${escHtml(assignee)}</td>
+      <td class="td-meta">${item.location_name || '-'}</td>
+      <td class="td-meta">${item.scheduled_date || '-'}</td>
+      <td class="td-meta">${formatMinutes(item.estimated_minutes)}</td>
       <td>${statusBadge(item)}</td>
     </tr>`;
   }).join('');
