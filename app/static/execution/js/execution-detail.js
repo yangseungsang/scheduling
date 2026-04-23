@@ -103,7 +103,7 @@ function renderPage() {
   ].filter(Boolean);
 
   const leftPanel = `
-  <div class="d-flex flex-column h-100 border-end overflow-y-auto" style="width:320px;flex-shrink:0;padding:1.25rem 1.25rem">
+  <div class="d-flex flex-column h-100 border-end overflow-y-auto" style="flex:0 0 38%;min-width:320px;padding:1.25rem 1.25rem">
     <div class="mb-3">
       <span class="badge ${cfg.badge} px-3 py-2 w-100 text-center" style="font-size:1rem">${cfg.label}</span>
     </div>
