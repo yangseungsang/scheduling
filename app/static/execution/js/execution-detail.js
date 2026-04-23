@@ -89,159 +89,167 @@ function renderPage() {
   document.getElementById('page-title').textContent =
     `${item.identifier_id} — ${item.identifier_name}`;
 
-  // ── 상태 헤더 + 타이머 ────────────────────────────────────────────────
-  const elapsed = ex?.elapsed_seconds ?? 0;
-  let actionBtn;
-  if      (status === 'pending')     actionBtn = `<button class="btn btn-success btn-lg px-5 fs-5" onclick="doStart()"><i class="bi bi-play-fill me-2"></i>시험시작</button>`;
-  else if (status === 'in_progress') actionBtn = `<button class="btn btn-warning btn-lg px-5 fs-5" onclick="doPause()"><i class="bi bi-pause-fill me-2"></i>일시정지</button>`;
-  else if (status === 'paused')      actionBtn = `<button class="btn btn-primary btn-lg px-5 fs-5" onclick="doResume()"><i class="bi bi-play-fill me-2"></i>재시작</button>`;
-  else                               actionBtn = `<span class="fs-4 fw-semibold text-success"><i class="bi bi-check-circle-fill me-2"></i>시험 완료</span>`;
-
-  const timerColor = status === 'pending' ? '#94a3b8' : '#0f172a';
-
-  const statusCard = `
-  <div class="rounded-3 p-4 mb-4 d-flex align-items-center justify-content-between gap-4"
-       style="background:${cfg.bg};border-left:6px solid ${cfg.border}">
-    <span class="badge ${cfg.badge} px-3 py-2" style="font-size:1rem;min-width:90px;text-align:center">${cfg.label}</span>
-    <div class="text-center flex-grow-1">
-      <div id="timer-display" class="font-monospace fw-bold"
-           style="font-size:4rem;letter-spacing:.06em;color:${timerColor};line-height:1.1">
-        ${formatElapsed(elapsed)}
-      </div>
-      <div class="text-muted mt-1" style="font-size:.8rem">경과 시간</div>
-    </div>
-    <div>${actionBtn}</div>
-  </div>`;
-
-  // ── 정보 그리드 ────────────────────────────────────────────────────────
+  // ── 왼쪽 패널: 정보 목록 ──────────────────────────────────────────────
   const assignee = (item.assignee_names || []).join(', ') || '-';
-  const infoItems = [
-    ['식별자',   `<code class="text-primary fs-6">${escHtml(item.identifier_id)}</code>`],
+  const infoRows = [
+    ['식별자',   `<code class="text-primary">${escHtml(item.identifier_id)}</code>`],
     ['문서',     escHtml(item.doc_name || '-')],
     ['시험항목', escHtml(item.identifier_name)],
     ['담당자',   escHtml(assignee)],
     ['장소',     escHtml(item.location_name || '-')],
     ['날짜',     escHtml(item.scheduled_date || '-')],
-    ['예상시간', formatMinutes(item.estimated_minutes)],   // #64
-    ex ? ['총 건수', `<strong class="fs-6">${ex.total_count}</strong>건`] : null,
+    ['예상시간', formatMinutes(item.estimated_minutes)],
+    ex ? ['총 건수', `<strong>${ex.total_count}</strong>건`] : null,
   ].filter(Boolean);
 
-  const infoGrid = `
-  <div class="row g-0 mb-4 border rounded-3 overflow-hidden">
-    ${infoItems.map(([k, v], i) => `
-    <div class="col-6 px-4 py-3 ${i % 2 === 0 ? 'border-end' : ''} ${i >= 2 ? 'border-top' : ''}">
-      <span class="text-muted me-3" style="min-width:64px;display:inline-block;font-size:.85rem">${k}</span>
-      <span style="font-size:.95rem">${v}</span>
-    </div>`).join('')}
+  const leftPanel = `
+  <div class="d-flex flex-column h-100 border-end overflow-y-auto" style="width:260px;flex-shrink:0;padding:1.25rem 1rem">
+    <div class="mb-3">
+      <span class="badge ${cfg.badge} px-3 py-2 w-100 text-center" style="font-size:.95rem">${cfg.label}</span>
+    </div>
+    <table class="table table-sm table-borderless mb-0" style="font-size:.85rem">
+      <tbody>
+        ${infoRows.map(([k, v]) => `
+        <tr>
+          <td class="text-muted pe-2 text-nowrap" style="width:64px">${k}</td>
+          <td>${v}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
   </div>`;
 
-  // ── 수행자 (#60) ──────────────────────────────────────────────────────
-  const performerValue = ex ? escHtml(ex.performer || '') : escHtml(_pendingPerformer);
-  const performerHtml = `
-  <div class="mb-4">
-    <label class="form-label fw-semibold mb-2">
-      <i class="bi bi-person-fill me-1"></i>수행자
-    </label>
-    <input type="text" id="performer-input" class="form-control form-control-lg"
-      placeholder="시험 수행자 이름 입력…" value="${performerValue}">
+  // ── 오른쪽 패널: 타이머 + 입력 ──────────────────────────────────────
+  const elapsed = ex?.elapsed_seconds ?? 0;
+  let actionBtn;
+  if      (status === 'pending')     actionBtn = `<button class="btn btn-success btn-lg px-5" onclick="doStart()"><i class="bi bi-play-fill me-1"></i>시험시작</button>`;
+  else if (status === 'in_progress') actionBtn = `<button class="btn btn-warning btn-lg px-5" onclick="doPause()"><i class="bi bi-pause-fill me-1"></i>일시정지</button>`;
+  else if (status === 'paused')      actionBtn = `<button class="btn btn-primary btn-lg px-5" onclick="doResume()"><i class="bi bi-play-fill me-1"></i>재시작</button>`;
+  else                               actionBtn = `<span class="fs-5 fw-semibold text-success"><i class="bi bi-check-circle-fill me-2"></i>시험 완료</span>`;
+
+  const timerColor = status === 'pending' ? '#94a3b8' : '#0f172a';
+  const timerSection = `
+  <div class="text-center py-3 mb-2 rounded-3" style="background:${cfg.bg};border-left:4px solid ${cfg.border}">
+    <div id="timer-display" class="font-monospace fw-bold"
+         style="font-size:3.2rem;letter-spacing:.06em;color:${timerColor};line-height:1.1">
+      ${formatElapsed(elapsed)}
+    </div>
+    <div class="text-muted mb-2" style="font-size:.75rem">경과 시간</div>
+    ${actionBtn}
   </div>`;
 
-  // ── FAIL / BLOCK / PASS (#59) ─────────────────────────────────────────
+  // ── FAIL / BLOCK / PASS ──────────────────────────────────────────────
   let failPassHtml;
   if (status === 'completed') {
     failPassHtml = `
-    <div class="d-flex align-items-stretch justify-content-center gap-0 mb-4 border rounded-3 overflow-hidden">
-      <div class="text-center flex-fill py-4 px-3 bg-danger bg-opacity-10">
-        <div class="fs-1 fw-bold text-danger">${ex.fail_count}</div>
-        <div class="text-muted fw-semibold">FAIL</div>
+    <div class="d-flex border rounded-3 overflow-hidden mb-2">
+      <div class="text-center flex-fill py-3 bg-danger bg-opacity-10">
+        <div class="fs-2 fw-bold text-danger">${ex.fail_count}</div>
+        <div class="text-muted small fw-semibold">FAIL</div>
       </div>
-      <div class="border-start border-end text-center flex-fill py-4 px-3 bg-warning bg-opacity-10">
-        <div class="fs-1 fw-bold text-warning">${ex.block_count ?? 0}</div>
-        <div class="text-muted fw-semibold">BLOCK</div>
+      <div class="text-center flex-fill py-3 bg-warning bg-opacity-10 border-start border-end">
+        <div class="fs-2 fw-bold text-warning">${ex.block_count ?? 0}</div>
+        <div class="text-muted small fw-semibold">BLOCK</div>
       </div>
-      <div class="text-center flex-fill py-4 px-3 bg-success bg-opacity-10">
-        <div class="fs-1 fw-bold text-success">${ex.pass_count}</div>
-        <div class="text-muted fw-semibold">PASS</div>
+      <div class="text-center flex-fill py-3 bg-success bg-opacity-10 border-end">
+        <div class="fs-2 fw-bold text-success">${ex.pass_count}</div>
+        <div class="text-muted small fw-semibold">PASS</div>
       </div>
-      <div class="text-center flex-fill py-4 px-3 bg-light">
-        <div class="fs-1 fw-bold text-secondary">${ex.total_count}</div>
-        <div class="text-muted fw-semibold">총 건수</div>
+      <div class="text-center flex-fill py-3 bg-light">
+        <div class="fs-2 fw-bold text-secondary">${ex.total_count}</div>
+        <div class="text-muted small fw-semibold">총 건수</div>
       </div>
     </div>`;
   } else {
     const dis    = !ex ? 'disabled' : '';
-    const failV  = ex ? ex.fail_count  : 0;
+    const failV  = ex ? ex.fail_count      : 0;
     const blockV = ex ? (ex.block_count ?? 0) : 0;
-    const passV  = ex ? ex.pass_count  : 0;
-    const total  = ex ? ex.total_count : 0;
-    const maxA   = ex ? `max="${total}"` : '';
+    const passV  = ex ? ex.pass_count      : 0;
+    const total  = ex ? ex.total_count     : 0;
+    const maxA   = ex ? `max="${total}"`   : '';
     failPassHtml = `
-    <div class="mb-4 border rounded-3 overflow-hidden">
-      <div class="d-flex align-items-stretch">
-        <div class="flex-fill text-center p-3 bg-danger bg-opacity-10 border-end">
-          <label class="form-label fw-bold text-danger mb-2 d-block">FAIL</label>
-          <input type="number" id="fail-input"
-                 class="form-control form-control-lg text-center fw-bold text-danger border-danger"
-                 style="font-size:1.8rem;max-width:140px;margin:0 auto"
-                 min="0" ${maxA} value="${failV}" ${dis} oninput="updatePass()">
-        </div>
-        <div class="flex-fill text-center p-3 bg-warning bg-opacity-10 border-end">
-          <label class="form-label fw-bold text-warning mb-2 d-block">BLOCK</label>
-          <input type="number" id="block-input"
-                 class="form-control form-control-lg text-center fw-bold text-warning border-warning"
-                 style="font-size:1.8rem;max-width:140px;margin:0 auto"
-                 min="0" ${maxA} value="${blockV}" ${dis} oninput="updatePass()">
-        </div>
-        <div class="flex-fill text-center p-3 bg-success bg-opacity-10 border-end">
-          <div class="form-label fw-bold text-success mb-2">PASS</div>
-          <div id="pass-display" class="fw-bold text-success" style="font-size:1.8rem">${passV}</div>
-        </div>
-        <div class="flex-fill text-center p-3 bg-light">
-          <div class="form-label fw-semibold text-muted mb-2">총 건수</div>
-          <div class="fw-bold text-secondary" style="font-size:1.8rem">${total}</div>
-        </div>
+    <div class="d-flex border rounded-3 overflow-hidden mb-2">
+      <div class="flex-fill text-center p-2 bg-danger bg-opacity-10 border-end">
+        <label class="form-label fw-bold text-danger small mb-1 d-block">FAIL</label>
+        <input type="number" id="fail-input"
+               class="form-control text-center fw-bold text-danger border-danger"
+               style="font-size:1.5rem;max-width:100px;margin:0 auto"
+               min="0" ${maxA} value="${failV}" ${dis} oninput="updatePass()">
+      </div>
+      <div class="flex-fill text-center p-2 bg-warning bg-opacity-10 border-end">
+        <label class="form-label fw-bold text-warning small mb-1 d-block">BLOCK</label>
+        <input type="number" id="block-input"
+               class="form-control text-center fw-bold text-warning border-warning"
+               style="font-size:1.5rem;max-width:100px;margin:0 auto"
+               min="0" ${maxA} value="${blockV}" ${dis} oninput="updatePass()">
+      </div>
+      <div class="flex-fill text-center p-2 bg-success bg-opacity-10 border-end">
+        <div class="form-label fw-bold text-success small mb-1">PASS</div>
+        <div id="pass-display" class="fw-bold text-success" style="font-size:1.5rem">${passV}</div>
+      </div>
+      <div class="flex-fill text-center p-2 bg-light">
+        <div class="form-label fw-semibold text-muted small mb-1">총 건수</div>
+        <div class="fw-bold text-secondary" style="font-size:1.5rem">${total}</div>
       </div>
     </div>`;
   }
 
-  // ── 코멘트 (#61 높이 증가) ────────────────────────────────────────────
+  // ── 수행자 ───────────────────────────────────────────────────────────
+  const performerValue = ex ? escHtml(ex.performer || '') : escHtml(_pendingPerformer);
+  const performerHtml = `
+  <div class="mb-2">
+    <label class="form-label small fw-semibold mb-1"><i class="bi bi-person-fill me-1"></i>수행자</label>
+    <input type="text" id="performer-input" class="form-control"
+      placeholder="시험 수행자 이름…" value="${performerValue}">
+  </div>`;
+
+  // ── 코멘트 (남은 공간 채움) ──────────────────────────────────────────
   const commentValue = ex ? escHtml(ex.comment || '') : escHtml(_pendingComment);
   const commentHtml = `
-  <div class="mb-4">
-    <label class="form-label fw-semibold mb-2">
-      <i class="bi bi-chat-left-text me-1"></i>코멘트
-    </label>
-    <textarea id="comment-input" class="form-control form-control-lg" rows="6"
-      placeholder="시험 관련 코멘트를 입력하세요…">${commentValue}</textarea>
+  <div class="d-flex flex-column flex-fill mb-2" style="min-height:0">
+    <label class="form-label small fw-semibold mb-1"><i class="bi bi-chat-left-text me-1"></i>코멘트</label>
+    <textarea id="comment-input" class="form-control flex-fill" style="resize:none"
+      placeholder="시험 관련 코멘트…">${commentValue}</textarea>
   </div>`;
 
   // ── 하단 버튼 ─────────────────────────────────────────────────────────
   let footerHtml;
   if (status === 'completed') {
     footerHtml = `
-    <div class="d-flex justify-content-between gap-3">
-      <button class="btn btn-outline-secondary btn-lg px-4" onclick="doReset()">
+    <div class="d-flex justify-content-between gap-2">
+      <button class="btn btn-outline-secondary" onclick="doReset()">
         <i class="bi bi-arrow-counterclockwise me-1"></i>재시험
       </button>
-      <a href="/execution/" class="btn btn-secondary btn-lg px-4">
+      <a href="/execution/" class="btn btn-secondary">
         <i class="bi bi-list-ul me-1"></i>목록으로
       </a>
     </div>`;
   } else {
     const dis = !ex ? 'disabled' : '';
     footerHtml = `
-    <div class="d-flex justify-content-between gap-3">
-      <button class="btn btn-outline-secondary btn-lg px-4" onclick="doReset()" ${dis}>
+    <div class="d-flex justify-content-between gap-2">
+      <button class="btn btn-outline-secondary" onclick="doReset()" ${dis}>
         <i class="bi bi-arrow-counterclockwise me-1"></i>재시험
       </button>
-      <button class="btn btn-primary btn-lg px-5" onclick="doComplete()" ${dis}>
-        <i class="bi bi-check-lg me-2"></i>시험완료
+      <button class="btn btn-primary px-4" onclick="doComplete()" ${dis}>
+        <i class="bi bi-check-lg me-1"></i>시험완료
       </button>
     </div>`;
   }
 
-  document.getElementById('detail-content').innerHTML =
-    `${statusCard}${infoGrid}${performerHtml}${failPassHtml}${commentHtml}${footerHtml}`;
+  const rightPanel = `
+  <div class="d-flex flex-column flex-fill h-100 overflow-hidden" style="padding:1.25rem 1.25rem 1rem">
+    ${timerSection}
+    ${failPassHtml}
+    ${performerHtml}
+    ${commentHtml}
+    ${footerHtml}
+  </div>`;
+
+  document.getElementById('detail-content').innerHTML = `
+  <div class="d-flex h-100 overflow-hidden">
+    ${leftPanel}
+    ${rightPanel}
+  </div>`;
 
   _attachHandlers();
   startLocalTimer();
