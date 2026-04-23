@@ -4,7 +4,6 @@ let _currentItem = null;
 let _allItems = [];
 let _sortCol = null;
 let _sortDir = 'asc';
-let _activeAssignees = new Set();
 let _searchText = '';
 let _pendingComment = '';  // 시험 시작 전 미리 입력된 코멘트
 
@@ -84,7 +83,7 @@ async function loadList() {
 
   try {
     _allItems = await apiFetch('/execution/api/list?' + params.toString());
-    renderAssigneeBadges();
+    renderAssigneeDropdown();
     applyAndRender();
   } catch {
     document.getElementById('exec-tbody').innerHTML =
@@ -92,26 +91,19 @@ async function loadList() {
   }
 }
 
-// ── 담당자 뱃지 필터 ───────────────────────────────────────────────────────
+// ── 담당자 드롭다운 필터 (#73) ────────────────────────────────────────────
 
-function renderAssigneeBadges() {
-  const container = document.getElementById('assignee-badges');
+function renderAssigneeDropdown() {
+  const sel = document.getElementById('filter-assignee');
+  if (!sel) return;
   const all = new Set();
   _allItems.forEach(item => (item.assignee_names || []).forEach(a => all.add(a)));
-  if (!all.size) { container.innerHTML = ''; return; }
-  container.innerHTML = [...all].sort().map(a => {
-    const esc = escHtml(a);
-    const active = _activeAssignees.has(esc);
-    return `<span class="exec-assignee-badge ${active ? 'active' : ''}"
-      onclick="toggleAssignee(${JSON.stringify(esc)})">${esc}</span>`;
-  }).join('');
-}
-
-function toggleAssignee(name) {
-  if (_activeAssignees.has(name)) _activeAssignees.delete(name);
-  else _activeAssignees.add(name);
-  renderAssigneeBadges();
-  applyAndRender();
+  const current = sel.value;
+  sel.innerHTML = '<option value="">전체 담당자</option>' +
+    [...all].sort().map(a => {
+      const esc = escHtml(a);
+      return `<option value="${esc}" ${current === esc ? 'selected' : ''}>${esc}</option>`;
+    }).join('');
 }
 
 // ── 정렬 ──────────────────────────────────────────────────────────────────
@@ -135,8 +127,9 @@ function applyAndRender() {
   const q = _searchText.toLowerCase();
   if (q) items = items.filter(i =>
     i.identifier_id.toLowerCase().includes(q) || i.identifier_name.toLowerCase().includes(q));
-  if (_activeAssignees.size)
-    items = items.filter(i => (i.assignee_names || []).some(a => _activeAssignees.has(escHtml(a))));
+  const assigneeFilter = document.getElementById('filter-assignee')?.value || '';
+  if (assigneeFilter)
+    items = items.filter(i => (i.assignee_names || []).some(a => escHtml(a) === assigneeFilter));
   if (_sortCol) {
     items.sort((a, b) => {
       let va, vb;
@@ -473,6 +466,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
   document.getElementById('filter-date').addEventListener('change', loadList);
   document.getElementById('filter-location').addEventListener('change', loadList);
+  document.getElementById('filter-assignee').addEventListener('change', applyAndRender);
   document.getElementById('search-input').addEventListener('input', e => {
     _searchText = e.target.value.trim();
     applyAndRender();

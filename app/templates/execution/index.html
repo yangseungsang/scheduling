@@ -36,6 +36,9 @@
     <option value="{{ loc.id }}">{{ loc.name }}</option>
     {% endfor %}
   </select>
+  <select id="filter-assignee" class="form-select form-select-sm" style="width:auto">
+    <option value="">전체 담당자</option>
+  </select>
   <div class="input-group input-group-sm" style="width:220px">
     <span class="input-group-text bg-white border-end-0" style="border-radius:8px 0 0 8px">
       <i class="bi bi-search text-muted" style="font-size:.8rem"></i>
@@ -44,9 +47,6 @@
            placeholder="식별자 / 시험항목 검색…">
   </div>
 </div>
-
-<!-- 담당자 뱃지 필터 -->
-<div class="exec-assignee-bar" id="assignee-badges"></div>
 
 <!-- 테이블 -->
 <div class="exec-table-wrapper">
