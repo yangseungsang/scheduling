@@ -8,6 +8,11 @@
   <link href="{{ url_for('static', filename='schedule/vendor/bootstrap-icons.css') }}" rel="stylesheet">
   <link href="{{ url_for('static', filename='execution/css/style.css') }}?v={{ cache_bust }}" rel="stylesheet">
   {% block head %}{% endblock %}
+  <style>
+    html, body { height: 100%; overflow: hidden; }
+    body { display: flex; flex-direction: column; }
+    body > main { flex: 1; overflow: hidden; min-height: 0; }
+  </style>
 </head>
 <body>
   <div class="exec-toolbar">
