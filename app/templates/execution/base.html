@@ -10,21 +10,25 @@
   {% block head %}{% endblock %}
   <style>
     html, body { height: 100%; overflow: hidden; }
-    body { display: flex; flex-direction: column; }
+    body { display: flex; flex-direction: column; margin: 0; }
     body > main { flex: 1; overflow: hidden; min-height: 0; }
   </style>
 </head>
 <body>
   <div class="exec-toolbar">
-    <div class="exec-toolbar-left">
-      <i class="bi bi-play-circle"></i> 시험 실행
+    <div class="exec-toolbar-brand">
+      <div class="brand-icon"><i class="bi bi-play-fill"></i></div>
+      <div>
+        <div class="brand-title">시험 실행</div>
+        <div class="brand-subtitle">Test Execution System</div>
+      </div>
     </div>
     <div class="exec-toolbar-right">
       {% block toolbar_right %}{% endblock %}
     </div>
   </div>
 
-  <main class="{% block main_class %}container-fluid py-3{% endblock %}">
+  <main class="{% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}
   </main>
 

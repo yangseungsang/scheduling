@@ -1,149 +1,349 @@
-/* Execution page styles */
+/* ─── Execution 독립 레이아웃 ─────────────────────────────────────────── */
+
+:root {
+  --exec-toolbar-h: 52px;
+  --exec-accent: #6366f1;
+  --exec-slate: #0f172a;
+  --exec-border: #e2e8f0;
+}
+
+/* ─── 툴바 ─────────────────────────────────────────────────────────────── */
 .exec-toolbar {
+  height: var(--exec-toolbar-h);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
-  background: #1e293b;
-  color: #fff;
+  padding: 0 20px;
+  background: var(--exec-slate);
+  border-bottom: 2px solid var(--exec-accent);
+  flex-shrink: 0;
 }
-.exec-toolbar-left {
+
+.exec-toolbar-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  font-size: 0.95rem;
+  gap: 10px;
 }
+.exec-toolbar-brand .brand-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--exec-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  color: #fff;
+}
+.exec-toolbar-brand .brand-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -.01em;
+}
+.exec-toolbar-brand .brand-subtitle {
+  font-size: .7rem;
+  color: #94a3b8;
+  margin-top: -2px;
+}
+
 .exec-toolbar-right {
   display: flex;
   align-items: center;
   gap: 8px;
 }
-.exec-nav {
-  display: flex;
-  align-items: center;
-  padding: 12px 0;
-}
-.exec-summary {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 16px;
-  font-size: 0.85rem;
-}
-.exec-summary-counts {
-  display: flex;
-  gap: 16px;
-  margin-bottom: 6px;
-  flex-wrap: wrap;
-}
-.exec-summary-counts span { font-weight: 600; }
-.exec-progress {
-  height: 8px;
-  background: #e2e8f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-.exec-progress-bar {
-  height: 100%;
-  background: #16a34a;
-  border-radius: 4px;
-  transition: width 0.3s;
+.exec-toolbar-right .btn {
+  font-size: .8rem;
 }
 
-/* Block card */
-.exec-block {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  margin-bottom: 16px;
-  overflow: hidden;
-}
-.exec-block-header {
-  background: #f1f5f9;
-  padding: 10px 14px;
+/* ─── 목록 페이지 헤더 ─────────────────────────────────────────────────── */
+.exec-page-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e2e8f0;
+  justify-content: space-between;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--exec-border);
+  background: #fff;
 }
-.exec-block-title {
+.exec-page-title {
+  font-size: 1.35rem;
   font-weight: 700;
-  font-size: 0.9rem;
-}
-.exec-block-meta {
-  font-size: 0.78rem;
-  color: #64748b;
-}
-
-/* Identifier row */
-.exec-id-row {
-  padding: 10px 14px;
-  border-bottom: 1px solid #f1f5f9;
-}
-.exec-id-row:last-child { border-bottom: none; }
-.exec-id-header {
+  color: var(--exec-slate);
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
+  gap: 10px;
 }
-.exec-id-name {
-  font-weight: 600;
-  font-size: 0.85rem;
-}
-.exec-id-info {
-  font-size: 0.75rem;
-  color: #64748b;
-}
-.exec-status-badge {
-  font-size: 0.7rem;
-  font-weight: 600;
-  padding: 2px 8px;
+.exec-page-title .title-icon {
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
-}
-.exec-status-pending { background: #f3f4f6; color: #6b7280; }
-.exec-status-in_progress { background: #dbeafe; color: #1d4ed8; }
-.exec-status-completed { background: #dcfce7; color: #15803d; }
-
-.exec-id-body {
-  margin-top: 6px;
-}
-.exec-field-row {
+  background: #eef2ff;
   display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  color: var(--exec-accent);
+}
+.exec-item-count {
+  font-size: .8rem;
+  color: #94a3b8;
+  font-weight: 400;
+  margin-left: 4px;
+}
+
+/* ─── 필터 바 ──────────────────────────────────────────────────────────── */
+.exec-filter-bar {
+  padding: 12px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--exec-border);
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 6px;
   align-items: center;
 }
-.exec-field-row label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #475569;
-  min-width: 65px;
-  flex-shrink: 0;
+.exec-filter-bar .form-select,
+.exec-filter-bar .form-control {
+  border-radius: 8px;
+  border-color: #cbd5e1;
+  font-size: .82rem;
+  background: #fff;
 }
-.exec-field-row input,
-.exec-field-row textarea {
-  font-size: 0.8rem;
-}
-.exec-field-row textarea {
-  resize: vertical;
-  min-height: 32px;
-}
-.exec-result-display {
-  font-size: 0.8rem;
-  margin-top: 4px;
-}
-.exec-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
+.exec-filter-bar .form-select:focus,
+.exec-filter-bar .form-control:focus {
+  border-color: var(--exec-accent);
+  box-shadow: 0 0 0 3px rgba(99,102,241,.12);
 }
 
-/* Empty state */
-.exec-empty {
-  text-align: center;
-  padding: 3rem;
-  color: #94a3b8;
+/* ─── 담당자 뱃지 ──────────────────────────────────────────────────────── */
+.exec-assignee-bar {
+  padding: 8px 24px;
+  background: #fff;
+  border-bottom: 1px solid var(--exec-border);
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
 }
-.exec-empty i { font-size: 2rem; }
+.exec-assignee-badge {
+  cursor: pointer;
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: .78rem;
+  font-weight: 500;
+  transition: all .15s;
+  border: 1.5px solid #cbd5e1;
+  background: #fff;
+  color: #475569;
+  user-select: none;
+}
+.exec-assignee-badge.active {
+  background: var(--exec-accent);
+  border-color: var(--exec-accent);
+  color: #fff;
+}
+.exec-assignee-badge:hover:not(.active) {
+  border-color: var(--exec-accent);
+  color: var(--exec-accent);
+}
+
+/* ─── 테이블 ───────────────────────────────────────────────────────────── */
+.exec-table-wrapper {
+  flex: 1;
+  overflow: auto;
+}
+.exec-table {
+  font-size: .84rem;
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+}
+.exec-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  border-bottom: 2px solid var(--exec-border);
+  padding: 10px 14px;
+  font-size: .75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: #64748b;
+  white-space: nowrap;
+  z-index: 1;
+}
+.exec-table thead th.sortable { cursor: pointer; }
+.exec-table thead th.sortable:hover { color: var(--exec-accent); }
+
+.exec-table tbody tr {
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+  transition: background .12s;
+}
+.exec-table tbody tr:hover { background: #f8fafc; }
+.exec-table tbody td {
+  padding: 10px 14px;
+  vertical-align: middle;
+  color: #334155;
+}
+.exec-table .td-doc { color: #64748b; font-size: .8rem; }
+.exec-table .td-id  { font-family: monospace; color: var(--exec-accent); font-weight: 600; }
+.exec-table .td-name { font-weight: 500; color: #1e293b; }
+.exec-table .td-meta { color: #64748b; font-size: .8rem; }
+
+/* 상태별 행 왼쪽 강조 */
+.exec-table tbody tr[data-status="in_progress"] { border-left: 3px solid #3b82f6; }
+.exec-table tbody tr[data-status="paused"]      { border-left: 3px solid #f59e0b; }
+.exec-table tbody tr[data-status="completed"]   { border-left: 3px solid #22c55e; }
+.exec-table tbody tr[data-status="pending"]     { border-left: 3px solid transparent; }
+
+/* ─── 상태 배지 ────────────────────────────────────────────────────────── */
+.exec-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: .75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.exec-badge-pending     { background:#f1f5f9; color:#64748b; }
+.exec-badge-in_progress { background:#dbeafe; color:#1d4ed8; }
+.exec-badge-paused      { background:#fef3c7; color:#b45309; }
+.exec-badge-completed   { background:#dcfce7; color:#15803d; }
+.exec-badge-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor;
+}
+
+/* ─── 상세 페이지 레이아웃 ─────────────────────────────────────────────── */
+.exec-detail-layout {
+  display: flex;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 사이드바 */
+.exec-detail-sidebar {
+  flex: 0 0 38%;
+  min-width: 300px;
+  border-right: 1px solid var(--exec-border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: #fafafa;
+}
+.exec-sidebar-header {
+  padding: 16px 20px 10px;
+  border-bottom: 1px solid var(--exec-border);
+}
+.exec-sidebar-label {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+.exec-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 24px;
+  font-size: .9rem;
+  font-weight: 600;
+}
+.exec-info-table {
+  padding: 12px 20px;
+}
+.exec-info-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: .875rem;
+}
+.exec-info-row:last-child { border-bottom: none; }
+.exec-info-key {
+  flex-shrink: 0;
+  width: 68px;
+  font-size: .75rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.exec-info-val {
+  color: #1e293b;
+  word-break: break-all;
+}
+
+/* 메인 패널 */
+.exec-detail-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px 24px 16px;
+}
+
+/* 타이머 카드 */
+.exec-timer-card {
+  border-radius: 14px;
+  padding: 20px 24px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  transition: background .3s, border-color .3s;
+}
+.exec-timer-value {
+  font-family: 'SF Mono', 'Fira Mono', monospace;
+  font-size: 3rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+  line-height: 1;
+}
+.exec-timer-label {
+  font-size: .7rem;
+  color: #94a3b8;
+  margin-top: 3px;
+}
+
+/* FAIL/BLOCK/PASS */
+.exec-counts-bar {
+  display: flex;
+  border: 1px solid var(--exec-border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.exec-count-cell {
+  flex: 1;
+  text-align: center;
+  padding: 10px 8px;
+}
+.exec-count-cell + .exec-count-cell { border-left: 1px solid var(--exec-border); }
+.exec-count-label {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .05em;
+  margin-bottom: 4px;
+}
+.exec-count-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.exec-count-input {
+  font-size: 1.4rem !important;
+  font-weight: 700 !important;
+  text-align: center;
+  max-width: 90px;
+  margin: 0 auto;
+  border-radius: 8px !important;
+  padding: 2px 6px !important;
+}

@@ -89,11 +89,11 @@ function renderPage() {
   document.getElementById('page-title').textContent =
     `${item.identifier_id} — ${item.identifier_name}`;
 
-  // ── 왼쪽 패널: 정보 목록 ──────────────────────────────────────────────
+  // ── 왼쪽 패널: 정보 목록 (#71 순서: 문서 → 식별자 → ...) ───────────────
   const assignee = (item.assignee_names || []).join(', ') || '-';
   const infoRows = [
-    ['식별자',   `<code class="text-primary">${escHtml(item.identifier_id)}</code>`],
     ['문서',     escHtml(item.doc_name || '-')],
+    ['식별자',   `<code style="color:#6366f1;font-weight:600">${escHtml(item.identifier_id)}</code>`],
     ['시험항목', escHtml(item.identifier_name)],
     ['담당자',   escHtml(assignee)],
     ['장소',     escHtml(item.location_name || '-')],
@@ -103,60 +103,62 @@ function renderPage() {
   ].filter(Boolean);
 
   const leftPanel = `
-  <div class="d-flex flex-column h-100 border-end overflow-y-auto" style="flex:0 0 38%;min-width:320px;padding:1.25rem 1.25rem">
-    <div class="mb-3">
-      <span class="badge ${cfg.badge} px-3 py-2 w-100 text-center" style="font-size:1rem">${cfg.label}</span>
+  <div class="exec-detail-sidebar">
+    <div class="exec-sidebar-header">
+      <div class="exec-sidebar-label">상태</div>
+      <span class="exec-status-chip exec-badge-${status}" style="background:${cfg.bg};color:${cfg.border};border:1.5px solid ${cfg.border}">
+        <span style="width:8px;height:8px;border-radius:50%;background:${cfg.border};display:inline-block"></span>
+        ${cfg.label}
+      </span>
     </div>
-    <table class="table table-sm table-borderless mb-0" style="font-size:.95rem">
-      <tbody>
-        ${infoRows.map(([k, v]) => `
-        <tr>
-          <td class="text-muted pe-2 text-nowrap" style="width:72px">${k}</td>
-          <td>${v}</td>
-        </tr>`).join('')}
-      </tbody>
-    </table>
+    <div class="exec-info-table">
+      <div class="exec-sidebar-label mb-2">시험 정보</div>
+      ${infoRows.map(([k, v]) => `
+      <div class="exec-info-row">
+        <span class="exec-info-key">${k}</span>
+        <span class="exec-info-val">${v}</span>
+      </div>`).join('')}
+    </div>
   </div>`;
 
-  // ── 오른쪽 패널: 타이머 + 입력 ──────────────────────────────────────
+  // ── 오른쪽 패널 ─────────────────────────────────────────────────────
   const elapsed = ex?.elapsed_seconds ?? 0;
   let actionBtn;
-  if      (status === 'pending')     actionBtn = `<button class="btn btn-success btn-lg px-5" onclick="doStart()"><i class="bi bi-play-fill me-1"></i>시험시작</button>`;
-  else if (status === 'in_progress') actionBtn = `<button class="btn btn-warning btn-lg px-5" onclick="doPause()"><i class="bi bi-pause-fill me-1"></i>일시정지</button>`;
-  else if (status === 'paused')      actionBtn = `<button class="btn btn-primary btn-lg px-5" onclick="doResume()"><i class="bi bi-play-fill me-1"></i>재시작</button>`;
-  else                               actionBtn = `<span class="fs-5 fw-semibold text-success"><i class="bi bi-check-circle-fill me-2"></i>시험 완료</span>`;
+  if      (status === 'pending')     actionBtn = `<button class="btn btn-success btn-lg px-5" onclick="doStart()"><i class="bi bi-play-fill me-2"></i>시험시작</button>`;
+  else if (status === 'in_progress') actionBtn = `<button class="btn btn-warning btn-lg px-5" onclick="doPause()"><i class="bi bi-pause-fill me-2"></i>일시정지</button>`;
+  else if (status === 'paused')      actionBtn = `<button class="btn btn-primary btn-lg px-5" onclick="doResume()"><i class="bi bi-play-fill me-2"></i>재시작</button>`;
+  else                               actionBtn = `<span class="fs-5 fw-semibold" style="color:#15803d"><i class="bi bi-check-circle-fill me-2"></i>시험 완료</span>`;
 
   const timerColor = status === 'pending' ? '#94a3b8' : '#0f172a';
   const timerSection = `
-  <div class="text-center py-3 mb-2 rounded-3" style="background:${cfg.bg};border-left:4px solid ${cfg.border}">
-    <div id="timer-display" class="font-monospace fw-bold"
-         style="font-size:3.2rem;letter-spacing:.06em;color:${timerColor};line-height:1.1">
-      ${formatElapsed(elapsed)}
+  <div class="exec-timer-card" style="background:${cfg.bg};border:1.5px solid ${cfg.border}">
+    <div class="flex-fill text-center">
+      <div id="timer-display" class="exec-timer-value" style="color:${timerColor}">${formatElapsed(elapsed)}</div>
+      <div class="exec-timer-label">경과 시간</div>
     </div>
-    <div class="text-muted mb-2" style="font-size:.75rem">경과 시간</div>
-    ${actionBtn}
+    <div>${actionBtn}</div>
   </div>`;
 
-  // ── FAIL / BLOCK / PASS ──────────────────────────────────────────────
+  // ── FAIL / BLOCK / PASS ─────────────────────────────────────────────
   let failPassHtml;
   if (status === 'completed') {
     failPassHtml = `
-    <div class="d-flex border rounded-3 overflow-hidden mb-2">
-      <div class="text-center flex-fill py-3 bg-danger bg-opacity-10">
-        <div class="fs-2 fw-bold text-danger">${ex.fail_count}</div>
-        <div class="text-muted small fw-semibold">FAIL</div>
+    <div class="exec-counts-bar mb-3">
+      <div class="exec-count-cell" style="background:#fef2f2">
+        <div class="exec-count-label text-danger">FAIL</div>
+        <div class="exec-count-value text-danger">${ex.fail_count}</div>
       </div>
-      <div class="text-center flex-fill py-3 bg-warning bg-opacity-10 border-start border-end">
-        <div class="fs-2 fw-bold text-warning">${ex.block_count ?? 0}</div>
-        <div class="text-muted small fw-semibold">BLOCK</div>
+      <div class="exec-count-cell" style="background:#fffbeb">
+        <div class="exec-count-label text-warning">BLOCK</div>
+        <div class="exec-count-value text-warning">${ex.block_count ?? 0}</div>
       </div>
-      <div class="text-center flex-fill py-3 bg-success bg-opacity-10 border-end">
-        <div class="fs-2 fw-bold text-success">${ex.pass_count}</div>
-        <div class="text-muted small fw-semibold">PASS</div>
+      <div class="exec-count-cell" style="background:#f0fdf4">
+        <div class="exec-count-label text-success">PASS</div>
+        <div class="exec-count-value text-success">${ex.pass_count}</div>
       </div>
-      <div class="text-center flex-fill py-3 bg-light">
-        <div class="fs-2 fw-bold text-secondary">${ex.total_count}</div>
-        <div class="text-muted small fw-semibold">총 건수</div>
+      <div class="exec-count-cell" style="background:#f8fafc">
+        <div class="exec-count-label text-muted">총 건수</div>
+        <div class="exec-count-value text-secondary">${ex.total_count}</div>
       </div>
     </div>`;
   } else {
@@ -167,28 +169,24 @@ function renderPage() {
     const total  = ex ? ex.total_count     : 0;
     const maxA   = ex ? `max="${total}"`   : '';
     failPassHtml = `
-    <div class="d-flex border rounded-3 overflow-hidden mb-2">
-      <div class="flex-fill text-center p-2 bg-danger bg-opacity-10 border-end">
-        <label class="form-label fw-bold text-danger small mb-1 d-block">FAIL</label>
-        <input type="number" id="fail-input"
-               class="form-control text-center fw-bold text-danger border-danger"
-               style="font-size:1.5rem;max-width:100px;margin:0 auto"
+    <div class="exec-counts-bar mb-3">
+      <div class="exec-count-cell" style="background:#fef2f2">
+        <div class="exec-count-label text-danger">FAIL</div>
+        <input type="number" id="fail-input" class="exec-count-input form-control text-danger border-danger"
                min="0" ${maxA} value="${failV}" ${dis} oninput="updatePass()">
       </div>
-      <div class="flex-fill text-center p-2 bg-warning bg-opacity-10 border-end">
-        <label class="form-label fw-bold text-warning small mb-1 d-block">BLOCK</label>
-        <input type="number" id="block-input"
-               class="form-control text-center fw-bold text-warning border-warning"
-               style="font-size:1.5rem;max-width:100px;margin:0 auto"
+      <div class="exec-count-cell" style="background:#fffbeb">
+        <div class="exec-count-label text-warning">BLOCK</div>
+        <input type="number" id="block-input" class="exec-count-input form-control text-warning border-warning"
                min="0" ${maxA} value="${blockV}" ${dis} oninput="updatePass()">
       </div>
-      <div class="flex-fill text-center p-2 bg-success bg-opacity-10 border-end">
-        <div class="form-label fw-bold text-success small mb-1">PASS</div>
-        <div id="pass-display" class="fw-bold text-success" style="font-size:1.5rem">${passV}</div>
+      <div class="exec-count-cell" style="background:#f0fdf4">
+        <div class="exec-count-label text-success">PASS</div>
+        <div id="pass-display" class="exec-count-value text-success">${passV}</div>
       </div>
-      <div class="flex-fill text-center p-2 bg-light">
-        <div class="form-label fw-semibold text-muted small mb-1">총 건수</div>
-        <div class="fw-bold text-secondary" style="font-size:1.5rem">${total}</div>
+      <div class="exec-count-cell" style="background:#f8fafc">
+        <div class="exec-count-label text-muted">총 건수</div>
+        <div class="exec-count-value text-secondary">${total}</div>
       </div>
     </div>`;
   }
@@ -196,17 +194,21 @@ function renderPage() {
   // ── 수행자 ───────────────────────────────────────────────────────────
   const performerValue = ex ? escHtml(ex.performer || '') : escHtml(_pendingPerformer);
   const performerHtml = `
-  <div class="mb-2">
-    <label class="form-label small fw-semibold mb-1"><i class="bi bi-person-fill me-1"></i>수행자</label>
+  <div class="mb-3">
+    <label class="form-label small fw-semibold text-muted mb-1">
+      <i class="bi bi-person-fill me-1"></i>수행자
+    </label>
     <input type="text" id="performer-input" class="form-control"
       placeholder="시험 수행자 이름…" value="${performerValue}">
   </div>`;
 
-  // ── 코멘트 (남은 공간 채움) ──────────────────────────────────────────
+  // ── 코멘트 ───────────────────────────────────────────────────────────
   const commentValue = ex ? escHtml(ex.comment || '') : escHtml(_pendingComment);
   const commentHtml = `
-  <div class="d-flex flex-column flex-fill mb-2" style="min-height:0">
-    <label class="form-label small fw-semibold mb-1"><i class="bi bi-chat-left-text me-1"></i>코멘트</label>
+  <div class="d-flex flex-column flex-fill mb-3" style="min-height:0">
+    <label class="form-label small fw-semibold text-muted mb-1">
+      <i class="bi bi-chat-left-text me-1"></i>코멘트
+    </label>
     <textarea id="comment-input" class="form-control flex-fill" style="resize:none"
       placeholder="시험 관련 코멘트…">${commentValue}</textarea>
   </div>`;
@@ -219,7 +221,7 @@ function renderPage() {
       <button class="btn btn-outline-secondary" onclick="doReset()">
         <i class="bi bi-arrow-counterclockwise me-1"></i>재시험
       </button>
-      <a href="/execution/" class="btn btn-secondary">
+      <a href="/execution/" class="btn btn-secondary px-4">
         <i class="bi bi-list-ul me-1"></i>목록으로
       </a>
     </div>`;
@@ -230,25 +232,22 @@ function renderPage() {
       <button class="btn btn-outline-secondary" onclick="doReset()" ${dis}>
         <i class="bi bi-arrow-counterclockwise me-1"></i>재시험
       </button>
-      <button class="btn btn-primary px-4" onclick="doComplete()" ${dis}>
+      <button class="btn btn-primary px-5" onclick="doComplete()" ${dis}>
         <i class="bi bi-check-lg me-1"></i>시험완료
       </button>
     </div>`;
   }
 
-  const rightPanel = `
-  <div class="d-flex flex-column flex-fill h-100 overflow-hidden" style="padding:1.25rem 1.25rem 1rem">
-    ${timerSection}
-    ${failPassHtml}
-    ${performerHtml}
-    ${commentHtml}
-    ${footerHtml}
-  </div>`;
-
   document.getElementById('detail-content').innerHTML = `
-  <div class="d-flex h-100 overflow-hidden">
+  <div class="exec-detail-layout">
     ${leftPanel}
-    ${rightPanel}
+    <div class="exec-detail-main">
+      ${timerSection}
+      ${failPassHtml}
+      ${performerHtml}
+      ${commentHtml}
+      ${footerHtml}
+    </div>
   </div>`;
 
   _attachHandlers();
