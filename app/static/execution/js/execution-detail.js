@@ -103,15 +103,15 @@ function renderPage() {
   ].filter(Boolean);
 
   const leftPanel = `
-  <div class="d-flex flex-column h-100 border-end overflow-y-auto" style="width:260px;flex-shrink:0;padding:1.25rem 1rem">
+  <div class="d-flex flex-column h-100 border-end overflow-y-auto" style="width:320px;flex-shrink:0;padding:1.25rem 1.25rem">
     <div class="mb-3">
-      <span class="badge ${cfg.badge} px-3 py-2 w-100 text-center" style="font-size:.95rem">${cfg.label}</span>
+      <span class="badge ${cfg.badge} px-3 py-2 w-100 text-center" style="font-size:1rem">${cfg.label}</span>
     </div>
-    <table class="table table-sm table-borderless mb-0" style="font-size:.85rem">
+    <table class="table table-sm table-borderless mb-0" style="font-size:.95rem">
       <tbody>
         ${infoRows.map(([k, v]) => `
         <tr>
-          <td class="text-muted pe-2 text-nowrap" style="width:64px">${k}</td>
+          <td class="text-muted pe-2 text-nowrap" style="width:72px">${k}</td>
           <td>${v}</td>
         </tr>`).join('')}
       </tbody>
