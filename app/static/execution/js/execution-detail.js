@@ -407,4 +407,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     else if (s === 'in_progress') doPause();
     else if (s === 'paused') doResume();
   });
+
+  // 바코드 스캐너 입력 감지 (#76)
+  // 스캐너는 짧은 시간 안에 대문자 문자열을 입력하고 Enter를 전송한다.
+  let _barcodeBuffer = '';
+  let _barcodeTimer = null;
+  const BARCODE_TIMEOUT = 80; // ms — 스캐너 입력 간격 임계값
+
+  document.addEventListener('keydown', e => {
+    const tag = document.activeElement.tagName;
+    if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+
+    if (e.key === 'Enter') {
+      const code = _barcodeBuffer.trim();
+      _barcodeBuffer = '';
+      clearTimeout(_barcodeTimer);
+      if (code === 'TERMINATE') {
+        if (_item?.execution?.status === 'in_progress') doPause();
+      }
+      return;
+    }
+
+    // 대문자 A-Z 또는 숫자만 버퍼에 누적
+    if (/^[A-Z0-9]$/.test(e.key)) {
+      _barcodeBuffer += e.key;
+      clearTimeout(_barcodeTimer);
+      // 타임아웃 초과 시 버퍼 초기화 (스캐너가 아닌 일반 키보드 입력 방지)
+      _barcodeTimer = setTimeout(() => { _barcodeBuffer = ''; }, BARCODE_TIMEOUT);
+    }
+  });
 });
