@@ -406,7 +406,7 @@ function _initBarcodeListener(onScan) {
 
 function _barcodeToId(code) {
   const parts = code.split('|');
-  return parts.slice(1).join('-');
+  return (typeof BARCODE_PREFIX !== 'undefined' ? BARCODE_PREFIX : '') + parts.slice(1).join('-');
 }
 
 function _tryAutoStart() {
