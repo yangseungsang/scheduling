@@ -187,9 +187,9 @@
   color: #334155;
 }
 .exec-table .td-doc { color: #64748b; font-size: .8rem; }
-.exec-table .td-id  { font-family: monospace; color: var(--exec-accent); font-weight: 600; }
+.exec-table .td-id  { font-family: monospace; color: var(--exec-accent); font-weight: 600; white-space: nowrap; }
 .exec-table .td-name { font-weight: 500; color: #1e293b; }
-.exec-table .td-meta { color: #64748b; font-size: .8rem; }
+.exec-table .td-meta { color: #64748b; font-size: .8rem; white-space: nowrap; }
 
 /* 상태별 행 왼쪽 강조 */
 .exec-table tbody tr[data-status="in_progress"] { border-left: 3px solid #3b82f6; }
