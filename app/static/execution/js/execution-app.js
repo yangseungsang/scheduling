@@ -167,11 +167,15 @@ function _initBarcodeListener(onScan) {
   let buf = '', timer = null;
   document.addEventListener('keydown', e => {
     const tag = document.activeElement.tagName;
-    if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+    if (tag === 'TEXTAREA' || tag === 'INPUT') {
+      console.log('[barcode] skipped — active element:', tag, document.activeElement.id);
+      return;
+    }
     if (e.key === 'Enter') {
       const code = buf.trim();
       buf = '';
       clearTimeout(timer);
+      console.log('[barcode] Enter → code:', JSON.stringify(code));
       if (code) onScan(code);
       return;
     }
@@ -221,8 +225,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 바코드 OPEN 명령 감지 (#78)
   _initBarcodeListener(code => {
+    console.log('[barcode] onScan:', JSON.stringify(code), 'startsWith OPEN-:', code.startsWith('OPEN-'));
     if (code.startsWith('OPEN-')) {
       const identifierId = _barcodeToId(code);
+      console.log('[barcode] navigating to:', identifierId);
       window.location.href = `/execution/${encodeURIComponent(identifierId)}?autostart=1`;
     }
   });
