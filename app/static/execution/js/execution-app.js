@@ -175,7 +175,7 @@ function _initBarcodeListener(onScan) {
       if (code) onScan(code);
       return;
     }
-    if (/^[A-Z0-9|]$/.test(e.key)) {
+    if (/^[A-Z0-9-]$/.test(e.key)) {
       buf += e.key;
       clearTimeout(timer);
       timer = setTimeout(() => { buf = ''; }, 80);
