@@ -417,8 +417,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 전체화면 버튼
   document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
 
-  // 페이지 진입 시 자동 전체화면, 이탈 시 해제
-  document.documentElement.requestFullscreen().catch(() => {});
+  // 첫 상호작용(클릭·키입력)에서 자동 전체화면, 이탈 시 해제
+  const _enterFullscreen = () => {
+    if (!document.fullscreenElement)
+      document.documentElement.requestFullscreen().catch(() => {});
+  };
+  document.addEventListener('click',   _enterFullscreen, { once: true });
+  document.addEventListener('keydown', _enterFullscreen, { once: true });
   window.addEventListener('pagehide', () => {
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   });
