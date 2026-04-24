@@ -414,8 +414,14 @@ function _tryAutoStart() {
 // ── 초기화 ────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // 전체화면 버튼 (#63)
+  // 전체화면 버튼
   document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
+
+  // 페이지 진입 시 자동 전체화면, 이탈 시 해제
+  document.documentElement.requestFullscreen().catch(() => {});
+  window.addEventListener('pagehide', () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  });
 
   try {
     _item = await apiFetch(`/execution/api/item/${encodeURIComponent(IDENTIFIER_ID)}`);
