@@ -160,6 +160,29 @@ function renderTable(items) {
     }));
 }
 
+// ── 바코드 감지 공통 유틸 ─────────────────────────────────────────────────
+// 80ms 이내 연속 대문자·숫자·_ 입력 후 Enter → 바코드로 판단
+
+function _initBarcodeListener(onScan) {
+  let buf = '', timer = null;
+  document.addEventListener('keydown', e => {
+    const tag = document.activeElement.tagName;
+    if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+    if (e.key === 'Enter') {
+      const code = buf.trim();
+      buf = '';
+      clearTimeout(timer);
+      if (code) onScan(code);
+      return;
+    }
+    if (/^[A-Z0-9_]$/.test(e.key)) {
+      buf += e.key;
+      clearTimeout(timer);
+      timer = setTimeout(() => { buf = ''; }, 80);
+    }
+  });
+}
+
 // ── 초기화 ────────────────────────────────────────────────────────────────
 
 function toggleFullscreen() {
@@ -189,4 +212,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('th[data-sort]').forEach(th =>
     th.addEventListener('click', () => setSort(th.dataset.sort)));
   loadList();
+
+  // 바코드 OPEN 명령 감지 (#78)
+  _initBarcodeListener(code => {
+    if (code.startsWith('OPEN_')) {
+      const identifierId = code.slice(5).replace(/_/g, '-');
+      window.location.href = `/execution/${encodeURIComponent(identifierId)}?autostart=1`;
+    }
+  });
 });

@@ -382,6 +382,35 @@ function _computeElapsed(ex) {
   return Math.max(0, total);
 }
 
+// ── 바코드 감지 공통 유틸 ─────────────────────────────────────────────────
+
+function _initBarcodeListener(onScan) {
+  let buf = '', timer = null;
+  document.addEventListener('keydown', e => {
+    const tag = document.activeElement.tagName;
+    if (tag === 'TEXTAREA' || tag === 'INPUT') return;
+    if (e.key === 'Enter') {
+      const code = buf.trim();
+      buf = '';
+      clearTimeout(timer);
+      if (code) onScan(code);
+      return;
+    }
+    if (/^[A-Z0-9_]$/.test(e.key)) {
+      buf += e.key;
+      clearTimeout(timer);
+      timer = setTimeout(() => { buf = ''; }, 80);
+    }
+  });
+}
+
+function _tryAutoStart() {
+  if (!_item) return;
+  const status = _item.execution?.status ?? 'pending';
+  if (status === 'pending') doStart();
+  else if (status === 'paused') doResume();
+}
+
 // ── 초기화 ────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -391,6 +420,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     _item = await apiFetch(`/execution/api/item/${encodeURIComponent(IDENTIFIER_ID)}`);
     renderPage();
+    // ?autostart=1 파라미터로 진입 시 자동시작 (#78)
+    if (new URLSearchParams(window.location.search).get('autostart') === '1') {
+      _tryAutoStart();
+    }
   } catch {
     document.getElementById('detail-content').innerHTML =
       '<div class="alert alert-danger mt-3">항목을 찾을 수 없습니다.</div>';
@@ -408,32 +441,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     else if (s === 'paused') doResume();
   });
 
-  // 바코드 스캐너 입력 감지 (#76)
-  // 스캐너는 짧은 시간 안에 대문자 문자열을 입력하고 Enter를 전송한다.
-  let _barcodeBuffer = '';
-  let _barcodeTimer = null;
-  const BARCODE_TIMEOUT = 80; // ms — 스캐너 입력 간격 임계값
-
-  document.addEventListener('keydown', e => {
-    const tag = document.activeElement.tagName;
-    if (tag === 'TEXTAREA' || tag === 'INPUT') return;
-
-    if (e.key === 'Enter') {
-      const code = _barcodeBuffer.trim();
-      _barcodeBuffer = '';
-      clearTimeout(_barcodeTimer);
-      if (code === 'TERMINATE') {
-        if (_item?.execution?.status === 'in_progress') doPause();
+  // 바코드 감지 (#76 TERMINATE, #78 OPEN)
+  _initBarcodeListener(code => {
+    if (code === 'TERMINATE') {
+      if (_item?.execution?.status === 'in_progress') doPause();
+    } else if (code.startsWith('OPEN_')) {
+      const identifierId = code.slice(5).replace(/_/g, '-');
+      if (identifierId === IDENTIFIER_ID) {
+        _tryAutoStart();
+      } else {
+        window.location.href = `/execution/${encodeURIComponent(identifierId)}?autostart=1`;
       }
-      return;
-    }
-
-    // 대문자 A-Z 또는 숫자만 버퍼에 누적
-    if (/^[A-Z0-9]$/.test(e.key)) {
-      _barcodeBuffer += e.key;
-      clearTimeout(_barcodeTimer);
-      // 타임아웃 초과 시 버퍼 초기화 (스캐너가 아닌 일반 키보드 입력 방지)
-      _barcodeTimer = setTimeout(() => { _barcodeBuffer = ''; }, BARCODE_TIMEOUT);
     }
   });
 });
