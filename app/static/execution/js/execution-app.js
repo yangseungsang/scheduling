@@ -186,7 +186,7 @@ function _initBarcodeListener(onScan) {
 // 바코드 코드에서 식별자 추출: OPEN|TC|001 → TC-001
 function _barcodeToId(code) {
   const parts = code.split('|');
-  return parts.slice(1).join('-');
+  return (typeof BARCODE_PREFIX !== 'undefined' ? BARCODE_PREFIX : '') + parts.slice(1).join('-');
 }
 
 // ── 초기화 ────────────────────────────────────────────────────────────────

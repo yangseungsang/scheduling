@@ -77,5 +77,6 @@
 {% endblock %}
 
 {% block scripts %}
+<script>var BARCODE_PREFIX = {{ barcode_prefix | tojson }};</script>
 <script src="{{ url_for('static', filename='execution/js/execution-app.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
