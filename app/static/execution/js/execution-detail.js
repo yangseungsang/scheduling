@@ -396,7 +396,7 @@ function _initBarcodeListener(onScan) {
       if (code) onScan(code);
       return;
     }
-    if (/^[A-Z0-9|]$/.test(e.key)) {
+    if (/^[A-Z0-9-]$/.test(e.key)) {
       buf += e.key;
       clearTimeout(timer);
       timer = setTimeout(() => { buf = ''; }, 80);
@@ -405,7 +405,7 @@ function _initBarcodeListener(onScan) {
 }
 
 function _barcodeToId(code) {
-  const parts = code.split('|');
+  const parts = code.split('-');
   return (typeof BARCODE_PREFIX !== 'undefined' ? BARCODE_PREFIX : '') + parts.slice(1).join('-');
 }
 
@@ -451,7 +451,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   _initBarcodeListener(code => {
     if (code === 'TERMINATE') {
       if (_item?.execution?.status === 'in_progress') doPause();
-    } else if (code.startsWith('OPEN|')) {
+    } else if (code.startsWith('OPEN-')) {
       const identifierId = _barcodeToId(code);
       if (identifierId === IDENTIFIER_ID) {
         _tryAutoStart();
