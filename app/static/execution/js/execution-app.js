@@ -175,12 +175,18 @@ function _initBarcodeListener(onScan) {
       if (code) onScan(code);
       return;
     }
-    if (/^[A-Z0-9_]$/.test(e.key)) {
+    if (/^[A-Z0-9|]$/.test(e.key)) {
       buf += e.key;
       clearTimeout(timer);
       timer = setTimeout(() => { buf = ''; }, 80);
     }
   });
+}
+
+// 바코드 코드에서 식별자 추출: OPEN|TC|001 → TC-001
+function _barcodeToId(code) {
+  const parts = code.split('|');
+  return parts.slice(1).join('-');
 }
 
 // ── 초기화 ────────────────────────────────────────────────────────────────
@@ -215,8 +221,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 바코드 OPEN 명령 감지 (#78)
   _initBarcodeListener(code => {
-    if (code.startsWith('OPEN_')) {
-      const identifierId = code.slice(5).replace(/_/g, '-');
+    if (code.startsWith('OPEN|')) {
+      const identifierId = _barcodeToId(code);
       window.location.href = `/execution/${encodeURIComponent(identifierId)}?autostart=1`;
     }
   });
