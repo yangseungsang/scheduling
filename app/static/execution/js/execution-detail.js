@@ -86,38 +86,48 @@ function renderPage() {
   const status = ex?.status ?? 'pending';
   const cfg    = STATUS_CFG[status] || STATUS_CFG.pending;
 
-  document.getElementById('page-title').textContent =
-    `${item.identifier_id} — ${item.identifier_name}`;
-
-  // ── 왼쪽 패널: 정보 목록 (#71 순서: 문서 → 식별자 → ...) ───────────────
   const assignee = (item.assignee_names || []).join(', ') || '-';
-  const infoRows = [
-    ['문서',     escHtml(item.doc_name || '-')],
-    ['식별자',   `<code style="color:#6366f1;font-weight:600">${escHtml(item.identifier_id)}</code>`],
-    ['시험항목', escHtml(item.identifier_name)],
-    ['담당자',   escHtml(assignee)],
-    ['장소',     escHtml(item.location_name || '-')],
-    ['날짜',     escHtml(item.scheduled_date || '-')],
-    ['예상시간', formatMinutes(item.estimated_minutes)],
-    ex ? ['총 건수', `<strong>${ex.total_count}</strong>건`] : null,
-  ].filter(Boolean);
 
   const leftPanel = `
   <div class="exec-detail-sidebar">
-    <div class="exec-sidebar-header">
-      <div class="exec-sidebar-label">상태</div>
-      <span class="exec-status-chip exec-badge-${status}" style="background:${cfg.bg};color:${cfg.border};border:1.5px solid ${cfg.border}">
-        <span style="width:8px;height:8px;border-radius:50%;background:${cfg.border};display:inline-block"></span>
+    <div class="sidebar-top">
+      <div class="sidebar-id">${escHtml(item.identifier_id)}</div>
+      <div class="sidebar-name">${escHtml(item.identifier_name)}</div>
+      <span class="sidebar-status sidebar-status--${status}">
         ${cfg.label}
       </span>
     </div>
-    <div class="exec-info-table">
-      <div class="exec-sidebar-label mb-2">시험 정보</div>
-      ${infoRows.map(([k, v]) => `
-      <div class="exec-info-row">
-        <span class="exec-info-key">${k}</span>
-        <span class="exec-info-val">${v}</span>
-      </div>`).join('')}
+    <div class="sidebar-section">
+      <div class="sidebar-field">
+        <div class="sidebar-field-label">문서</div>
+        <div class="sidebar-field-value">${escHtml(item.doc_name || '-')}</div>
+      </div>
+      <div class="sidebar-field">
+        <div class="sidebar-field-label">담당자</div>
+        <div class="sidebar-field-value">${escHtml(assignee)}</div>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-row">
+        <div class="sidebar-field">
+          <div class="sidebar-field-label">장소</div>
+          <div class="sidebar-field-value">${escHtml(item.location_name || '-')}</div>
+        </div>
+        <div class="sidebar-field">
+          <div class="sidebar-field-label">날짜</div>
+          <div class="sidebar-field-value">${escHtml(item.scheduled_date || '-')}</div>
+        </div>
+      </div>
+      <div class="sidebar-row">
+        <div class="sidebar-field">
+          <div class="sidebar-field-label">예상시간</div>
+          <div class="sidebar-field-value">${formatMinutes(item.estimated_minutes)}</div>
+        </div>
+        ${ex ? `<div class="sidebar-field">
+          <div class="sidebar-field-label">총 건수</div>
+          <div class="sidebar-field-value">${ex.total_count}건</div>
+        </div>` : ''}
+      </div>
     </div>
   </div>`;
 
@@ -221,9 +231,14 @@ function renderPage() {
       <button class="btn btn-outline-secondary" onclick="doReset()">
         <i class="bi bi-arrow-counterclockwise me-1"></i>재시험
       </button>
-      <a href="/execution/" class="btn btn-secondary px-4">
-        <i class="bi bi-list-ul me-1"></i>목록으로
-      </a>
+      <div class="d-flex gap-2">
+        <button id="btn-save-comment" class="btn btn-outline-success" onclick="doSaveComment()" disabled>
+          <i class="bi bi-floppy me-1"></i>코멘트 저장
+        </button>
+        <a href="/execution/" class="btn btn-secondary px-4">
+          <i class="bi bi-list-ul me-1"></i>목록으로
+        </a>
+      </div>
     </div>`;
   } else {
     const dis = !ex ? 'disabled' : '';
@@ -232,9 +247,14 @@ function renderPage() {
       <button class="btn btn-outline-secondary" onclick="doReset()" ${dis}>
         <i class="bi bi-arrow-counterclockwise me-1"></i>재시험
       </button>
-      <button class="btn btn-primary px-5" onclick="doComplete()" ${dis}>
-        <i class="bi bi-check-lg me-1"></i>시험완료
-      </button>
+      <div class="d-flex gap-2">
+        <button id="btn-save-comment" class="btn btn-outline-success" onclick="doSaveComment()" disabled>
+          <i class="bi bi-floppy me-1"></i>코멘트 저장
+        </button>
+        <button class="btn btn-primary px-5" onclick="doComplete()" ${dis}>
+          <i class="bi bi-check-lg me-1"></i>시험완료
+        </button>
+      </div>
     </div>`;
   }
 
@@ -257,20 +277,16 @@ function renderPage() {
 // ── 핸들러 연결 ───────────────────────────────────────────────────────────
 
 function _attachHandlers() {
-  // 코멘트
+  // 코멘트 변경 감지
   const ta = document.getElementById('comment-input');
-  if (ta) {
-    const saveComment = async () => {
-      if (!_item?.execution?.id) { _pendingComment = ta.value; return; }
-      try {
-        await apiFetch('/execution/api/comment', 'PUT', {
-          execution_id: _item.execution.id, comment: ta.value,
-        });
-        _item.execution.comment = ta.value;
-      } catch { /* 무시 */ }
-    };
-    ta.addEventListener('blur', saveComment);
-    ta.addEventListener('change', saveComment);
+  const saveBtn = document.getElementById('btn-save-comment');
+  if (ta && saveBtn) {
+    const savedValue = ta.value;
+    ta.addEventListener('input', () => {
+      const changed = ta.value !== (_item?.execution?.comment || '');
+      saveBtn.classList.toggle('btn-save-changed', changed);
+      saveBtn.disabled = !changed;
+    });
   }
 
   // 수행자
@@ -288,6 +304,32 @@ function _attachHandlers() {
     pi.addEventListener('blur', savePerformer);
     pi.addEventListener('change', savePerformer);
   }
+}
+
+async function doSaveComment() {
+  const ta = document.getElementById('comment-input');
+  const saveBtn = document.getElementById('btn-save-comment');
+  if (!ta) return;
+
+  if (!_item?.execution?.id) { _pendingComment = ta.value; return; }
+  try {
+    await apiFetch('/execution/api/comment', 'PUT', {
+      execution_id: _item.execution.id, comment: ta.value,
+    });
+    _item.execution.comment = ta.value;
+    if (saveBtn) {
+      saveBtn.classList.remove('btn-save-changed');
+      saveBtn.disabled = true;
+      // 저장 완료 피드백
+      const origHtml = saveBtn.innerHTML;
+      saveBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>저장됨';
+      saveBtn.classList.add('btn-save-done');
+      setTimeout(() => {
+        saveBtn.innerHTML = origHtml;
+        saveBtn.classList.remove('btn-save-done');
+      }, 1500);
+    }
+  } catch { alert('코멘트 저장 실패'); }
 }
 
 function updatePass() {

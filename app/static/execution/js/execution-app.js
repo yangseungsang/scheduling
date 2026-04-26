@@ -57,7 +57,7 @@ async function loadList() {
 
   try {
     _allItems = await apiFetch('/execution/api/list?' + params.toString());
-    renderAssigneeDropdown();
+    renderStatusSummary();
     applyAndRender();
   } catch {
     document.getElementById('exec-tbody').innerHTML =
@@ -65,20 +65,6 @@ async function loadList() {
   }
 }
 
-// ── 담당자 드롭다운 필터 (#73) ────────────────────────────────────────────
-
-function renderAssigneeDropdown() {
-  const sel = document.getElementById('filter-assignee');
-  if (!sel) return;
-  const all = new Set();
-  _allItems.forEach(item => (item.assignee_names || []).forEach(a => all.add(a)));
-  const current = sel.value;
-  sel.innerHTML = '<option value="">전체 담당자</option>' +
-    [...all].sort().map(a => {
-      const esc = escHtml(a);
-      return `<option value="${esc}" ${current === esc ? 'selected' : ''}>${esc}</option>`;
-    }).join('');
-}
 
 // ── 정렬 ──────────────────────────────────────────────────────────────────
 
@@ -100,10 +86,9 @@ function applyAndRender() {
   let items = [..._allItems];
   const q = _searchText.toLowerCase();
   if (q) items = items.filter(i =>
-    i.identifier_id.toLowerCase().includes(q) || i.identifier_name.toLowerCase().includes(q));
-  const assigneeFilter = document.getElementById('filter-assignee')?.value || '';
-  if (assigneeFilter)
-    items = items.filter(i => (i.assignee_names || []).some(a => escHtml(a) === assigneeFilter));
+    i.identifier_id.toLowerCase().includes(q) ||
+    i.identifier_name.toLowerCase().includes(q) ||
+    (i.assignee_names || []).some(a => a.toLowerCase().includes(q)));
   if (_sortCol) {
     items.sort((a, b) => {
       let va, vb;
@@ -125,6 +110,23 @@ function statusBadge(item) {
   const s = item.execution?.status || 'pending';
   const labels = { pending: '대기', in_progress: '진행 중', paused: '일시정지', completed: '완료' };
   return `<span class="exec-badge exec-badge-${s}"><span class="exec-badge-dot"></span>${labels[s] || '-'}</span>`;
+}
+
+function renderStatusSummary() {
+  const el = document.getElementById('status-summary');
+  if (!el) return;
+  const counts = { pending: 0, in_progress: 0, paused: 0, completed: 0 };
+  _allItems.forEach(item => {
+    const s = item.execution?.status || 'pending';
+    if (counts.hasOwnProperty(s)) counts[s]++;
+  });
+  const total = _allItems.length;
+  el.innerHTML = `
+    <span class="exec-summary-item">전체 <strong>${total}</strong></span>
+    <span class="exec-summary-item summary-pending">대기 <strong>${counts.pending}</strong></span>
+    <span class="exec-summary-item summary-in_progress">진행 중 <strong>${counts.in_progress}</strong></span>
+    <span class="exec-summary-item summary-paused">일시정지 <strong>${counts.paused}</strong></span>
+    <span class="exec-summary-item summary-completed">완료 <strong>${counts.completed}</strong></span>`;
 }
 
 function renderTable(items) {
@@ -214,7 +216,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
   document.getElementById('filter-date').addEventListener('change', loadList);
   document.getElementById('filter-location').addEventListener('change', loadList);
-  document.getElementById('filter-assignee').addEventListener('change', applyAndRender);
   document.getElementById('search-input').addEventListener('input', e => {
     _searchText = e.target.value.trim();
     applyAndRender();

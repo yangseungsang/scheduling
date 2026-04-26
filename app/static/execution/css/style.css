@@ -114,6 +114,29 @@
   box-shadow: 0 0 0 3px rgba(99,102,241,.12);
 }
 
+/* ─── 상태별 카운트 요약 ───────────────────────────────────────────────── */
+.exec-status-summary {
+  display: inline-flex;
+  gap: 12px;
+  align-items: center;
+  margin-left: 16px;
+}
+.exec-summary-item {
+  font-size: .82rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.exec-summary-item strong {
+  font-size: .85rem;
+  color: #1e293b;
+}
+.exec-summary-item.summary-pending strong { color: #64748b; }
+.exec-summary-item.summary-in_progress strong { color: #3b82f6; }
+.exec-summary-item.summary-paused strong { color: #f59e0b; }
+.exec-summary-item.summary-completed strong { color: #22c55e; }
+
 /* ─── 담당자 뱃지 ──────────────────────────────────────────────────────── */
 .exec-assignee-bar {
   padding: 8px 24px;
@@ -226,59 +249,78 @@
 
 /* 사이드바 */
 .exec-detail-sidebar {
-  flex: 0 0 38%;
-  min-width: 300px;
+  flex: 0 0 380px;
+  min-width: 340px;
   border-right: 1px solid var(--exec-border);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  background: #fafafa;
+  background: #fff;
 }
-.exec-sidebar-header {
-  padding: 16px 20px 10px;
-  border-bottom: 1px solid var(--exec-border);
-}
-.exec-sidebar-label {
-  font-size: .68rem;
-  font-weight: 700;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: #94a3b8;
-  margin-bottom: 8px;
-}
-.exec-status-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 24px;
-  font-size: .9rem;
-  font-weight: 600;
-}
-.exec-info-table {
-  padding: 12px 20px;
-}
-.exec-info-row {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 7px 0;
+.sidebar-top {
+  padding: 24px 24px 20px;
   border-bottom: 1px solid #f1f5f9;
-  font-size: .875rem;
 }
-.exec-info-row:last-child { border-bottom: none; }
-.exec-info-key {
-  flex-shrink: 0;
-  width: 68px;
-  font-size: .75rem;
+.sidebar-id {
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--exec-accent);
+  margin-bottom: 4px;
+}
+.sidebar-name {
+  font-size: .9rem;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 14px;
+  line-height: 1.4;
+}
+.sidebar-status {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+}
+.sidebar-status--pending     { background: #f1f5f9; color: #64748b; }
+.sidebar-status--in_progress { background: #dbeafe; color: #1d4ed8; }
+.sidebar-status--paused      { background: #fef3c7; color: #b45309; }
+.sidebar-status--completed   { background: #dcfce7; color: #15803d; }
+.sidebar-section {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.sidebar-section:last-child {
+  border-bottom: none;
+}
+.sidebar-row {
+  display: flex;
+  gap: 16px;
+}
+.sidebar-row .sidebar-field {
+  flex: 1;
+}
+.sidebar-field {
+  margin-bottom: 14px;
+}
+.sidebar-field:last-child {
+  margin-bottom: 0;
+}
+.sidebar-field-label {
+  font-size: .72rem;
   font-weight: 600;
   color: #94a3b8;
+  margin-bottom: 3px;
   text-transform: uppercase;
   letter-spacing: .04em;
 }
-.exec-info-val {
+.sidebar-field-value {
+  font-size: .88rem;
+  font-weight: 600;
   color: #1e293b;
-  word-break: break-all;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 /* 메인 패널 */
@@ -346,4 +388,26 @@
   margin: 0 auto;
   border-radius: 8px !important;
   padding: 2px 6px !important;
+}
+
+/* 코멘트 저장 버튼 — 변경 감지 */
+.btn-save-changed {
+  background: #22c55e !important;
+  border-color: #22c55e !important;
+  color: #fff !important;
+  animation: pulse-save .8s ease-in-out infinite alternate;
+}
+@keyframes pulse-save {
+  from { box-shadow: 0 0 0 0 rgba(34,197,94,.4); }
+  to   { box-shadow: 0 0 0 6px rgba(34,197,94,0); }
+}
+
+/* 코멘트 저장 완료 피드백 */
+.btn-save-done {
+  background: #15803d !important;
+  border-color: #15803d !important;
+  color: #fff !important;
+  animation: none !important;
+  transform: scale(1.05);
+  transition: transform .15s ease;
 }
