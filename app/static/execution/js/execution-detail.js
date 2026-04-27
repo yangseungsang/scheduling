@@ -10,27 +10,9 @@ let _currentUser = '';
 function openUserModal() {
   const modal = new bootstrap.Modal(document.getElementById('userModal'));
   const input = document.getElementById('user-modal-input');
-  const list  = document.getElementById('user-modal-list');
   if (input) input.value = _currentUser;
-  if (list)  list.innerHTML = '<div class="text-muted small p-2">로딩 중…</div>';
   modal.show();
-
-  fetch('/admin/api/users')
-    .then(r => r.json())
-    .then(users => {
-      if (!list) return;
-      if (!users.length) { list.innerHTML = '<div class="text-muted small p-2">등록된 사용자 없음</div>'; return; }
-      list.innerHTML = users.map(u =>
-        `<button type="button" class="list-group-item list-group-item-action py-1 px-2 small"
-           onclick="selectUserFromList(${JSON.stringify(u.name)})">${escHtml(u.name)}</button>`
-      ).join('');
-    })
-    .catch(() => { if (list) list.innerHTML = '<div class="text-muted small p-2">불러오기 실패</div>'; });
-}
-
-function selectUserFromList(name) {
-  const input = document.getElementById('user-modal-input');
-  if (input) input.value = name;
+  setTimeout(() => input?.focus(), 300);
 }
 
 async function applyUserFromModal() {

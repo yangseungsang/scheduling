@@ -40,10 +40,7 @@
           <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body p-2">
-          <div class="mb-2">
-            <input type="text" id="user-modal-input" class="form-control form-control-sm" placeholder="이름 직접 입력…">
-          </div>
-          <div id="user-modal-list" class="list-group list-group-flush"></div>
+          <input type="text" id="user-modal-input" class="form-control form-control-sm" placeholder="이름 입력…" onkeydown="if(event.key==='Enter')applyUserFromModal()">
         </div>
         <div class="modal-footer py-2">
           <button type="button" class="btn btn-primary btn-sm w-100" onclick="applyUserFromModal()">
