@@ -3,6 +3,69 @@
 let _item = null;
 let _pendingComment = '';
 let _pendingPerformer = '';
+let _currentUser = '';
+
+// ── 사용자 모달 ───────────────────────────────────────────────────────────
+
+function openUserModal() {
+  const modal = new bootstrap.Modal(document.getElementById('userModal'));
+  const input = document.getElementById('user-modal-input');
+  const list  = document.getElementById('user-modal-list');
+  if (input) input.value = _currentUser;
+  if (list)  list.innerHTML = '<div class="text-muted small p-2">로딩 중…</div>';
+  modal.show();
+
+  fetch('/admin/api/users')
+    .then(r => r.json())
+    .then(users => {
+      if (!list) return;
+      if (!users.length) { list.innerHTML = '<div class="text-muted small p-2">등록된 사용자 없음</div>'; return; }
+      list.innerHTML = users.map(u =>
+        `<button type="button" class="list-group-item list-group-item-action py-1 px-2 small"
+           onclick="selectUserFromList(${JSON.stringify(u.name)})">${escHtml(u.name)}</button>`
+      ).join('');
+    })
+    .catch(() => { if (list) list.innerHTML = '<div class="text-muted small p-2">불러오기 실패</div>'; });
+}
+
+function selectUserFromList(name) {
+  const input = document.getElementById('user-modal-input');
+  if (input) input.value = name;
+}
+
+async function applyUserFromModal() {
+  const input = document.getElementById('user-modal-input');
+  const name = input ? input.value.trim() : '';
+  if (!name) return;
+
+  await apiFetch('/execution/api/login', 'POST', { username: name });
+  _currentUser = name;
+  localStorage.setItem('execution_quick_user', name);
+  _updateToolbarUser();
+
+  const performer = document.getElementById('performer-input');
+  if (performer) {
+    performer.value = name;
+    performer.dispatchEvent(new Event('change'));
+  }
+
+  bootstrap.Modal.getInstance(document.getElementById('userModal'))?.hide();
+}
+
+function _updateToolbarUser() {
+  const el = document.getElementById('toolbar-username');
+  if (el) el.textContent = _currentUser || '(미설정)';
+}
+
+function doQuickAssign() {
+  const cached = localStorage.getItem('execution_quick_user') || '';
+  if (!cached) { openUserModal(); return; }
+  const performer = document.getElementById('performer-input');
+  if (performer) {
+    performer.value = cached;
+    performer.dispatchEvent(new Event('change'));
+  }
+}
 
 // 타이머
 let _timerInterval = null;
@@ -202,14 +265,23 @@ function renderPage() {
   }
 
   // ── 수행자 ───────────────────────────────────────────────────────────
-  const performerValue = ex ? escHtml(ex.performer || '') : escHtml(_pendingPerformer);
+  const rawPerformer = ex ? (ex.performer || '') : _pendingPerformer;
+  const performerValue = escHtml(rawPerformer || _currentUser);
   const performerHtml = `
   <div class="mb-3">
     <label class="form-label small fw-semibold text-muted mb-1">
       <i class="bi bi-person-fill me-1"></i>수행자
     </label>
-    <input type="text" id="performer-input" class="form-control"
-      placeholder="시험 수행자 이름…" value="${performerValue}">
+    <div class="input-group">
+      <input type="text" id="performer-input" class="form-control"
+        placeholder="시험 수행자 이름…" value="${performerValue}">
+      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="doQuickAssign()" title="저장된 이름 빠른 할당">
+        <i class="bi bi-lightning-fill"></i>
+      </button>
+      <button type="button" class="btn btn-outline-secondary btn-sm" onclick="openUserModal()" title="사용자 선택">
+        <i class="bi bi-person-lines-fill"></i>
+      </button>
+    </div>
   </div>`;
 
   // ── 코멘트 ───────────────────────────────────────────────────────────
@@ -229,7 +301,7 @@ function renderPage() {
     footerHtml = `
     <div class="d-flex justify-content-between gap-2">
       <button class="btn btn-outline-secondary" onclick="doReset()">
-        <i class="bi bi-arrow-counterclockwise me-1"></i>재시험
+        <i class="bi bi-arrow-counterclockwise me-1"></i>초기화
       </button>
       <div class="d-flex gap-2">
         <button id="btn-save-comment" class="btn btn-outline-success" onclick="doSaveComment()" disabled>
@@ -245,7 +317,7 @@ function renderPage() {
     footerHtml = `
     <div class="d-flex justify-content-between gap-2">
       <button class="btn btn-outline-secondary" onclick="doReset()" ${dis}>
-        <i class="bi bi-arrow-counterclockwise me-1"></i>재시험
+        <i class="bi bi-arrow-counterclockwise me-1"></i>초기화
       </button>
       <div class="d-flex gap-2">
         <button id="btn-save-comment" class="btn btn-outline-success" onclick="doSaveComment()" disabled>
@@ -349,17 +421,26 @@ async function doStart() {
   if (pi) _pendingPerformer = pi.value;
 
   try {
-    const ex = await apiFetch('/execution/api/start', 'POST', {
-      identifier_id: _item.identifier_id, task_id: _item.task_id,
+    const resp = await fetch('/execution/api/start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier_id: _item.identifier_id, task_id: _item.task_id }),
     });
+    if (resp.status === 409) {
+      const err = await resp.json();
+      alert(err.error || '시험을 시작할 수 없습니다.');
+      return;
+    }
+    if (!resp.ok) throw new Error(`API error ${resp.status}`);
+    const ex = await resp.json();
     _item.execution = {
       id: ex.id, status: ex.status, elapsed_seconds: 0,
       total_count: ex.total_count, fail_count: 0, block_count: 0, pass_count: 0,
-      comment: _pendingComment, performer: _pendingPerformer,
+      comment: _pendingComment, performer: ex.performer || _pendingPerformer,
     };
     const saves = [];
     if (_pendingComment)   saves.push(apiFetch('/execution/api/comment', 'PUT', { execution_id: ex.id, comment: _pendingComment }));
-    if (_pendingPerformer) saves.push(apiFetch('/execution/api/performer', 'PUT', { execution_id: ex.id, performer: _pendingPerformer }));
+    if (_pendingPerformer && !ex.performer) saves.push(apiFetch('/execution/api/performer', 'PUT', { execution_id: ex.id, performer: _pendingPerformer }));
     await Promise.all(saves);
     _pendingComment = ''; _pendingPerformer = '';
     renderPage();
@@ -403,7 +484,7 @@ async function doComplete() {
 
 async function doReset() {
   if (!_item?.execution?.id) return;
-  if (!confirm('재시험하면 현재 기록이 초기화됩니다. 계속할까요?')) return;
+  if (!confirm('초기화하면 현재 기록이 삭제됩니다. 계속할까요?')) return;
   try {
     await apiFetch('/execution/api/reset', 'POST', { execution_id: _item.execution.id });
     stopLocalTimer();
@@ -464,6 +545,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 전체화면 버튼
   document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
 
+  // 현재 사용자 로드
+  try {
+    const who = await apiFetch('/execution/api/whoami');
+    _currentUser = who.username || localStorage.getItem('execution_quick_user') || '';
+    _updateToolbarUser();
+  } catch { /* 무시 */ }
 
   try {
     _item = await apiFetch(`/execution/api/item/${encodeURIComponent(IDENTIFIER_ID)}`);
