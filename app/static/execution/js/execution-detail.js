@@ -450,15 +450,23 @@ async function doResume() {
 async function doComplete() {
   const failCount  = parseInt(document.getElementById('fail-input')?.value  || 0) || 0;
   const blockCount = parseInt(document.getElementById('block-input')?.value || 0) || 0;
+  const comment    = document.getElementById('comment-input')?.value ?? '';
   try {
-    const ex = await apiFetch('/execution/api/complete', 'POST', {
-      execution_id: _item.execution.id, fail_count: failCount, block_count: blockCount,
-    });
+    const saves = [
+      apiFetch('/execution/api/complete', 'POST', {
+        execution_id: _item.execution.id, fail_count: failCount, block_count: blockCount,
+      }),
+      apiFetch('/execution/api/comment', 'PUT', {
+        execution_id: _item.execution.id, comment,
+      }),
+    ];
+    const [ex] = await Promise.all(saves);
     stopLocalTimer();
     _item.execution = {
       ..._item.execution, status: 'completed',
       fail_count: ex.fail_count, block_count: ex.block_count ?? blockCount,
       pass_count: ex.pass_count, elapsed_seconds: _computeElapsed(ex),
+      comment,
     };
     renderPage();
   } catch { alert('완료 처리 실패'); }
