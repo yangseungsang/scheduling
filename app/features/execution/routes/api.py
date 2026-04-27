@@ -223,6 +223,42 @@ def update_performer():
     return jsonify({'ok': True})
 
 
+@api_bp.route('/timing/<identifier_id>', methods=['PATCH'])
+def update_timing(identifier_id):
+    """외부 API로부터 시험 소요시간(초)을 수신해 estimated_minutes를 갱신한다."""
+    body = request.get_json(silent=True) or {}
+    elapsed_seconds = body.get('elapsed_seconds')
+    if elapsed_seconds is None:
+        return jsonify({'error': 'elapsed_seconds required'}), 400
+
+    from app.features.schedule.models import task as task_repo
+    from math import ceil
+
+    for t in task_repo.get_all():
+        for item in t.get('identifiers', []):
+            if not isinstance(item, dict) or item.get('id') != identifier_id:
+                continue
+
+            # 선택적 검증
+            if body.get('doc_name') and t.get('doc_name') != body['doc_name']:
+                return jsonify({'error': 'doc_name mismatch'}), 400
+            if body.get('identifier_name') and item.get('name') != body['identifier_name']:
+                return jsonify({'error': 'identifier_name mismatch'}), 400
+
+            new_minutes = ceil(int(elapsed_seconds) / 60)
+            identifiers = list(t['identifiers'])
+            idx = identifiers.index(item)
+            identifiers[idx] = {**item, 'estimated_minutes': new_minutes}
+
+            total_minutes = sum(
+                i.get('estimated_minutes', 0) for i in identifiers if isinstance(i, dict)
+            )
+            task_repo.patch(t['id'], identifiers=identifiers, estimated_minutes=total_minutes)
+            return jsonify({'ok': True, 'identifier_id': identifier_id, 'estimated_minutes': new_minutes})
+
+    return jsonify({'error': 'identifier not found'}), 404
+
+
 @api_bp.route('/reset', methods=['POST'])
 def reset():
     body = request.get_json(silent=True) or {}
