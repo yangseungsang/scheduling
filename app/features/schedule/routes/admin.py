@@ -504,6 +504,9 @@ def api_project_reset():
     write_json('schedule_blocks.json', [])
     write_json('versions.json', [])
 
+    from app.features.execution.store import write_json as exec_write
+    exec_write('executions.json', [])
+
     data = request.get_json(silent=True) or {}
     new_version = None
     # 버전명이 제공되면 새 버전 생성
