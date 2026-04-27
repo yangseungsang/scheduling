@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session
 
 from app.features.execution.models.execution import ExecutionRepository
 
@@ -113,6 +113,21 @@ def total_count(identifier_id):
     return jsonify({'total_count': _get_total_count(identifier_id)})
 
 
+@api_bp.route('/whoami')
+def whoami():
+    return jsonify({'username': session.get('username', '')})
+
+
+@api_bp.route('/login', methods=['POST'])
+def login():
+    body = request.get_json(silent=True) or {}
+    username = body.get('username', '').strip()
+    if not username:
+        return jsonify({'error': 'username required'}), 400
+    session['username'] = username
+    return jsonify({'username': username})
+
+
 @api_bp.route('/start', methods=['POST'])
 def start():
     body = request.get_json(silent=True) or {}
@@ -120,8 +135,27 @@ def start():
     task_id = body.get('task_id', '').strip()
     if not identifier_id or not task_id:
         return jsonify({'error': 'identifier_id and task_id required'}), 400
+
+    current_user = session.get('username', '')
+    if current_user:
+        for ex in ExecutionRepository.get_all():
+            if ex.get('status') != 'in_progress':
+                continue
+            if ex.get('identifier_id') == identifier_id:
+                continue
+            performer = ex.get('performer', '')
+            if performer == current_user:
+                return jsonify({'error': '이미 진행 중인 시험이 있습니다.', 'code': 'user_busy'}), 409
+            if performer:
+                return jsonify({'error': f'"{performer}"님이 시험을 진행 중입니다.', 'code': 'another_user_busy'}), 409
+
     total = _get_total_count(identifier_id)
     ex = ExecutionRepository.start(identifier_id, task_id, total_count=total)
+
+    if ex and current_user and not ex.get('performer'):
+        ExecutionRepository.update_performer(ex['id'], current_user)
+        ex['performer'] = current_user
+
     return jsonify(ex), 201
 
 
