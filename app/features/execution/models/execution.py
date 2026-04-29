@@ -89,7 +89,8 @@ class ExecutionRepository:
         segments = list(ex['segments'])
         if segments:
             segments[-1] = {**segments[-1], 'end': now}
-        return cls._patch(execution_id, status='paused', segments=segments)
+        elapsed_seconds = cls.compute_elapsed_seconds(segments)
+        return cls._patch(execution_id, status='paused', segments=segments, elapsed_seconds=elapsed_seconds)
 
     @classmethod
     def resume(cls, execution_id):
@@ -115,6 +116,7 @@ class ExecutionRepository:
         fail_count = int(fail_count)
         block_count = int(block_count)
         pass_count = max(0, total_count - fail_count - block_count)
+        elapsed_seconds = cls.compute_elapsed_seconds(segments)
         return cls._patch(
             execution_id,
             status='completed',
@@ -123,6 +125,7 @@ class ExecutionRepository:
             block_count=block_count,
             pass_count=pass_count,
             completed_at=now,
+            elapsed_seconds=elapsed_seconds,
         )
 
     @classmethod
@@ -145,4 +148,5 @@ class ExecutionRepository:
             comment='',
             performer='',
             completed_at=None,
+            elapsed_seconds=0,
         )
