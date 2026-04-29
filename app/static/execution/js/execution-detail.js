@@ -360,29 +360,52 @@ function _attachHandlers() {
   }
 }
 
+function _pendingCommentKey() {
+  return `pending_comment_${typeof IDENTIFIER_ID !== 'undefined' ? IDENTIFIER_ID : ''}`;
+}
+
+function _savePendingComment(value) {
+  _pendingComment = value;
+  try { localStorage.setItem(_pendingCommentKey(), value); } catch { /* 무시 */ }
+}
+
+function _loadPendingComment() {
+  try { return localStorage.getItem(_pendingCommentKey()) || ''; } catch { return ''; }
+}
+
+function _clearPendingComment() {
+  _pendingComment = '';
+  try { localStorage.removeItem(_pendingCommentKey()); } catch { /* 무시 */ }
+}
+
+function _showSaveFeedback(saveBtn) {
+  saveBtn.classList.remove('btn-save-changed');
+  saveBtn.disabled = true;
+  const origHtml = saveBtn.innerHTML;
+  saveBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>저장됨';
+  saveBtn.classList.add('btn-save-done');
+  setTimeout(() => {
+    saveBtn.innerHTML = origHtml;
+    saveBtn.classList.remove('btn-save-done');
+  }, 1500);
+}
+
 async function doSaveComment() {
   const ta = document.getElementById('comment-input');
   const saveBtn = document.getElementById('btn-save-comment');
   if (!ta) return;
 
-  if (!_item?.execution?.id) { _pendingComment = ta.value; return; }
+  if (!_item?.execution?.id) {
+    _savePendingComment(ta.value);
+    if (saveBtn) _showSaveFeedback(saveBtn);
+    return;
+  }
   try {
     await apiFetch('/execution/api/comment', 'PUT', {
       execution_id: _item.execution.id, comment: ta.value,
     });
     _item.execution.comment = ta.value;
-    if (saveBtn) {
-      saveBtn.classList.remove('btn-save-changed');
-      saveBtn.disabled = true;
-      // 저장 완료 피드백
-      const origHtml = saveBtn.innerHTML;
-      saveBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>저장됨';
-      saveBtn.classList.add('btn-save-done');
-      setTimeout(() => {
-        saveBtn.innerHTML = origHtml;
-        saveBtn.classList.remove('btn-save-done');
-      }, 1500);
-    }
+    if (saveBtn) _showSaveFeedback(saveBtn);
   } catch { alert('코멘트 저장 실패'); }
 }
 
@@ -399,7 +422,7 @@ function updatePass() {
 async function doStart() {
   const ta = document.getElementById('comment-input');
   const pi = document.getElementById('performer-input');
-  if (ta) _pendingComment   = ta.value;
+  if (ta) _savePendingComment(ta.value);
   if (pi) _pendingPerformer = pi.value;
 
   try {
@@ -420,11 +443,10 @@ async function doStart() {
       total_count: ex.total_count, fail_count: 0, block_count: 0, pass_count: 0,
       comment: _pendingComment, performer: ex.performer || _pendingPerformer,
     };
-    const saves = [];
-    if (_pendingComment)   saves.push(apiFetch('/execution/api/comment', 'PUT', { execution_id: ex.id, comment: _pendingComment }));
-    if (_pendingPerformer && !ex.performer) saves.push(apiFetch('/execution/api/performer', 'PUT', { execution_id: ex.id, performer: _pendingPerformer }));
-    await Promise.all(saves);
-    _pendingComment = ''; _pendingPerformer = '';
+    if (_pendingComment)   await apiFetch('/execution/api/comment', 'PUT', { execution_id: ex.id, comment: _pendingComment });
+    if (_pendingPerformer && !ex.performer) await apiFetch('/execution/api/performer', 'PUT', { execution_id: ex.id, performer: _pendingPerformer });
+    _clearPendingComment();
+    _pendingPerformer = '';
     renderPage();
   } catch { alert('시험시작 실패'); }
 }
@@ -452,15 +474,12 @@ async function doComplete() {
   const blockCount = parseInt(document.getElementById('block-input')?.value || 0) || 0;
   const comment    = document.getElementById('comment-input')?.value ?? '';
   try {
-    const saves = [
-      apiFetch('/execution/api/complete', 'POST', {
-        execution_id: _item.execution.id, fail_count: failCount, block_count: blockCount,
-      }),
-      apiFetch('/execution/api/comment', 'PUT', {
-        execution_id: _item.execution.id, comment,
-      }),
-    ];
-    const [ex] = await Promise.all(saves);
+    const ex = await apiFetch('/execution/api/complete', 'POST', {
+      execution_id: _item.execution.id, fail_count: failCount, block_count: blockCount,
+    });
+    await apiFetch('/execution/api/comment', 'PUT', {
+      execution_id: _item.execution.id, comment,
+    });
     stopLocalTimer();
     _item.execution = {
       ..._item.execution, status: 'completed',
@@ -479,7 +498,7 @@ async function doReset() {
     await apiFetch('/execution/api/reset', 'POST', { execution_id: _item.execution.id });
     stopLocalTimer();
     _item.execution = null;
-    _pendingComment = ''; _pendingPerformer = '';
+    _clearPendingComment(); _pendingPerformer = '';
     renderPage();
   } catch { alert('재시험 처리 실패'); }
 }
@@ -544,6 +563,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     _item = await apiFetch(`/execution/api/item/${encodeURIComponent(IDENTIFIER_ID)}`);
+    if (!_item.execution) _pendingComment = _loadPendingComment();
     renderPage();
     // ?autostart=1 파라미터로 진입 시 자동시작 (#78)
     if (new URLSearchParams(window.location.search).get('autostart') === '1') {
