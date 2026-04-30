@@ -1,8 +1,43 @@
+import logging
+import os
+import threading
+
+import requests
 from flask import Blueprint, jsonify, request, session
 
 from app.features.execution.models.execution import ExecutionRepository
 
 api_bp = Blueprint('execution_api', __name__, url_prefix='/execution/api')
+
+logger = logging.getLogger(__name__)
+
+
+def _notify_timing(identifier_id: str, task_id: str, elapsed_seconds: int):
+    """시험완료 후 외부 서버에 소요시간을 비동기로 전송한다."""
+    base_url = os.environ.get('API_BASE_URL', '').rstrip('/')
+    if not base_url:
+        return
+
+    def _send():
+        try:
+            from app.features.schedule.models import task as task_repo
+            task = task_repo.get_by_id(task_id)
+            ofp_id = task.get('version_id', '') if task else ''
+
+            api_key = os.environ.get('API_KEY', '')
+            headers = {'Authorization': f'Bearer {api_key}'} if api_key else {}
+            resp = requests.post(
+                f'{base_url}/update_test_time',
+                json={'test_id': identifier_id, 'ofp_id': ofp_id, 'time_taking': int(elapsed_seconds)},
+                headers=headers,
+                timeout=10,
+            )
+            if not resp.ok:
+                logger.warning('update_test_time 실패: %s %s', resp.status_code, resp.text)
+        except Exception as e:
+            logger.warning('update_test_time 전송 오류: %s', e)
+
+    threading.Thread(target=_send, daemon=True).start()
 
 
 def _get_total_count(identifier_id: str) -> int:
@@ -194,6 +229,10 @@ def complete():
     ex = ExecutionRepository.complete(execution_id, fail_count, block_count)
     if ex is None:
         return jsonify({'error': 'not found or invalid state'}), 404
+
+    elapsed = ExecutionRepository.compute_elapsed_seconds(ex.get('segments', []))
+    _notify_timing(ex.get('identifier_id', ''), ex.get('task_id', ''), elapsed)
+
     return jsonify(ex)
 
 
