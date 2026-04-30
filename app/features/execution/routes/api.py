@@ -236,6 +236,18 @@ def complete():
     return jsonify(ex)
 
 
+@api_bp.route('/pending-comment', methods=['PUT'])
+def pending_comment():
+    body = request.get_json(silent=True) or {}
+    identifier_id = body.get('identifier_id', '').strip()
+    task_id = body.get('task_id', '').strip()
+    comment = body.get('comment', '')
+    if not identifier_id or not task_id:
+        return jsonify({'error': 'identifier_id and task_id required'}), 400
+    ExecutionRepository.save_pre_comment(identifier_id, task_id, comment)
+    return jsonify({'ok': True})
+
+
 @api_bp.route('/comment', methods=['PUT'])
 def update_comment():
     body = request.get_json(silent=True) or {}

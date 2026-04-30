@@ -137,6 +137,36 @@ class ExecutionRepository:
         return cls._patch(execution_id, performer=performer)
 
     @classmethod
+    def save_pre_comment(cls, identifier_id, task_id, comment):
+        """시험 시작 전 코멘트를 pending 상태 실행 레코드로 저장한다."""
+        existing = cls.get_by_identifier(identifier_id)
+        if existing:
+            if existing['status'] == 'pending':
+                return cls._patch(existing['id'], comment=comment)
+            return existing  # 이미 진행 중 — 덮어쓰지 않음
+        now = datetime.now().isoformat(timespec='seconds')
+        data = {
+            'id': generate_id(ID_PREFIX),
+            'identifier_id': identifier_id,
+            'task_id': task_id,
+            'status': 'pending',
+            'segments': [],
+            'total_count': 0,
+            'fail_count': 0,
+            'block_count': 0,
+            'pass_count': 0,
+            'comment': comment,
+            'performer': '',
+            'created_at': now,
+            'completed_at': None,
+            'elapsed_seconds': 0,
+        }
+        items = read_json(FILENAME)
+        items.append(data)
+        write_json(FILENAME, items)
+        return data
+
+    @classmethod
     def reset(cls, execution_id):
         return cls._patch(
             execution_id,
