@@ -125,6 +125,10 @@ function stopLocalTimer() {
 
 // ── 렌더링 (#62 리디자인) ─────────────────────────────────────────────────
 
+function _isStarted(ex) {
+  return ex && ex.status !== 'pending';
+}
+
 function renderPage() {
   const item   = _item;
   const ex     = item.execution;
@@ -217,12 +221,13 @@ function renderPage() {
       </div>
     </div>`;
   } else {
-    const dis    = !ex ? 'disabled' : '';
-    const failV  = ex ? ex.fail_count      : 0;
-    const blockV = ex ? (ex.block_count ?? 0) : 0;
-    const passV  = ex ? ex.pass_count      : 0;
-    const total  = ex ? ex.total_count     : 0;
-    const maxA   = ex ? `max="${total}"`   : '';
+    const started = _isStarted(ex);
+    const dis    = !started ? 'disabled' : '';
+    const failV  = started ? ex.fail_count      : 0;
+    const blockV = started ? (ex.block_count ?? 0) : 0;
+    const passV  = started ? ex.pass_count      : 0;
+    const total  = started ? ex.total_count     : 0;
+    const maxA   = started ? `max="${total}"`   : '';
     failPassHtml = `
     <div class="exec-counts-bar mb-3">
       <div class="exec-count-cell" style="background:#fef2f2">
@@ -247,7 +252,7 @@ function renderPage() {
   }
 
   // ── 수행자 ───────────────────────────────────────────────────────────
-  const rawPerformer = ex ? (ex.performer || '') : _pendingPerformer;
+  const rawPerformer = _isStarted(ex) ? (ex.performer || '') : _pendingPerformer;
   const performerValue = escHtml(rawPerformer || _currentUser);
   const performerHtml = `
   <div class="mb-3">
@@ -267,7 +272,7 @@ function renderPage() {
   </div>`;
 
   // ── 코멘트 ───────────────────────────────────────────────────────────
-  const commentValue = ex ? escHtml(ex.comment || '') : escHtml(_pendingComment);
+  const commentValue = escHtml(ex?.comment || _pendingComment);
   const commentHtml = `
   <div class="d-flex flex-column flex-fill mb-3" style="min-height:0">
     <label class="form-label small fw-semibold text-muted mb-1">
@@ -295,7 +300,8 @@ function renderPage() {
       </div>
     </div>`;
   } else {
-    const dis = !ex ? 'disabled' : '';
+    const started = _isStarted(ex);
+    const dis = !started ? 'disabled' : '';
     footerHtml = `
     <div class="d-flex justify-content-between gap-2">
       <button class="btn btn-outline-secondary" onclick="doReset()" ${dis}>
@@ -335,9 +341,9 @@ function _attachHandlers() {
   const ta = document.getElementById('comment-input');
   const saveBtn = document.getElementById('btn-save-comment');
   if (ta && saveBtn) {
-    const savedValue = ta.value;
     ta.addEventListener('input', () => {
-      const changed = ta.value !== (_item?.execution?.comment || '');
+      const saved = _item?.execution?.comment || _pendingComment;
+      const changed = ta.value !== saved;
       saveBtn.classList.toggle('btn-save-changed', changed);
       saveBtn.disabled = !changed;
     });
@@ -347,7 +353,7 @@ function _attachHandlers() {
   const pi = document.getElementById('performer-input');
   if (pi) {
     const savePerformer = async () => {
-      if (!_item?.execution?.id) { _pendingPerformer = pi.value; return; }
+      if (!_isStarted(_item?.execution)) { _pendingPerformer = pi.value; return; }
       try {
         await apiFetch('/execution/api/performer', 'PUT', {
           execution_id: _item.execution.id, performer: pi.value,
@@ -395,8 +401,14 @@ async function doSaveComment() {
   const saveBtn = document.getElementById('btn-save-comment');
   if (!ta) return;
 
-  if (!_item?.execution?.id) {
+  if (!_isStarted(_item?.execution)) {
     _savePendingComment(ta.value);
+    try {
+      await apiFetch('/execution/api/pending-comment', 'PUT', {
+        identifier_id: _item.identifier_id, task_id: _item.task_id, comment: ta.value,
+      });
+      if (_item.execution) _item.execution.comment = ta.value;
+    } catch { /* localStorage에는 이미 저장됨 */ }
     if (saveBtn) _showSaveFeedback(saveBtn);
     return;
   }
@@ -563,7 +575,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   try {
     _item = await apiFetch(`/execution/api/item/${encodeURIComponent(IDENTIFIER_ID)}`);
-    if (!_item.execution) _pendingComment = _loadPendingComment();
+    if (!_isStarted(_item.execution)) {
+      _pendingComment = _item.execution?.comment || _loadPendingComment();
+    }
     renderPage();
     // ?autostart=1 파라미터로 진입 시 자동시작 (#78)
     if (new URLSearchParams(window.location.search).get('autostart') === '1') {
