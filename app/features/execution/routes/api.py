@@ -86,8 +86,8 @@ def _load_schedule_data():
             if block_iids is None or iid in block_iids:
                 if iid not in date_map or block_date < date_map[iid]:
                     date_map[iid] = block_date
-                if block_loc and iid not in block_loc_map:
-                    block_loc_map[iid] = block_loc
+                    if block_loc:
+                        block_loc_map[iid] = block_loc
 
     return tasks, locations, date_map, block_loc_map
 

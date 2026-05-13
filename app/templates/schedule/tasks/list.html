@@ -216,7 +216,8 @@ async function doSync(endpoint) {
     const data = await res.json();
     const msgs = [];
     if (data.versions) msgs.push(`버전: +${data.versions.added} ~${data.versions.updated}`);
-    if (data.tasks) msgs.push(`시험항목: +${data.tasks.added} ~${data.tasks.updated} ✗${data.tasks.cancelled}`);
+    const taskData = data.tasks || (data.added !== undefined ? data : null);
+    if (taskData) msgs.push(`시험항목: +${taskData.added} ~${taskData.updated} ✗${taskData.cancelled}`);
     if (msgs.length === 0) msgs.push('동기화 완료');
     alert('동기화 완료\n' + msgs.join('\n'));
     location.reload();

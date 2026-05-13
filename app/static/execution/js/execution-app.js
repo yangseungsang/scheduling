@@ -235,14 +235,14 @@ function buildRow(item) {
   if (colVisible('identifier')) cells.push(`<td class="td-id">${escHtml(item.identifier_id)}</td>`);
   if (colVisible('name'))       cells.push(`<td class="td-name">${escHtml(item.identifier_name)}${renderCommentIcon(item)}</td>`);
   if (colVisible('assignee'))   cells.push(`<td class="td-meta">${escHtml(assignee)}</td>`);
-  if (colVisible('location'))   cells.push(`<td class="td-meta">${item.location_name || '-'}</td>`);
-  if (colVisible('date'))       cells.push(`<td class="td-meta">${item.scheduled_date || '-'}</td>`);
+  if (colVisible('location'))   cells.push(`<td class="td-meta">${escHtml(item.location_name || '-')}</td>`);
+  if (colVisible('date'))       cells.push(`<td class="td-meta">${escHtml(item.scheduled_date || '-')}</td>`);
   if (colVisible('estimated'))  cells.push(`<td class="td-meta">${formatMinutes(item.estimated_minutes)}</td>`);
   if (colVisible('performer'))  cells.push(`<td>${escHtml(item.execution?.performer || '-')}</td>`);
   if (colVisible('result'))     cells.push(renderResultCell(item));
   if (colVisible('status'))     cells.push(`<td>${statusBadge(item)}</td>`);
-  return `<tr data-id="${item.identifier_id}" data-status="${status}"
-      data-item='${JSON.stringify(item).replace(/'/g,"&#39;")}'>${cells.join('')}</tr>`;
+  return `<tr data-id="${escHtml(item.identifier_id)}" data-status="${escHtml(status)}"
+      data-item='${escHtml(JSON.stringify(item))}'>${cells.join('')}</tr>`;
 }
 
 function renderTable(items) {
@@ -321,7 +321,8 @@ document.addEventListener('fullscreenchange', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
   renderColMenu();
-  document.getElementById('btn-fullscreen').addEventListener('click', toggleFullscreen);
+  const fsBtn = document.getElementById('btn-fullscreen');
+  if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
   document.getElementById('filter-date').addEventListener('change', loadList);
   document.getElementById('filter-location').addEventListener('change', loadList);
   document.getElementById('search-input').addEventListener('input', e => {
