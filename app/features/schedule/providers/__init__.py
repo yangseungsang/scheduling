@@ -20,10 +20,13 @@ def get_provider():
     Raises:
         ValueError: 알 수 없는 프로바이더 타입이 지정된 경우.
     """
-    provider_type = os.environ.get('PROVIDER_TYPE', 'rest_api')
+    provider_type = os.environ.get('PROVIDER_TYPE', 'json_file')
     if provider_type == 'json_file':
         return JsonFileProvider()
     if provider_type == 'rest_api':
+        api_base_url = os.environ.get('API_BASE_URL', '').strip()
+        if not api_base_url:
+            return JsonFileProvider()
         from app.features.schedule.providers.rest_api import RestApiProvider
         return RestApiProvider()
     raise ValueError(f'Unknown provider type: {provider_type}')
