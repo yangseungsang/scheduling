@@ -122,6 +122,34 @@ def update_procedures_format():
     print(f'  Updated {changed} procedures to new format')
 
 
+def remove_task_status_field():
+    """tasks.json 에서 status 필드 제거 (#108).
+
+    'cancelled' 값은 sync 서비스가 외부에서 삭제된 태스크 표시에 사용하므로 유지.
+    'waiting'/'in_progress'/'completed' 는 execution 기반으로 동적 계산되므로 삭제.
+    """
+    import os, json as _json
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            'app', 'features', 'schedule', 'data')
+    tasks_file = os.path.join(data_dir, 'tasks.json')
+    with open(tasks_file) as f:
+        tasks = _json.load(f)
+
+    removed = retained = 0
+    for t in tasks:
+        s = t.get('status')
+        if s == 'cancelled':
+            retained += 1
+        elif 'status' in t:
+            del t['status']
+            removed += 1
+
+    with open(tasks_file, 'w', encoding='utf-8') as f:
+        _json.dump(tasks, f, ensure_ascii=False, indent=2)
+
+    print(f'  tasks.json: status 필드 {removed}개 삭제, cancelled {retained}개 유지')
+
+
 if __name__ == '__main__':
     print('=== Data Migration ===')
     print('Migrating tasks...')
@@ -130,4 +158,6 @@ if __name__ == '__main__':
     migrate_procedures()
     print('Migrating schedule blocks...')
     migrate_schedule_blocks()
+    print('태스크 status 필드 마이그레이션 중...')
+    remove_task_status_field()
     print('=== Done ===')
