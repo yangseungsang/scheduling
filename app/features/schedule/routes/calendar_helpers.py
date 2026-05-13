@@ -125,36 +125,3 @@ def sync_task_remaining_minutes(task_id):
         patches['remaining_minutes'] = new_remaining
     if patches:
         task.patch(task_id, **patches)
-
-
-def sync_task_status(task_id):
-    """블록 상태를 기반으로 태스크의 전체 상태를 자동 갱신한다.
-
-    규칙:
-    - 모든 블록이 completed → 태스크도 completed
-    - 하나라도 in_progress이거나 completed가 섞여 있으면 → in_progress
-    - 그 외에는 기존 태스크 상태 유지
-
-    Args:
-        task_id (str): 동기화할 태스크 ID
-    """
-    from app.features.schedule.models import task as task_model
-    t = task_model.get_by_id(task_id)
-    if not t:
-        return
-    blocks = [b for b in schedule_block.get_all()
-              if b.get('task_id') == task_id]
-    if not blocks:
-        return
-    statuses = [b.get('block_status', 'pending') for b in blocks]
-    if all(s == 'completed' for s in statuses):
-        new_status = 'completed'
-    elif any(s == 'in_progress' for s in statuses):
-        new_status = 'in_progress'
-    elif any(s == 'completed' for s in statuses):
-        # 일부만 완료된 경우도 진행 중으로 처리
-        new_status = 'in_progress'
-    else:
-        new_status = t['status']
-    if new_status != t['status']:
-        task_model.patch(task_id, status=new_status)

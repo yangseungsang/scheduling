@@ -22,7 +22,6 @@ from app.features.schedule.routes.calendar_helpers import (
     VALID_BLOCK_STATUSES,
     remove_identifiers_from_other_blocks,
     sync_task_remaining_minutes,
-    sync_task_status,
 )
 from app.features.schedule.routes.calendar_views import schedule_bp
 
@@ -413,12 +412,6 @@ def api_update_block_status(block_id):
     if status not in VALID_BLOCK_STATUSES:
         return jsonify({'error': '유효하지 않은 상태입니다.'}), 400
     updated = schedule_block.update(block_id, block_status=status)
-
-    # 블록 상태 변경에 따라 태스크 전체 상태를 자동 갱신
-    task_id = block.get('task_id')
-    if task_id:
-        sync_task_status(task_id)
-
     return jsonify(updated)
 
 
