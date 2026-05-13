@@ -11,6 +11,7 @@ import json
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, abort
 
 from app.features.schedule.models import task, user, location, version, schedule_block
+from app.features.execution.models.execution import ExecutionRepository
 
 # 태스크 관련 라우트가 등록되는 블루프린트
 tasks_bp = Blueprint('tasks', __name__, url_prefix='/tasks')
@@ -159,12 +160,36 @@ def task_list():
             'block_locations': block_locations,
         }
 
+    # execution 기반 상태 계산
+    all_executions = ExecutionRepository.get_all()
+    exec_by_identifier = {ex['identifier_id']: ex for ex in all_executions}
+
+    execution_status_map = {}
+    for t in tasks_all:
+        tid = t['id']
+        identifiers = t.get('identifiers', [])
+        if not identifiers:
+            execution_status_map[tid] = 'pending'
+            continue
+        statuses = []
+        for idf in identifiers:
+            iid = idf['id'] if isinstance(idf, dict) else idf
+            ex = exec_by_identifier.get(iid)
+            statuses.append(ex['status'] if ex else 'pending')
+        if all(s == 'completed' for s in statuses):
+            execution_status_map[tid] = 'completed'
+        elif any(s in ('in_progress', 'paused') for s in statuses):
+            execution_status_map[tid] = 'in_progress'
+        else:
+            execution_status_map[tid] = 'pending'
+
     return render_template('schedule/tasks/list.html',
                            tasks=tasks_all, users=users,
                            locations=locations, versions=versions,
                            user_map=user_map, location_map=location_map,
                            schedule_status_map=schedule_status_map,
                            split_info_map=split_info_map,
+                           execution_status_map=execution_status_map,
                            filters={
                                'status': status or '',
                                'assignees': assignees,

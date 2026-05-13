@@ -126,12 +126,13 @@
           </td>
           <td class="text-nowrap">{{ task.remaining_minutes }}분 / {{ task.estimated_minutes }}분</td>
           <td>
-            {% if task.status == 'waiting' %}
-            <span class="task-status-chip status-waiting">대기</span>
-            {% elif task.status == 'in_progress' %}
+            {% set exec_status = execution_status_map.get(task.id, 'pending') %}
+            {% if exec_status == 'in_progress' %}
             <span class="task-status-chip status-progress">진행 중</span>
-            {% else %}
+            {% elif exec_status == 'completed' %}
             <span class="task-status-chip status-done">완료</span>
+            {% else %}
+            <span class="task-status-chip status-waiting">대기</span>
             {% endif %}
           </td>
           <td>
