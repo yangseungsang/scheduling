@@ -63,6 +63,8 @@ class JsonFileProvider(BaseProvider):
         result = []
         for p in raw:
             result.append({
+                'doc_id': p.get('doc_id'),
+                'doc_name': p.get('doc_name', p.get('section_name', '')),
                 'section_name': p.get('section_name', ''),
                 'version_id': p.get('version_id', ''),
                 # 'identifiers' 키 우선, 없으면 'test_list' 키로 폴백 (하위 호환)
