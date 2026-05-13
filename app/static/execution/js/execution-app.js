@@ -53,7 +53,7 @@ async function loadList() {
   if (loc)  params.set('location', loc);
 
   document.getElementById('exec-tbody').innerHTML =
-    '<tr><td colspan="8" class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>로딩 중…</td></tr>';
+    '<tr><td colspan="10" class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>로딩 중…</td></tr>';
 
   try {
     _allItems = await apiFetch('/execution/api/list?' + params.toString());
@@ -61,7 +61,7 @@ async function loadList() {
     applyAndRender();
   } catch {
     document.getElementById('exec-tbody').innerHTML =
-      '<tr><td colspan="8" class="text-center text-danger py-4"><i class="bi bi-exclamation-circle me-2"></i>로드 실패</td></tr>';
+      '<tr><td colspan="10" class="text-center text-danger py-4"><i class="bi bi-exclamation-circle me-2"></i>로드 실패</td></tr>';
   }
 }
 
@@ -112,6 +112,23 @@ function statusBadge(item) {
   return `<span class="exec-badge exec-badge-${s}"><span class="exec-badge-dot"></span>${labels[s] || '-'}</span>`;
 }
 
+function renderCommentIcon(item) {
+  const comment = item.execution?.comment;
+  if (!comment) return '';
+  const escaped = escHtml(comment).replace(/\n/g, '&#10;');
+  return ` <span data-bs-toggle="tooltip" data-bs-placement="top" title="${escaped}" style="cursor:default">💬</span>`;
+}
+
+function renderResultCell(item) {
+  const ex = item.execution;
+  if (!ex || ex.status === 'pending') return '<td>-</td>';
+  const f = ex.fail_count ?? 0;
+  const b = ex.block_count ?? 0;
+  const p = ex.pass_count ?? 0;
+  const t = ex.total_count ?? 0;
+  return `<td><span class="text-danger">F:${f}</span> <span class="text-warning">B:${b}</span> <span class="text-success">P:${p}</span> <span class="text-muted">/ ${t}</span></td>`;
+}
+
 function renderStatusSummary() {
   const el = document.getElementById('status-summary');
   if (!el) return;
@@ -135,7 +152,7 @@ function renderTable(items) {
   if (countEl) countEl.textContent = items.length ? `${items.length}건` : '';
 
   if (!items.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted py-5">항목 없음</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="text-center text-muted py-5">항목 없음</td></tr>';
     return;
   }
   tbody.innerHTML = items.map(item => {
@@ -146,11 +163,13 @@ function renderTable(items) {
         data-item='${JSON.stringify(item).replace(/'/g,"&#39;")}'>
       <td class="td-doc">${escHtml(item.doc_name || '-')}</td>
       <td class="td-id">${escHtml(item.identifier_id)}</td>
-      <td class="td-name">${escHtml(item.identifier_name)}</td>
+      <td class="td-name">${escHtml(item.identifier_name)}${renderCommentIcon(item)}</td>
       <td class="td-meta">${escHtml(assignee)}</td>
       <td class="td-meta">${item.location_name || '-'}</td>
       <td class="td-meta">${item.scheduled_date || '-'}</td>
       <td class="td-meta">${formatMinutes(item.estimated_minutes)}</td>
+      <td>${escHtml(item.execution?.performer || '-')}</td>
+      ${renderResultCell(item)}
       <td>${statusBadge(item)}</td>
     </tr>`;
   }).join('');
@@ -160,6 +179,10 @@ function renderTable(items) {
       const item = JSON.parse(tr.dataset.item);
       window.location.href = `/execution/${encodeURIComponent(item.identifier_id)}`;
     }));
+
+  tbody.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => {
+    bootstrap.Tooltip.getOrCreateInstance(el);
+  });
 }
 
 // ── 바코드 감지 공통 유틸 ─────────────────────────────────────────────────
