@@ -108,7 +108,12 @@ class TestQueueTasks:
         vid = _create_version(client)
         tid = _create_task(client, uid, version_id=vid)
 
-        # task.status = 'waiting' 인 상태에서 모든 식별자 execution 을 completed 로 만든다
+        # task.status 를 명시적으로 'waiting' 으로 설정하여 구 방식이 큐에 남기는지 검증
+        from app.features.schedule.models import task as task_model
+        with app.app_context():
+            task_model.patch(tid, status='waiting')
+
+        # 모든 식별자 execution 을 completed 로 만든다
         from app.features.execution.models.execution import ExecutionRepository
         with app.app_context():
             ex1 = ExecutionRepository.start('TC-001', tid)

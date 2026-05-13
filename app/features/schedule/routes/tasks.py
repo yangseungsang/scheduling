@@ -87,9 +87,6 @@ def task_list():
     doc_query = (request.args.get('doc') or request.args.get('procedure') or '').strip()
     date_filter = request.args.get('date', '').strip()
 
-    # 상태 필터 적용
-    if status:
-        tasks_all = [t for t in tasks_all if t.get('status') == status]
     # 담당자 필터 (하나라도 포함되면 통과, 이름 기반)
     if assignees:
         tasks_all = [t for t in tasks_all if any(a in t.get('assignee_names', []) for a in assignees)]
@@ -182,6 +179,24 @@ def task_list():
             execution_status_map[tid] = 'in_progress'
         else:
             execution_status_map[tid] = 'pending'
+
+    # status 필터: execution 기반 상태 적용 (#108)
+    if status:
+        STATUS_MAPPING = {
+            'waiting': 'pending',
+            'in_progress': 'in_progress',
+            'completed': 'completed',
+        }
+        if status == 'cancelled':
+            tasks_all = [t for t in tasks_all if t.get('status') == 'cancelled']
+            # rebuild execution_status_map for filtered list
+            execution_status_map = {t['id']: execution_status_map[t['id']]
+                                    for t in tasks_all if t['id'] in execution_status_map}
+        else:
+            exec_status_filter = STATUS_MAPPING.get(status)
+            if exec_status_filter:
+                tasks_all = [t for t in tasks_all
+                             if execution_status_map.get(t['id']) == exec_status_filter]
 
     return render_template('schedule/tasks/list.html',
                            tasks=tasks_all, users=users,
