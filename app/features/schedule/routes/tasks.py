@@ -137,21 +137,26 @@ def task_list():
                         for b in task_blocks)
         # 각 블록의 상세 정보 구성 (날짜/시간순 정렬)
         block_details = []
+        block_locations = []
         for b in sorted(task_blocks, key=lambda x: (x['date'], x['start_time'])):
             loc_obj = location_map_full.get(b.get('location_id'))
+            loc_name = loc_obj['name'] if loc_obj else ''
             ids = b.get('identifier_ids')
             block_details.append({
                 'date': b['date'],
                 'start_time': b['start_time'],
                 'end_time': b['end_time'],
-                'location_name': loc_obj['name'] if loc_obj else '',
+                'location_name': loc_name,
                 'identifier_ids': ids,
                 'id_count': len(ids) if ids else total_ids,
             })
+            if loc_name and loc_name not in block_locations:
+                block_locations.append(loc_name)
         split_info_map[tid] = {
             'block_count': len(task_blocks),
             'has_split': has_split,
             'blocks': block_details,
+            'block_locations': block_locations,
         }
 
     return render_template('schedule/tasks/list.html',

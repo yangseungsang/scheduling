@@ -70,11 +70,14 @@ def _load_schedule_data():
     blocks = block_repo.get_all()
     locations = {loc['id']: loc for loc in loc_repo.get_all()}
 
-    date_map = {}
+    date_map = {}        # identifier_id → earliest scheduled date
+    block_loc_map = {}   # identifier_id → location_id from block
+
     for block in blocks:
         block_date = block.get('date', '')
         block_task_id = block.get('task_id', '')
         block_iids = block.get('identifier_ids')
+        block_loc = block.get('location_id', '')
         task = next((t for t in tasks if t['id'] == block_task_id), None)
         if not task:
             continue
@@ -83,12 +86,16 @@ def _load_schedule_data():
             if block_iids is None or iid in block_iids:
                 if iid not in date_map or block_date < date_map[iid]:
                     date_map[iid] = block_date
+                if block_loc and iid not in block_loc_map:
+                    block_loc_map[iid] = block_loc
 
-    return tasks, locations, date_map
+    return tasks, locations, date_map, block_loc_map
 
 
-def _build_item_dict(task, identifier, loc_name, scheduled_date):
+def _build_item_dict(task, identifier, locations, scheduled_date, block_loc_id=''):
     iid = identifier['id']
+    loc_id = block_loc_id or task.get('location_id', '')
+    loc_name = locations.get(loc_id, {}).get('name', '') if loc_id else ''
     execution = ExecutionRepository.get_by_identifier(iid)
     return {
         'identifier_id': iid,
@@ -97,7 +104,7 @@ def _build_item_dict(task, identifier, loc_name, scheduled_date):
         'doc_name': task.get('doc_name', ''),
         'assignee_names': task.get('assignee_names', []),
         'estimated_minutes': identifier.get('estimated_minutes', 0),
-        'location_id': task.get('location_id', ''),
+        'location_id': loc_id,
         'location_name': loc_name,
         'scheduled_date': scheduled_date,
         'execution': _execution_response(execution),
@@ -109,37 +116,39 @@ def execution_list():
     date_filter = request.args.get('date', '')
     location_filter = request.args.get('location', '')
 
-    tasks, locations, date_map = _load_schedule_data()
+    tasks, locations, date_map, block_loc_map = _load_schedule_data()
     result = []
     for task in tasks:
-        loc_id = task.get('location_id', '')
-        loc_name = locations.get(loc_id, {}).get('name', '') if loc_id else ''
         for identifier in task.get('identifiers', []):
             if not isinstance(identifier, dict):
                 continue
             iid = identifier['id']
             scheduled_date = date_map.get(iid, '')
+            block_loc_id = block_loc_map.get(iid, '')
+            loc_id = block_loc_id or task.get('location_id', '')
             if date_filter and scheduled_date != date_filter:
                 continue
             if location_filter and loc_id != location_filter:
                 continue
-            result.append(_build_item_dict(task, identifier, loc_name, scheduled_date))
+            result.append(_build_item_dict(task, identifier, locations, scheduled_date, block_loc_id))
 
     return jsonify(result)
 
 
 @api_bp.route('/item/<identifier_id>')
 def get_item(identifier_id):
-    tasks, locations, date_map = _load_schedule_data()
+    tasks, locations, date_map, block_loc_map = _load_schedule_data()
     for task in tasks:
-        loc_id = task.get('location_id', '')
-        loc_name = locations.get(loc_id, {}).get('name', '') if loc_id else ''
         for identifier in task.get('identifiers', []):
             if not isinstance(identifier, dict):
                 continue
             if identifier['id'] != identifier_id:
                 continue
-            return jsonify(_build_item_dict(task, identifier, loc_name, date_map.get(identifier_id, '')))
+            return jsonify(_build_item_dict(
+                task, identifier, locations,
+                date_map.get(identifier_id, ''),
+                block_loc_map.get(identifier_id, ''),
+            ))
     return jsonify({'error': 'not found'}), 404
 
 

@@ -116,7 +116,14 @@
             {% endfor %}
             {% if not task.assignee_names %}-{% endif %}
           </td>
-          <td>{{ location_map.get(task.location_id, '-') }}</td>
+          <td>
+            {% set si = split_info_map.get(task.id, {}) %}
+            {% if si.get('block_locations') %}
+              {{ si['block_locations'] | join(', ') }}
+            {% else %}
+              {{ location_map.get(task.location_id, '-') }}
+            {% endif %}
+          </td>
           <td class="text-nowrap">{{ task.remaining_minutes }}분 / {{ task.estimated_minutes }}분</td>
           <td>
             {% if task.status == 'waiting' %}
