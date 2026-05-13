@@ -200,10 +200,25 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
             continue
         task_blocks.setdefault(tid, []).append(b)
 
+    from app.features.execution.models.execution import ExecutionRepository
+    all_executions = ExecutionRepository.get_all()
+    exec_by_identifier = {ex['identifier_id']: ex for ex in all_executions}
+
     queue = []
     for t in tasks:
-        # 완료된 태스크는 큐에서 제외
-        if t['status'] == 'completed':
+        # execution 기준으로 모든 식별자가 완료된 태스크는 큐에서 제외 (#108)
+        identifiers = t.get('identifiers', [])
+        if identifiers:
+            exec_statuses = [
+                exec_by_identifier.get(
+                    idf['id'] if isinstance(idf, dict) else idf, {}
+                ).get('status', 'pending')
+                for idf in identifiers
+            ]
+            if all(s == 'completed' for s in exec_statuses):
+                continue
+        elif t.get('status') == 'cancelled':
+            # sync 서비스가 외부에서 삭제된 태스크에 설정하는 cancelled 는 유지
             continue
         est = t.get('estimated_minutes', 0)
         # 예상 시간이 0 이하인 태스크는 제외

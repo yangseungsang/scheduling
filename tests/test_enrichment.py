@@ -53,14 +53,17 @@ class TestQueueTasks:
     """Verify that queue_tasks in /schedule/api/day reflects task status and scheduled hours."""
 
     def test_queue_excludes_completed(self, app, client):
+        """모든 식별자가 execution 완료된 태스크는 queue 에서 제외된다 (#108)."""
         uid = _create_user(client)
         vid = _create_version(client)
         tid = _create_task(client, uid, version_id=vid)
 
-        # Mark task completed via task patch (needs app context)
-        from app.features.schedule.models import task as task_model
+        from app.features.execution.models.execution import ExecutionRepository
         with app.app_context():
-            task_model.patch(tid, status='completed')
+            ex1 = ExecutionRepository.start('TC-001', tid)
+            ExecutionRepository.complete(ex1['id'], fail_count=0)
+            ex2 = ExecutionRepository.start('TC-002', tid)
+            ExecutionRepository.complete(ex2['id'], fail_count=0)
 
         r = client.get(f'/schedule/api/day?date=2026-03-10&version={vid}')
         queue = r.get_json()['queue_tasks']

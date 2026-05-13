@@ -308,15 +308,18 @@ class TestScheduleViewAPIs:
         queue = r.get_json()['queue_tasks']
         assert all(t['id'] != tid for t in queue)
 
-    def test_queue_excludes_completed_tasks(self, client):
+    def test_queue_excludes_completed_tasks(self, app, client):
+        """모든 식별자가 execution 완료된 태스크는 queue 에서 제외된다 (#108)."""
         uid = _create_user(client)
         tid = _create_task(client, uid, hours='2')
-        # Mark as completed via API update
-        client.put(f'/tasks/api/{tid}/update', json={
-                        'status': 'completed',
-            'estimated_minutes': 120,
-            'remaining_minutes': 0,
-        })
+
+        from app.features.execution.models.execution import ExecutionRepository
+        with app.app_context():
+            ex1 = ExecutionRepository.start('TC-001', tid)
+            ExecutionRepository.complete(ex1['id'], fail_count=0)
+            ex2 = ExecutionRepository.start('TC-002', tid)
+            ExecutionRepository.complete(ex2['id'], fail_count=0)
+
         r = client.get('/schedule/api/day')
         queue = r.get_json()['queue_tasks']
         assert all(t['id'] != tid for t in queue)
