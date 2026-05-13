@@ -182,3 +182,31 @@ class TestBlocksByTask:
         r = client.get(f'/schedule/api/blocks/by-task/{tid}')
         assert r.status_code == 200
         assert len(r.get_json()['blocks']) == 2
+
+
+def test_manual_block_status_does_not_write_task_status(app, client):
+    """block_status 변경이 task.status 를 갱신하지 않아야 한다 (#108)."""
+    uid = _create_user(client)
+    tid = _create_task(client, uid)
+    block_r = client.post('/schedule/api/blocks', json={
+        'task_id': tid,
+        'assignee_names': [uid],
+        'date': '2026-03-10',
+        'start_time': '09:00',
+        'end_time': '10:00',
+    })
+    assert block_r.status_code == 201
+    block_id = block_r.get_json()['id']
+
+    from app.features.schedule.models import task as task_model
+    with app.app_context():
+        before_status = task_model.get_by_id(tid).get('status')
+
+    r = client.put(f'/schedule/api/blocks/{block_id}/status',
+                   json={'block_status': 'completed'})
+    assert r.status_code == 200
+
+    with app.app_context():
+        after_status = task_model.get_by_id(tid).get('status')
+
+    assert after_status == before_status

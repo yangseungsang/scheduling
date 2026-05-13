@@ -98,3 +98,23 @@ class TestQueueTasks:
         match = [q for q in queue if q['id'] == tid]
         assert len(match) == 1
         assert match[0]['remaining_unscheduled_minutes'] == 120
+
+    def test_queue_uses_execution_status_not_task_status(self, app, client):
+        """Queue 필터는 task.status 필드가 아닌 execution 상태 기반이어야 한다 (#108)."""
+        uid = _create_user(client)
+        vid = _create_version(client)
+        tid = _create_task(client, uid, version_id=vid)
+
+        # task.status = 'waiting' 인 상태에서 모든 식별자 execution 을 completed 로 만든다
+        from app.features.execution.models.execution import ExecutionRepository
+        with app.app_context():
+            ex1 = ExecutionRepository.start('TC-001', tid)
+            ExecutionRepository.complete(ex1['id'], fail_count=0)
+            ex2 = ExecutionRepository.start('TC-002', tid)
+            ExecutionRepository.complete(ex2['id'], fail_count=0)
+
+        r = client.get(f'/schedule/api/day?date=2026-03-10&version={vid}')
+        queue = r.get_json()['queue_tasks']
+        queue_ids = [q['id'] for q in queue]
+        # task.status 가 'waiting' 이어도 execution 기준 완료 → queue 에 없어야 함
+        assert tid not in queue_ids
