@@ -27,12 +27,14 @@
                 <th>시간</th>
                 <th>작성자</th>
                 <th>배치일</th>
+                <th>실행 상태</th>
               </tr>
             </thead>
             <tbody>
             {% for item in task.identifiers %}
               {% if item is mapping %}
               {% set sched = identifier_schedule.get(item.id) %}
+              {% set ex = identifier_execution.get(item.id) %}
               <tr>
                 <td class="fw-bold">{{ item.id }}</td>
                 <td>{{ item.name or '-' }}</td>
@@ -47,9 +49,22 @@
                   <span class="text-muted">미배치</span>
                   {% endif %}
                 </td>
+                <td>
+                  {% if not ex %}
+                  <span class="badge bg-secondary" style="font-size:0.7rem">대기</span>
+                  {% elif ex.status == 'completed' %}
+                  <span class="badge bg-success" style="font-size:0.7rem">완료</span>
+                  {% elif ex.status == 'in_progress' %}
+                  <span class="badge bg-primary" style="font-size:0.7rem">진행 중</span>
+                  {% elif ex.status == 'paused' %}
+                  <span class="badge bg-warning text-dark" style="font-size:0.7rem">일시정지</span>
+                  {% else %}
+                  <span class="badge bg-secondary" style="font-size:0.7rem">대기</span>
+                  {% endif %}
+                </td>
               </tr>
               {% else %}
-              <tr><td>{{ item }}</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
+              <tr><td>{{ item }}</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td></tr>
               {% endif %}
             {% endfor %}
             </tbody>

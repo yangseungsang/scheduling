@@ -175,7 +175,7 @@ def task_list():
             statuses.append(ex['status'] if ex else 'pending')
         if all(s == 'completed' for s in statuses):
             execution_status_map[tid] = 'completed'
-        elif any(s in ('in_progress', 'paused') for s in statuses):
+        elif any(s in ('in_progress', 'paused', 'completed') for s in statuses):
             execution_status_map[tid] = 'in_progress'
         else:
             execution_status_map[tid] = 'pending'
@@ -300,9 +300,15 @@ def task_detail(task_id):
                     'end_time': b['end_time'],
                 }
 
+    # 식별자별 execution 상태
+    from app.features.execution.models.execution import ExecutionRepository
+    all_executions = ExecutionRepository.get_all()
+    identifier_execution = {ex['identifier_id']: ex for ex in all_executions}
+
     return render_template('schedule/tasks/detail.html', task=t,
                            assignee_names=assignee_names,
                            identifier_schedule=identifier_schedule,
+                           identifier_execution=identifier_execution,
                            location=loc)
 
 
