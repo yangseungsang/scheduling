@@ -206,7 +206,12 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
 
     queue = []
     for t in tasks:
-        # execution 기준으로 모든 식별자가 완료된 태스크는 큐에서 제외 (#108)
+        # -------------------------------------------------------------------------
+        # 1단계: execution 기반 완료 태스크 제외 (#108)
+        # task.status 필드 대신 execution 레코드를 확인하여
+        # 모든 식별자가 completed 상태이면 큐에서 제외한다.
+        # 이렇게 하면 task.json을 수정하지 않고도 실행 상태를 반영할 수 있다.
+        # -------------------------------------------------------------------------
         identifiers = t.get('identifiers', [])
         if identifiers:
             exec_statuses = [
@@ -216,51 +221,65 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
                 for idf in identifiers
             ]
             if all(s == 'completed' for s in exec_statuses):
+                # 모든 식별자가 완료 → 큐에 표시하지 않음
                 continue
         elif t.get('status') == 'cancelled':
-            # sync 서비스가 외부에서 삭제된 태스크에 설정하는 cancelled 는 유지
+            # 식별자 없는 태스크 중 sync 서비스가 취소 처리한 것은 제외
+            # (외부 데이터에서 삭제된 태스크를 나타냄)
             continue
+
+        # 2단계: 예상 시간이 없는 태스크 제외 (시간표에 배치 불가)
         est = t.get('estimated_minutes', 0)
-        # 예상 시간이 0 이하인 태스크는 제외
         if est <= 0:
             continue
 
         blocks = task_blocks.get(t['id'], [])
 
-        # 분할되지 않은 전체 블록(identifier_ids=None)이 있으면 이미 배치 완료
+        # -------------------------------------------------------------------------
+        # 3단계: 이미 완전히 배치된 태스크 제외
+        # identifier_ids=None인 블록은 '전체 배치' 블록을 의미한다.
+        # 이런 블록이 하나라도 있으면 해당 태스크는 큐에서 제외한다.
+        # -------------------------------------------------------------------------
         has_full_block = any(b.get('identifier_ids') is None for b in blocks)
         if has_full_block:
             continue
 
-        # 분할 블록의 경우: 미배치 식별자 확인
+        # -------------------------------------------------------------------------
+        # 4단계: 분할 배치된 경우 — 미배치 식별자만 잔여로 계산
+        # 일부 식별자만 블록에 배치된 경우(분할 블록),
+        # 아직 배치되지 않은 식별자들의 예상 시간을 remaining으로 계산한다.
+        # -------------------------------------------------------------------------
         all_ids = [item['id'] if isinstance(item, dict) else item
                    for item in t.get('identifiers', [])]
 
         if not all_ids:
-            # 식별자가 없는 태스크(예: 단순 블록): 블록이 하나라도 있으면 제외
+            # 식별자가 없는 태스크(예: 단순 블록 연결용): 블록이 하나라도 있으면 배치 완료로 간주
             if blocks:
                 continue
             remaining = est
         else:
-            # 이미 배치된 식별자 ID 수집
+            # 각 분할 블록의 identifier_ids를 수집하여 이미 배치된 식별자 목록 구성
             scheduled_ids = set()
             for b in blocks:
+                # identifier_ids가 None이면 앞에서 이미 제외됨 (has_full_block 체크)
                 bids = b.get('identifier_ids') or []
                 for bid in bids:
                     scheduled_ids.add(bid)
 
-            # 미배치 식별자 필터링
+            # 배치되지 않은 식별자만 추출
             unscheduled_ids = [i for i in all_ids if i not in scheduled_ids]
             if not unscheduled_ids:
+                # 모든 식별자가 분할 블록으로 배치 완료 → 큐에서 제외
                 continue
 
-            # 미배치 식별자들의 예상 시간 합산
+            # 미배치 식별자들의 예상 시간 합산 (각 식별자별 시간은 identifiers 목록에 저장)
             remaining = sum(
                 item.get('estimated_minutes', 0)
                 for item in t.get('identifiers', [])
                 if isinstance(item, dict) and item.get('id') in set(unscheduled_ids)
             )
 
+        # 잔여 시간이 0 이하이면 실질적으로 배치할 시간이 없으므로 제외
         if remaining <= 0:
             continue
 

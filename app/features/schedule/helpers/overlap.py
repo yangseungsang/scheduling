@@ -2,6 +2,14 @@
 
 같은 장소에서 시간이 겹치는 블록을 감지하고,
 겹치는 블록들의 시각적 배치(열 인덱스, 열 수)를 계산한다.
+
+겹침 정책:
+    - 장소(location) 기준: 동일 장소에서 같은 시간대에 블록 2개 이상 불가.
+    - 담당자(assignee) 기준: 현재는 별도 체크 없음.
+      (같은 담당자가 여러 장소에서 동시 진행하는 것을 방지하려면
+       assignee 기반 겹침 검사를 추가해야 하지만, 현재 서비스에서는
+       장소 충돌 방지만 강제한다.)
+    - location_id가 없는 블록은 겹침 검사 대상에서 제외한다.
 """
 
 from app.features.schedule.helpers.time_utils import time_to_minutes
@@ -12,37 +20,43 @@ def check_overlap(assignee_names, location_id, date_str, start_time, end_time,
                    exclude_block_id=None, exclude_task_id=None):
     """같은 장소에서 시간이 겹치는 블록이 있는지 확인한다.
 
-    담당자(assignee) 간의 동시간대 배치는 허용하며,
-    같은 장소(location)에서의 시간 겹침만 검사한다.
+    장소(location_id)를 기준으로 충돌 여부를 검사한다.
+    담당자(assignee_names)는 파라미터로 받지만 현재 충돌 검사에 사용하지 않는다
+    (향후 담당자 기반 겹침 검사 추가 시 활용 가능).
 
     Args:
-        assignee_names: 담당자 ID 목록 (현재 겹침 검사에서 미사용).
-        location_id: 장소 ID. 없으면 겹침 없음으로 처리.
+        assignee_names: 담당자 이름 목록 (현재 겹침 검사에서 미사용, 확장용 예약).
+        location_id: 장소 ID. 없으면(빈 문자열/None) 겹침 없음으로 처리.
         date_str: 날짜 문자열 ('YYYY-MM-DD').
         start_time: 시작 시간 ('HH:MM').
         end_time: 종료 시간 ('HH:MM').
-        exclude_block_id: 겹침 검사에서 제외할 블록 ID (자기 자신 등).
-        exclude_task_id: 겹침 검사에서 제외할 태스크 ID (같은 태스크의 분할 블록용).
+        exclude_block_id: 겹침 검사에서 제외할 블록 ID (이동/수정 중인 자기 자신).
+        exclude_task_id: 겹침 검사에서 제외할 태스크 ID
+                        (같은 태스크의 분할 블록들 간에는 겹침을 허용하지 않지만,
+                         큐 복귀 등 특정 상황에서 같은 태스크 블록을 무시할 때 사용).
 
     Returns:
         dict 또는 None: 겹치는 블록이 있으면 해당 블록 딕셔너리, 없으면 None.
     """
+    # location_id가 없는 블록은 장소 미지정으로 간주하여 겹침 검사를 건너뜀
     if not location_id:
         return None
     s1 = time_to_minutes(start_time)
     e1 = time_to_minutes(end_time)
     for b in schedule_block.get_by_date(date_str):
-        # 자기 자신 또는 지정된 태스크의 블록은 제외
+        # 자기 자신 블록은 제외 (이동/리사이즈 시 자기 자신과의 충돌 방지)
         if exclude_block_id and b['id'] == exclude_block_id:
             continue
+        # 지정된 태스크의 모든 블록 제외 (같은 태스크 분할 블록 간 제외 시 사용)
         if exclude_task_id and b.get('task_id') == exclude_task_id:
             continue
-        # 다른 장소의 블록은 무시
+        # 다른 장소의 블록은 충돌 대상이 아님
         if b.get('location_id') != location_id:
             continue
         s2 = time_to_minutes(b['start_time'])
         e2 = time_to_minutes(b['end_time'])
-        # 두 시간 구간이 겹치는지 확인 (s1 < e2 && s2 < e1)
+        # 두 구간이 겹치는 조건: s1 < e2 이면서 s2 < e1
+        # (끝 시간이 정확히 같은 경우는 맞닿은 것으로 겹침 아님)
         if s1 < e2 and s2 < e1:
             return b
     return None

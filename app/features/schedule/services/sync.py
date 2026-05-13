@@ -95,7 +95,10 @@ class SyncService:
 
             existing = task.get_by_doc_id(doc_id)
             if existing:
-                # 기존 태스크 갱신: 식별자 목록, 예상 시간, 문서명
+                # 기존 태스크 갱신: 식별자 목록, 예상 시간, 문서명, 버전 ID만 덮어씀
+                # ※ assignee_names(담당자)와 location_id(장소)는 사용자가 수동으로
+                #   설정하는 값이므로 동기화 시 덮어쓰지 않는다.
+                # version_id 우선순위: 외부 데이터 → OFP 현재 설정값 → 기존 값
                 task.patch(existing['id'],
                            identifiers=identifiers,
                            estimated_minutes=est_minutes,
@@ -103,12 +106,13 @@ class SyncService:
                            version_id=item.get('version_id') or OfpidSettings.get_current_ofp_id() or existing.get('version_id', '') or '')
                 updated += 1
             else:
-                # 신규 태스크 생성
+                # 신규 태스크 생성: 담당자/장소는 빈 값으로 시작 (사용자가 직접 설정)
+                # version_id 우선순위: 외부 데이터 → OFP 현재 설정값 → 빈 문자열 (#114)
                 task.create(
                     doc_id=doc_id,
                     version_id=item.get('version_id') or OfpidSettings.get_current_ofp_id() or '',
-                    assignee_names=[],
-                    location_id='',
+                    assignee_names=[],   # 사용자가 직접 지정해야 함
+                    location_id='',      # 사용자가 직접 지정해야 함
                     doc_name=doc_name,
                     identifiers=identifiers,
                     estimated_minutes=est_minutes,

@@ -157,8 +157,14 @@ def task_list():
             'block_locations': block_locations,
         }
 
-    # execution 기반 상태 계산
+    # -------------------------------------------------------------------------
+    # execution 기반 실행 상태 계산 (#108)
+    # 태스크 자체에 status 필드를 저장하지 않고, 실행(execution) 레코드를 기준으로
+    # 동적으로 상태를 계산한다. 이렇게 하면 execution 데이터가 변경될 때
+    # task.json을 별도로 갱신할 필요가 없다.
+    # -------------------------------------------------------------------------
     all_executions = ExecutionRepository.get_all()
+    # 빠른 조회를 위해 identifier_id → execution 딕셔너리로 변환
     exec_by_identifier = {ex['identifier_id']: ex for ex in all_executions}
 
     execution_status_map = {}
@@ -167,6 +173,7 @@ def task_list():
         tid = t['id']
         identifiers = t.get('identifiers', [])
         if not identifiers:
+            # 식별자가 없는 태스크는 항상 'pending' 처리
             execution_status_map[tid] = 'pending'
             execution_minutes_map[tid] = 0
             continue
@@ -176,33 +183,48 @@ def task_list():
             iid = idf['id'] if isinstance(idf, dict) else idf
             est = idf.get('estimated_minutes', 0) if isinstance(idf, dict) else 0
             ex = exec_by_identifier.get(iid)
+            # execution 레코드가 없으면 아직 시작 전이므로 'pending'
             s = ex['status'] if ex else 'pending'
             statuses.append(s)
             if s == 'completed':
+                # 완료된 식별자의 시간만 실제 진행된 시간으로 합산
                 completed_minutes += est
         if all(s == 'completed' for s in statuses):
+            # "완료": 모든 식별자가 completed 상태일 때만
             execution_status_map[tid] = 'completed'
         elif any(s in ('in_progress', 'paused', 'completed') for s in statuses):
+            # "진행 중": 하나라도 시작된 식별자(in_progress/paused/completed)가 있으면
+            # (#105 수정: 이전에는 in_progress만 체크했으나, 완료된 식별자가 섞인
+            #  경우도 진행 중으로 표시해야 하므로 completed도 포함)
             execution_status_map[tid] = 'in_progress'
         else:
+            # "대기": 모든 식별자가 아직 시작되지 않은 경우
             execution_status_map[tid] = 'pending'
         execution_minutes_map[tid] = completed_minutes
 
-    # status 필터: execution 기반 상태 적용 (#108)
+    # -------------------------------------------------------------------------
+    # status URL 파라미터 필터 적용 (#108)
+    # 구 상태값(waiting)을 새 execution 기반 상태값(pending)으로 매핑하여
+    # 기존 북마크/링크가 깨지지 않도록 호환성을 유지한다.
+    # 'cancelled'는 execution 기반이 아닌 task.status 필드로 구분한다
+    # (sync 서비스가 외부에서 삭제된 태스크를 cancelled로 마크하기 때문).
+    # -------------------------------------------------------------------------
     if status:
         STATUS_MAPPING = {
-            'waiting': 'pending',
+            'waiting': 'pending',      # 하위 호환: 구 URL 파라미터 값
             'in_progress': 'in_progress',
             'completed': 'completed',
         }
         if status == 'cancelled':
+            # cancelled는 task.status 필드로 판단 (execution 기반 상태 아님)
             tasks_all = [t for t in tasks_all if t.get('status') == 'cancelled']
-            # rebuild execution_status_map for filtered list
+            # 필터링 후 execution_status_map도 대상 태스크만 남기도록 재구성
             execution_status_map = {t['id']: execution_status_map[t['id']]
                                     for t in tasks_all if t['id'] in execution_status_map}
         else:
             exec_status_filter = STATUS_MAPPING.get(status)
             if exec_status_filter:
+                # execution_status_map 기반으로 필터링
                 tasks_all = [t for t in tasks_all
                              if execution_status_map.get(t['id']) == exec_status_filter]
 

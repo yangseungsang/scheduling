@@ -109,6 +109,10 @@ class TaskRepository(BaseRepository):
             'remaining_minutes': estimated_minutes,
             'memo': memo,
             'created_at': datetime.now().isoformat(timespec='seconds'),
+            # ※ 'status' 필드는 저장하지 않는다 (#108).
+            #   태스크 상태는 execution 레코드를 기반으로 동적으로 계산하며,
+            #   task.json에 직접 기록하지 않는다. 단, sync 서비스는 외부에서
+            #   삭제된 태스크를 'cancelled'로 마크할 때만 status를 patch로 기록한다.
         }
         return super().create(data)
 
@@ -133,6 +137,10 @@ class TaskRepository(BaseRepository):
 
         Returns:
             dict 또는 None: 수정된 태스크, 해당 ID가 없으면 None
+
+        Note:
+            'status' 파라미터를 받지 않는다 (#108).
+            상태는 execution 레코드 기반으로 동적 계산하므로 여기서 저장하지 않는다.
         """
         return cls.patch(
             task_id,
