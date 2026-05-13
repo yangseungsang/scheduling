@@ -45,33 +45,24 @@
     <input id="search-input" type="search" class="form-control border-start-0" style="border-radius:0 8px 8px 0"
            placeholder="식별자 / 시험항목 / 담당자 검색…">
   </div>
+  <div class="dropdown ms-auto">
+    <button class="btn btn-sm btn-outline-secondary" type="button"
+            id="col-settings-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside"
+            title="열 표시 설정">
+      <i class="bi bi-layout-three-columns"></i>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end" id="col-toggle-menu" style="min-width:140px"></ul>
+  </div>
 </div>
 
 <!-- 테이블 -->
 <div class="exec-table-wrapper">
   <table class="exec-table">
     <thead>
-      <tr>
-        <th style="width:250px">문서</th>
-        <th style="width:180px">식별자</th>
-        <th>시험항목</th>
-        <th style="width:100px">담당자</th>
-        <th class="sortable" data-sort="location" style="width:90px">
-          장소 <i class="bi bi-arrow-down-up ms-1"></i>
-        </th>
-        <th class="sortable" data-sort="date" style="width:95px">
-          날짜 <i class="bi bi-arrow-down-up ms-1"></i>
-        </th>
-        <th style="width:75px">예상</th>
-        <th style="width:80px">수행자</th>
-        <th style="width:130px">결과</th>
-        <th class="sortable" data-sort="status" style="width:120px">
-          상태 <i class="bi bi-arrow-down-up ms-1"></i>
-        </th>
-      </tr>
+      <tr></tr>
     </thead>
     <tbody id="exec-tbody">
-      <tr><td colspan="10" class="text-center text-muted py-5">로딩 중…</td></tr>
+      <tr><td colspan="10" class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>로딩 중…</td></tr>
     </tbody>
   </table>
 </div>
