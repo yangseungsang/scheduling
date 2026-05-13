@@ -173,28 +173,25 @@
   </div>
 </div>
 
-<!-- 동기화 경고 모달 -->
+<!-- 동기화 모달 -->
 <div class="modal fade" id="syncConfirmModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header bg-danger text-white py-2">
-        <h6 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-1"></i> 데이터 초기화 경고</h6>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-arrow-repeat me-2"></i>동기화 방식 선택</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
-        <p class="mb-2 fw-bold">동기화를 실행하면 다음 데이터가 <span class="text-danger">모두 삭제</span>됩니다:</p>
-        <ul class="mb-3" style="font-size:0.88rem">
-          <li>배치된 모든 <strong>시간표 블록</strong></li>
-          <li>등록된 모든 <strong>시험 항목</strong></li>
-          <li>등록된 모든 <strong>버전 정보</strong></li>
-        </ul>
-        <p class="mb-0" style="font-size:0.85rem; color:#64748b">삭제 후 데이터 소스에서 새로운 데이터를 불러옵니다. 이 작업은 되돌릴 수 없습니다.</p>
-      </div>
-      <div class="modal-footer py-2">
-        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">취소</button>
-        <button type="button" class="btn btn-sm btn-danger" id="btn-sync-confirm">
-          <i class="bi bi-arrow-repeat"></i> 초기화 후 동기화
-        </button>
+        <div class="d-grid gap-2">
+          <button type="button" class="btn btn-outline-primary text-start p-3" id="btn-sync-update">
+            <div class="fw-bold mb-1"><i class="bi bi-arrow-repeat me-2"></i>업데이트</div>
+            <div class="text-muted small">기존 데이터를 유지하면서 신규·변경 항목만 반영합니다.<br>schedule/execution 데이터가 보존됩니다.</div>
+          </button>
+          <button type="button" class="btn btn-outline-danger text-start p-3" id="btn-sync-reset">
+            <div class="fw-bold mb-1"><i class="bi bi-trash me-2"></i>초기화 후 동기화</div>
+            <div class="text-muted small">모든 schedule · execution 데이터를 <strong>삭제</strong>한 뒤 새로 동기화합니다.</div>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -207,33 +204,35 @@ function runSync() {
   bootstrap.Modal.getOrCreateInstance(document.getElementById('syncConfirmModal')).show();
 }
 
-document.getElementById('btn-sync-confirm').addEventListener('click', function() {
-  var confirmBtn = this;
-  var icon = confirmBtn.querySelector('i');
-  confirmBtn.disabled = true;
-  icon.classList.add('spin');
-
-  fetch('/api/sync/reset-and-sync', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({})
-  })
-    .then(function(r) { return r.json(); })
-    .then(function(result) {
-      var v = result.versions;
-      var t = result.tasks;
-      var msgs = [];
-      msgs.push('버전: +' + v.added + ' / 갱신 ' + v.updated + ' / 비활성 ' + v.deactivated);
-      msgs.push('항목: +' + t.added + ' / 갱신 ' + t.updated + ' / 취소 ' + t.cancelled);
-      bootstrap.Modal.getInstance(document.getElementById('syncConfirmModal')).hide();
-      alert('동기화 완료\n' + msgs.join('\n'));
-      location.reload();
-    })
-    .catch(function(err) {
-      alert('동기화 실패: ' + err.message);
-      confirmBtn.disabled = false;
-      icon.classList.remove('spin');
+async function doSync(endpoint) {
+  const modal = bootstrap.Modal.getInstance(document.getElementById('syncConfirmModal'));
+  if (modal) modal.hide();
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: '{}'
     });
+    const data = await res.json();
+    const msgs = [];
+    if (data.versions) msgs.push(`버전: +${data.versions.added} ~${data.versions.updated}`);
+    if (data.tasks) msgs.push(`시험항목: +${data.tasks.added} ~${data.tasks.updated} ✗${data.tasks.cancelled}`);
+    if (msgs.length === 0) msgs.push('동기화 완료');
+    alert('동기화 완료\n' + msgs.join('\n'));
+    location.reload();
+  } catch (err) {
+    alert('동기화 실패: ' + err.message);
+  }
+}
+
+document.getElementById('btn-sync-update').addEventListener('click', () => {
+  doSync('/api/sync/test-data');
+});
+
+document.getElementById('btn-sync-reset').addEventListener('click', () => {
+  if (confirm('모든 schedule · execution 데이터가 삭제됩니다. 계속할까요?')) {
+    doSync('/api/sync/reset-and-sync');
+  }
 });
 
 document.querySelectorAll('[data-toggle-blocks]').forEach(function(el) {
