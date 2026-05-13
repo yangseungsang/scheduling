@@ -1,457 +1,208 @@
 [
   {
-    "id": "t_001",
     "doc_id": 1,
     "version_id": "MAE31F",
-    "assignee_names": [
-      "김민수",
-      "이지은"
-    ],
-    "location_id": "loc_003",
+    "assignee_names": [],
+    "location_id": "loc_002",
     "doc_name": "시스템 초기화",
     "identifiers": [
       {
         "id": "TC-001",
         "name": "시스템 전원 투입 시험",
-        "estimated_minutes": 27,
         "owners": [
           "김민수"
-        ]
+        ],
+        "estimated_minutes": 12
       },
       {
         "id": "TC-002",
         "name": "초기화 절차 검증",
-        "estimated_minutes": 43,
         "owners": [
           "김민수"
-        ]
+        ],
+        "estimated_minutes": 45
       },
       {
         "id": "TC-003",
         "name": "자체점검 결과 확인",
-        "estimated_minutes": 31,
         "owners": [
-          "이지은"
-        ]
+          "김민수"
+        ],
+        "estimated_minutes": 23
       }
     ],
-    "estimated_minutes": 101,
-    "remaining_minutes": 1,
+    "estimated_minutes": 80,
+    "remaining_minutes": 0,
     "memo": "",
-    "created_at": "2026-04-01T09:00:00"
+    "created_at": "2026-05-13T20:49:01",
+    "id": "t_5bbc93ba"
   },
   {
-    "id": "t_002",
     "doc_id": 2,
     "version_id": "MAE31F",
-    "assignee_names": [
-      "이지은",
-      "박준혁"
-    ],
-    "location_id": "loc_002",
+    "assignee_names": [],
+    "location_id": "loc_001",
     "doc_name": "통신 기능",
     "identifiers": [
       {
-        "estimated_minutes": 38,
         "id": "TC-004",
         "name": "통신 링크 설정 시험",
         "owners": [
           "이지은"
-        ]
+        ],
+        "estimated_minutes": 58
       },
       {
-        "estimated_minutes": 22,
         "id": "TC-005",
         "name": "데이터 송수신 검증",
         "owners": [
-          "박준혁"
-        ]
+          "이지은"
+        ],
+        "estimated_minutes": 34
       }
     ],
-    "estimated_minutes": 60,
+    "estimated_minutes": 92,
     "remaining_minutes": 0,
     "memo": "",
-    "created_at": "2026-04-01T09:00:00"
+    "created_at": "2026-05-13T20:49:01",
+    "id": "t_c8c60c49"
   },
   {
-    "id": "t_003",
     "doc_id": 3,
     "version_id": "MAE31F",
-    "assignee_names": [
-      "박준혁",
-      "최수연"
-    ],
+    "assignee_names": [],
     "location_id": "loc_002",
     "doc_name": "항법 연산",
     "identifiers": [
       {
         "id": "TC-010",
         "name": "항법 데이터 입력 시험",
-        "estimated_minutes": 53,
         "owners": [
           "박준혁"
-        ]
+        ],
+        "estimated_minutes": 67
       },
       {
         "id": "TC-011",
         "name": "연산 정확도 검증",
-        "estimated_minutes": 47,
         "owners": [
           "박준혁"
-        ]
+        ],
+        "estimated_minutes": 89
       },
       {
         "id": "TC-012",
         "name": "항법 오류 처리 시험",
-        "estimated_minutes": 34,
-        "owners": [
-          "최수연"
-        ]
-      }
-    ],
-    "estimated_minutes": 134,
-    "remaining_minutes": 104,
-    "memo": "",
-    "created_at": "2026-04-01T09:00:00"
-  },
-  {
-    "id": "t_004",
-    "doc_id": 4,
-    "version_id": "MAE31F",
-    "assignee_names": [
-      "김민수",
-      "최수연"
-    ],
-    "location_id": "loc_001",
-    "doc_name": "항법 데이터 출력",
-    "identifiers": [
-      {
-        "estimated_minutes": 18,
-        "id": "TC-013",
-        "name": "항법 데이터 출력 형식 검증",
-        "owners": [
-          "최수연"
-        ]
-      },
-      {
-        "estimated_minutes": 42,
-        "id": "TC-014",
-        "name": "출력 정확도 시험",
-        "owners": [
-          "김민수"
-        ]
-      }
-    ],
-    "estimated_minutes": 60,
-    "remaining_minutes": 0,
-    "memo": "",
-    "created_at": "2026-04-01T09:00:00"
-  },
-  {
-    "id": "t_005",
-    "doc_id": 5,
-    "version_id": "MAE31F",
-    "assignee_names": [
-      "이지은"
-    ],
-    "location_id": "loc_003",
-    "doc_name": "외부 통신 인터페이스",
-    "identifiers": [
-      {
-        "id": "TC-020",
-        "name": "외부 인터페이스 연결 시험",
-        "estimated_minutes": 51,
-        "owners": [
-          "이지은"
-        ]
-      },
-      {
-        "id": "TC-021",
-        "name": "프로토콜 호환성 검증",
-        "estimated_minutes": 29,
-        "owners": [
-          "이지은"
-        ]
-      }
-    ],
-    "estimated_minutes": 80,
-    "remaining_minutes": 0,
-    "memo": "",
-    "created_at": "2026-04-01T09:00:00"
-  },
-  {
-    "id": "t_006",
-    "doc_id": 6,
-    "version_id": "MAE31F",
-    "assignee_names": [
-      "김민수",
-      "박준혁"
-    ],
-    "location_id": "loc_001",
-    "doc_name": "자가진단",
-    "identifiers": [
-      {
-        "estimated_minutes": 23,
-        "id": "TC-006",
-        "name": "자가진단 실행 시험",
-        "owners": [
-          "김민수"
-        ]
-      },
-      {
-        "estimated_minutes": 37,
-        "id": "TC-007",
-        "name": "진단 결과 보고 검증",
         "owners": [
           "박준혁"
-        ]
+        ],
+        "estimated_minutes": 41
       }
     ],
-    "estimated_minutes": 60,
-    "remaining_minutes": 8,
-    "memo": "new memo",
-    "created_at": "2026-04-01T09:00:00"
-  },
-  {
-    "id": "t_007",
-    "doc_id": 7,
-    "version_id": "MAE31F",
-    "assignee_names": [
-      "박준혁",
-      "최수연"
-    ],
-    "location_id": "loc_003",
-    "doc_name": "내부 버스 통신",
-    "identifiers": [
-      {
-        "id": "TC-022",
-        "name": "내부 버스 통신 시험",
-        "estimated_minutes": 41,
-        "owners": [
-          "박준혁"
-        ]
-      },
-      {
-        "id": "TC-023",
-        "name": "버스 오류 처리 검증",
-        "estimated_minutes": 19,
-        "owners": [
-          "최수연"
-        ]
-      }
-    ],
-    "estimated_minutes": 60,
+    "estimated_minutes": 197,
     "remaining_minutes": 0,
     "memo": "",
-    "created_at": "2026-04-01T09:00:00"
+    "created_at": "2026-05-13T20:49:01",
+    "id": "t_00ea67c3"
   },
   {
-    "id": "t_008",
-    "doc_id": 8,
-    "version_id": "MAE31F",
-    "assignee_names": [
-      "최수연"
-    ],
-    "location_id": "loc_002",
-    "doc_name": "보안 기능 검증",
-    "identifiers": [
-      {
-        "estimated_minutes": 46,
-        "id": "TC-030",
-        "name": "접근 제어 시험",
-        "owners": [
-          "최수연"
-        ]
-      },
-      {
-        "estimated_minutes": 33,
-        "id": "TC-031",
-        "name": "암호화 기능 검증",
-        "owners": [
-          "최수연"
-        ]
-      }
-    ],
-    "estimated_minutes": 79,
-    "remaining_minutes": 0,
-    "memo": "",
-    "created_at": "2026-04-01T09:00:00"
-  },
-  {
-    "id": "t_009",
-    "doc_id": 9,
-    "version_id": "MAE31F",
-    "assignee_names": [
-      "김민수",
-      "이지은"
-    ],
-    "location_id": "loc_001",
-    "doc_name": "모드 전환",
-    "identifiers": [
-      {
-        "id": "TC-008",
-        "name": "운용 모드 전환 시험",
-        "estimated_minutes": 36,
-        "owners": [
-          "김민수"
-        ]
-      },
-      {
-        "id": "TC-009",
-        "name": "모드 전환 안전성 검증",
-        "estimated_minutes": 28,
-        "owners": [
-          "이지은"
-        ]
-      }
-    ],
-    "estimated_minutes": 64,
-    "remaining_minutes": 0,
-    "memo": "",
-    "created_at": "2026-04-01T09:00:00"
-  },
-  {
-    "id": "t_010",
-    "doc_id": 10,
-    "version_id": "MAE31F",
-    "assignee_names": [
-      "이지은",
-      "최수연"
-    ],
-    "location_id": "loc_001",
-    "doc_name": "온도 시험",
-    "identifiers": [
-      {
-        "estimated_minutes": 57,
-        "id": "TC-040",
-        "name": "고온 환경 동작 시험",
-        "owners": [
-          "이지은"
-        ]
-      },
-      {
-        "estimated_minutes": 44,
-        "id": "TC-041",
-        "name": "저온 환경 동작 시험",
-        "owners": [
-          "최수연"
-        ]
-      }
-    ],
-    "estimated_minutes": 101,
-    "remaining_minutes": 0,
-    "memo": "",
-    "created_at": "2026-04-01T09:00:00"
-  },
-  {
-    "id": "t_011",
     "doc_id": 11,
     "version_id": "MAE31F",
-    "assignee_names": [
-      "김민수",
-      "이지은",
-      "박준혁",
-      "최수연"
-    ],
-    "location_id": "",
+    "assignee_names": [],
+    "location_id": "loc_002",
     "doc_name": "센서 데이터 처리",
     "identifiers": [
       {
-        "estimated_minutes": 15,
         "id": "TC-050",
         "name": "센서 입력 검증",
         "owners": [
           "김민수"
-        ]
+        ],
+        "estimated_minutes": 15
       },
       {
-        "estimated_minutes": 25,
         "id": "TC-051",
         "name": "센서 캘리브레이션",
         "owners": [
           "김민수"
-        ]
+        ],
+        "estimated_minutes": 25
       },
       {
-        "estimated_minutes": 18,
         "id": "TC-052",
         "name": "데이터 수집 시험",
         "owners": [
           "이지은"
-        ]
+        ],
+        "estimated_minutes": 18
       },
       {
-        "estimated_minutes": 22,
         "id": "TC-053",
         "name": "데이터 필터링 검증",
         "owners": [
           "이지은"
-        ]
+        ],
+        "estimated_minutes": 22
       },
       {
-        "estimated_minutes": 35,
         "id": "TC-054",
         "name": "실시간 처리 시험",
         "owners": [
           "박준혁"
-        ]
+        ],
+        "estimated_minutes": 35
       },
       {
-        "estimated_minutes": 12,
         "id": "TC-055",
         "name": "처리 지연 허용치 검증",
         "owners": [
           "박준혁"
-        ]
+        ],
+        "estimated_minutes": 12
       },
       {
-        "estimated_minutes": 28,
         "id": "TC-056",
         "name": "출력 정합성 시험",
         "owners": [
           "최수연"
-        ]
+        ],
+        "estimated_minutes": 28
       },
       {
-        "estimated_minutes": 20,
         "id": "TC-057",
         "name": "경계값 처리 검증",
         "owners": [
           "최수연"
-        ]
+        ],
+        "estimated_minutes": 20
       },
       {
-        "estimated_minutes": 30,
         "id": "TC-058",
         "name": "오류 복구 시험",
         "owners": [
           "김민수"
-        ]
+        ],
+        "estimated_minutes": 30
       },
       {
-        "estimated_minutes": 45,
         "id": "TC-059",
         "name": "장시간 안정성 시험",
         "owners": [
           "이지은"
-        ]
+        ],
+        "estimated_minutes": 45
       }
     ],
     "estimated_minutes": 250,
-    "remaining_minutes": 250,
+    "remaining_minutes": 0,
     "memo": "",
-    "created_at": "2026-04-14T09:00:00"
+    "created_at": "2026-05-13T20:49:01",
+    "id": "t_f24059de"
   },
   {
-    "id": "t_012",
     "doc_id": 12,
     "version_id": "MAE31F",
-    "assignee_names": [
-      "김민수",
-      "이지은",
-      "박준혁",
-      "최수연"
-    ],
+    "assignee_names": [],
     "location_id": "loc_002",
     "doc_name": "환경 시험 종합",
     "identifiers": [
@@ -521,8 +272,9 @@
       }
     ],
     "estimated_minutes": 1200,
-    "remaining_minutes": 735,
+    "remaining_minutes": 0,
     "memo": "",
-    "created_at": "2026-04-16T09:00:00"
+    "created_at": "2026-05-13T20:49:01",
+    "id": "t_506a4e58"
   }
 ]
