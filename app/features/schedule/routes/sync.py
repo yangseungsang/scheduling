@@ -52,7 +52,7 @@ def reset_and_sync():
     """모든 로컬 데이터를 삭제한 후 외부 소스에서 새로 동기화한다.
 
     실행 순서:
-    1. 스케줄 블록, 태스크, 버전 데이터를 모두 삭제
+    1. 스케줄 블록, 태스크, 버전, 시험실행 데이터를 모두 삭제
     2. 외부 제공자에서 버전 정보 동기화
     3. 외부 제공자에서 시험 데이터 동기화
 
@@ -63,16 +63,19 @@ def reset_and_sync():
         JSON: 버전 및 태스크 동기화 결과
     """
     from app.features.schedule.store import write_json
+    from app.features.execution.store import write_json as exec_write_json
     # 1. 모든 로컬 데이터 초기화
     write_json('schedule_blocks.json', [])
     write_json('tasks.json', [])
     write_json('versions.json', [])
+    # 2. execution 데이터도 초기화
+    exec_write_json('executions.json', [])
 
-    # 2. 외부 제공자에서 버전 동기화
+    # 3. 외부 제공자에서 버전 동기화
     provider = get_provider()
     ver_result = SyncService.sync_versions(provider)
 
-    # 3. 외부 제공자에서 시험 데이터 동기화
+    # 4. 외부 제공자에서 시험 데이터 동기화
     data = request.get_json() or {}
     version_id = data.get('version_id')
     task_result = SyncService.sync_test_data(provider, version_id=version_id)
