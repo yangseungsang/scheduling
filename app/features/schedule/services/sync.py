@@ -5,6 +5,7 @@
 """
 
 from app.features.schedule.models import version, task
+from app.config import OfpidSettings
 
 
 class SyncService:
@@ -99,13 +100,13 @@ class SyncService:
                            identifiers=identifiers,
                            estimated_minutes=est_minutes,
                            doc_name=doc_name,
-                           version_id=item.get('version_id', existing.get('version_id', '')))
+                           version_id=item.get('version_id') or OfpidSettings.get_current_ofp_id() or existing.get('version_id', '') or '')
                 updated += 1
             else:
                 # 신규 태스크 생성
                 task.create(
                     doc_id=doc_id,
-                    version_id=item.get('version_id', ''),
+                    version_id=item.get('version_id') or OfpidSettings.get_current_ofp_id() or '',
                     assignee_names=[],
                     location_id='',
                     doc_name=doc_name,
