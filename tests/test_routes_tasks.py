@@ -57,7 +57,6 @@ class TestTaskCRUD:
             'identifiers_json': '[{"id":"TC-003","owners":[],"estimated_minutes":60}]',
             'estimated_minutes': '60',
             'remaining_minutes': '60',
-            'status': 'in_progress',
             'memo': '',
         }, follow_redirects=True)
         assert '수정됨' in r.data.decode()
@@ -67,15 +66,6 @@ class TestTaskCRUD:
         tid = _create_task(client, uid)
         r = client.post(f'/tasks/{tid}/delete', follow_redirects=True)
         assert r.status_code == 200
-
-    def test_task_filter_by_status(self, client):
-        uid = _create_user(client)
-        _create_task(client, uid)
-        r = client.get('/tasks/?status=waiting')
-        assert r.status_code == 200
-        assert '시스템' in r.data.decode()
-        r = client.get('/tasks/?status=completed')
-        assert '시스템' not in r.data.decode()
 
     def test_task_filter_by_version(self, client):
         uid = _create_user(client)

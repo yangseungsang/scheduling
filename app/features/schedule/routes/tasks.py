@@ -89,7 +89,7 @@ def task_list():
 
     # 상태 필터 적용
     if status:
-        tasks_all = [t for t in tasks_all if t['status'] == status]
+        tasks_all = [t for t in tasks_all if t.get('status') == status]
     # 담당자 필터 (하나라도 포함되면 통과, 이름 기반)
     if assignees:
         tasks_all = [t for t in tasks_all if any(a in t.get('assignee_names', []) for a in assignees)]
@@ -331,7 +331,6 @@ def task_edit(task_id):
             identifiers=identifiers,
             estimated_minutes=estimated_minutes,
             remaining_minutes=remaining_minutes,
-            status=request.form.get('status', 'waiting'),
             memo=request.form.get('memo', '').strip(),
         )
         flash('시험 항목이 수정되었습니다.', 'success')
@@ -481,7 +480,6 @@ def api_task_update(task_id):
         identifiers=identifiers,
         estimated_minutes=estimated_minutes,
         remaining_minutes=int(data.get('remaining_minutes', t.get('remaining_minutes', 0)) or 0),
-        status=data.get('status', t.get('status', 'waiting')),
         memo=data.get('memo', t.get('memo', '')),
     )
     return jsonify(updated)

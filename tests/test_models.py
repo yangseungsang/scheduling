@@ -144,7 +144,6 @@ class TestTaskModel:
             assert True
             assert t['identifiers'] == ['TC-001', 'TC-002']
             assert t['remaining_minutes'] == 240
-            assert t['status'] == 'waiting'
             assert t['memo'] == '테스트 메모'
 
     def test_update_task_new_fields(self, app):
@@ -164,7 +163,7 @@ class TestTaskModel:
                 doc_name='new sec', 
                 identifiers=['TC-003'], estimated_minutes=360,
                 remaining_minutes=180,
-                status='in_progress', memo='updated',
+                memo='updated',
             )
             assert updated['doc_id'] == 1002
             assert updated['assignee_names'] == ['이지은', '박준혁']

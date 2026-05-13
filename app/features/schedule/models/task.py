@@ -107,7 +107,6 @@ class TaskRepository(BaseRepository):
             'estimated_minutes': estimated_minutes,
             # remaining_minutes: 아직 배치되지 않은 잔여 시간 (초기값 = 예상 시간)
             'remaining_minutes': estimated_minutes,
-            'status': 'waiting',
             'memo': memo,
             'created_at': datetime.now().isoformat(timespec='seconds'),
         }
@@ -116,7 +115,7 @@ class TaskRepository(BaseRepository):
     @classmethod
     def update(cls, task_id, doc_id, assignee_names, location_id,
                doc_name, identifiers,
-               estimated_minutes, remaining_minutes, status, memo='',
+               estimated_minutes, remaining_minutes, memo='',
                version_id=''):
         """기존 태스크를 수정한다.
 
@@ -129,7 +128,6 @@ class TaskRepository(BaseRepository):
             identifiers: 시험 식별자 목록
             estimated_minutes: 총 예상 소요 시간(분)
             remaining_minutes: 잔여 시간(분)
-            status: 태스크 상태 ('waiting', 'scheduled', 'done' 등)
             memo: 메모 (기본값: 빈 문자열)
             version_id: 버전 ID (기본값: 빈 문자열)
 
@@ -146,7 +144,6 @@ class TaskRepository(BaseRepository):
             identifiers=identifiers or [],
             estimated_minutes=estimated_minutes,
             remaining_minutes=remaining_minutes,
-            status=status,
             memo=memo,
         )
 
