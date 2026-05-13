@@ -110,7 +110,8 @@ class ExecutionRepository:
             return None
         now = datetime.now().isoformat(timespec='seconds')
         segments = list(ex['segments'])
-        if segments:
+        # Only close open segments — if paused, last segment already has end set
+        if segments and segments[-1]['end'] is None:
             segments[-1] = {**segments[-1], 'end': now}
         total_count = ex.get('total_count', 0)
         fail_count = int(fail_count)

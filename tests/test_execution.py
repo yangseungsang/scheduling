@@ -120,6 +120,38 @@ class TestExecutionRepository:
             result = ExecutionRepository.complete(ex['id'], fail_count=1)
             assert result is None
 
+    def test_complete_while_paused_does_not_add_time(self, exec_app):
+        """일시정지 상태에서 완료해도 세그먼트 end 시각이 변경되지 않아야 한다."""
+        import json
+        with exec_app.app_context():
+            from app.features.execution.models.execution import ExecutionRepository
+            from flask import current_app
+            import os
+
+            closed_end = '2026-05-13T10:00:00'
+            ex = {
+                'id': 'ex_test_paused',
+                'identifier_id': 'TC-014',
+                'task_id': 't_001',
+                'status': 'paused',
+                'segments': [{'start': '2026-05-13T09:00:00', 'end': closed_end}],
+                'total_count': 10, 'fail_count': 0, 'block_count': 0, 'pass_count': 0,
+                'comment': '', 'performer': '',
+                'created_at': '2026-05-13T09:00:00', 'completed_at': None,
+            }
+            data_file = os.path.join(
+                current_app.config['EXECUTION_DATA_DIR'], 'executions.json'
+            )
+            with open(data_file, 'w') as f:
+                json.dump([ex], f)
+
+            result = ExecutionRepository.complete('ex_test_paused', fail_count=1, block_count=0)
+            assert result['segments'][-1]['end'] == closed_end, (
+                f"Expected end={closed_end!r}, got {result['segments'][-1]['end']!r} — "
+                "paused segment was overwritten with current time"
+            )
+            assert result['status'] == 'completed'
+
 
 class TestExecutionAPI:
     def test_start(self, exec_client):
