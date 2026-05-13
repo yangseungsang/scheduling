@@ -162,23 +162,31 @@ def task_list():
     exec_by_identifier = {ex['identifier_id']: ex for ex in all_executions}
 
     execution_status_map = {}
+    execution_minutes_map = {}  # task_id → 완료된 식별자의 예상시간 합계
     for t in tasks_all:
         tid = t['id']
         identifiers = t.get('identifiers', [])
         if not identifiers:
             execution_status_map[tid] = 'pending'
+            execution_minutes_map[tid] = 0
             continue
         statuses = []
+        completed_minutes = 0
         for idf in identifiers:
             iid = idf['id'] if isinstance(idf, dict) else idf
+            est = idf.get('estimated_minutes', 0) if isinstance(idf, dict) else 0
             ex = exec_by_identifier.get(iid)
-            statuses.append(ex['status'] if ex else 'pending')
+            s = ex['status'] if ex else 'pending'
+            statuses.append(s)
+            if s == 'completed':
+                completed_minutes += est
         if all(s == 'completed' for s in statuses):
             execution_status_map[tid] = 'completed'
         elif any(s in ('in_progress', 'paused', 'completed') for s in statuses):
             execution_status_map[tid] = 'in_progress'
         else:
             execution_status_map[tid] = 'pending'
+        execution_minutes_map[tid] = completed_minutes
 
     # status 필터: execution 기반 상태 적용 (#108)
     if status:
@@ -205,6 +213,7 @@ def task_list():
                            schedule_status_map=schedule_status_map,
                            split_info_map=split_info_map,
                            execution_status_map=execution_status_map,
+                           execution_minutes_map=execution_minutes_map,
                            filters={
                                'status': status or '',
                                'assignees': assignees,

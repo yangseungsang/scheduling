@@ -124,7 +124,14 @@
               {{ location_map.get(task.location_id, '-') }}
             {% endif %}
           </td>
-          <td class="text-nowrap">{{ task.remaining_minutes }}분 / {{ task.estimated_minutes }}분</td>
+          <td class="text-nowrap">
+            {% set done_min = execution_minutes_map.get(task.id, 0) %}
+            {% if done_min > 0 %}
+              <span class="text-success fw-bold">{{ done_min }}분</span> / {{ task.estimated_minutes }}분
+            {% else %}
+              {{ task.estimated_minutes }}분
+            {% endif %}
+          </td>
           <td>
             {% set exec_status = execution_status_map.get(task.id, 'pending') %}
             {% if exec_status == 'in_progress' %}
