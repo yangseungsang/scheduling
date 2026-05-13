@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}스케줄링{% endblock %}</title>
+  <link href="{{ url_for('static', filename='schedule/vendor/bootstrap.min.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='schedule/vendor/bootstrap-icons.css') }}" rel="stylesheet">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  {% block content %}{% endblock %}
+  <script src="{{ url_for('static', filename='schedule/vendor/bootstrap.bundle.min.js') }}"></script>
+  {% block script %}{% endblock %}
+</body>
+</html>

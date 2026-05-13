@@ -1,15 +1,16 @@
-{% extends "execution/base.html" %}
-{% block title %}시험 실행{% endblock %}
+{% extends "layouts/base.html" %}
+{% block title %}시험 실행 목록{% endblock %}
 
-{% block toolbar_right %}
-<button id="btn-fullscreen" class="btn btn-sm btn-outline-light" title="전체화면">
-  <i class="bi bi-fullscreen" id="fullscreen-icon"></i>
-</button>
+{% block head %}
+<link href="{{ url_for('static', filename='execution/css/style.css') }}?v={{ cache_bust }}" rel="stylesheet">
+<style>
+  html, body { height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; margin: 0; }
+</style>
 {% endblock %}
 
-{% block main_class %}d-flex flex-column h-100 overflow-hidden{% endblock %}
-
 {% block content %}
+<div class="d-flex flex-column h-100 overflow-hidden">
 <!-- 페이지 헤더 -->
 <div class="exec-page-header">
   <div class="exec-page-title">
@@ -72,9 +73,10 @@
     </tbody>
   </table>
 </div>
+</div>
 {% endblock %}
 
-{% block scripts %}
+{% block script %}
 <script>var BARCODE_PREFIX = {{ barcode_prefix | tojson }};</script>
 <script src="{{ url_for('static', filename='execution/js/execution-app.js') }}?v={{ cache_bust }}"></script>
 {% endblock %}
