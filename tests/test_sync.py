@@ -238,6 +238,116 @@ class TestSyncTestData:
             t = task.get_by_doc_id(1)
             assert t['status'] == 'cancelled'
 
+    def test_sync_creates_exam_no_tasks_from_cache(self):
+        """std_list 캐시가 있으면 (doc_id, exam_no) 조합별로 태스크를 생성한다."""
+        from unittest.mock import patch
+
+        class MockProvider(BaseProvider):
+            def get_versions(self): return []
+            def get_test_data(self, version_id): return []
+            def get_test_data_all(self):
+                return [{
+                    'doc_id': 1,
+                    'doc_name': '시스템 초기화',
+                    'version_id': 'VER-001',
+                    'identifiers': [
+                        {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                        {'id': 'TC-002', 'estimated_minutes': 90, 'owners': []},
+                    ],
+                }]
+
+        fake_cache = [
+            {'test_info': 'TC-001', 'exam_no': 1},
+            {'test_info': 'TC-001', 'exam_no': 2},
+            {'test_info': 'TC-002', 'exam_no': 1},
+        ]
+
+        with self.app.app_context():
+            with patch(
+                'app.features.schedule.services.sync.load_std_list_cache',
+                return_value=fake_cache,
+            ):
+                result = SyncService.sync_test_data(MockProvider())
+
+            assert result['added'] == 2  # exam_no=1(TC-001,TC-002), exam_no=2(TC-001)
+            tasks = task.get_all()
+            assert len(tasks) == 2
+
+            exam1 = next(t for t in tasks if t.get('exam_no') == 1)
+            exam2 = next(t for t in tasks if t.get('exam_no') == 2)
+
+            assert len(exam1['identifiers']) == 2  # TC-001, TC-002
+            assert len(exam2['identifiers']) == 1  # TC-001만
+
+    def test_sync_no_cache_creates_single_task(self):
+        """std_list 캐시가 비어 있으면 exam_no=None 태스크 1개를 생성한다."""
+        from unittest.mock import patch
+
+        class MockProvider(BaseProvider):
+            def get_versions(self): return []
+            def get_test_data(self, version_id): return []
+            def get_test_data_all(self):
+                return [{
+                    'doc_id': 2,
+                    'doc_name': '항법 연산',
+                    'version_id': 'VER-001',
+                    'identifiers': [
+                        {'id': 'TC-010', 'estimated_minutes': 30, 'owners': []},
+                    ],
+                }]
+
+        with self.app.app_context():
+            with patch(
+                'app.features.schedule.services.sync.load_std_list_cache',
+                return_value=[],
+            ):
+                result = SyncService.sync_test_data(MockProvider())
+
+            assert result['added'] == 1
+            tasks = task.get_all()
+            assert len(tasks) == 1
+            assert tasks[0].get('exam_no') is None
+
+    def test_sync_cancels_old_exam_no_none_when_cache_appears(self):
+        """기존 exam_no=None 태스크가 있을 때 캐시가 생기면 자동 cancelled 처리한다."""
+        from unittest.mock import patch
+
+        class MockProvider(BaseProvider):
+            def get_versions(self): return []
+            def get_test_data(self, version_id): return []
+            def get_test_data_all(self):
+                return [{
+                    'doc_id': 1,
+                    'doc_name': '시스템',
+                    'version_id': 'VER-001',
+                    'identifiers': [
+                        {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                    ],
+                }]
+
+        with self.app.app_context():
+            # 먼저 exam_no=None 태스크 생성
+            with patch('app.features.schedule.services.sync.load_std_list_cache',
+                       return_value=[]):
+                SyncService.sync_test_data(MockProvider())
+
+            old_task = task.get_all()[0]
+            assert old_task.get('exam_no') is None
+
+            # 이번에는 캐시에 exam_no 데이터가 생김
+            fake_cache = [{'test_info': 'TC-001', 'exam_no': 1}]
+            with patch('app.features.schedule.services.sync.load_std_list_cache',
+                       return_value=fake_cache):
+                SyncService.sync_test_data(MockProvider())
+
+            tasks = task.get_all()
+            # exam_no=None 태스크는 cancelled, exam_no=1 태스크가 새로 생성됨
+            cancelled = [t for t in tasks if t.get('status') == 'cancelled']
+            active = [t for t in tasks if t.get('status') != 'cancelled']
+            assert len(cancelled) == 1
+            assert len(active) == 1
+            assert active[0]['exam_no'] == 1
+
 
 # ===========================================================================
 # TestSyncAPI
