@@ -118,6 +118,13 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         else:
             # 일반 블록: 문서명 우선, 없으면 문서 ID, 태스크 삭제 시 '(삭제됨)'
             block['task_title'] = t.get('doc_name') or str(t.get('doc_id', '(삭제됨)')) if t else '(삭제됨)'
+        exam_no = t.get('exam_no') if t else None
+        block['exam_no'] = exam_no
+        if is_simple:
+            block['display_name'] = b.get('title', '(블록)')
+        else:
+            base = t.get('doc_name', '') if t else ''
+            block['display_name'] = f'{base} ({exam_no}차)' if exam_no is not None else base
         block['assignee_names'] = assignee_name_list
         block['assignee_name'] = ', '.join(assignee_name_list) if assignee_name_list else '(미배정)'
         # 첫 번째 담당자의 색상을 대표 색상으로 사용
@@ -286,6 +293,10 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
         task_item = dict(t)
         task_item['remaining_unscheduled_minutes'] = remaining
         task_item['section_color'] = _section_color(t.get('doc_name', ''))
+        exam_no = t.get('exam_no')
+        task_item['exam_no'] = exam_no
+        doc_nm = t.get('doc_name', '')
+        task_item['display_name'] = f'{doc_nm} ({exam_no}차)' if exam_no is not None else doc_nm
 
         # 담당자 이름/색상 추가 (값 자체가 이름)
         raw_assignee_names = t.get('assignee_names', [])
@@ -310,8 +321,9 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
 
         queue.append(task_item)
 
-    # 문서명 → 문서ID 순으로 정렬
-    queue.sort(key=lambda t: t.get('doc_name', '') or str(t.get('doc_id', '')))
+    # 문서명 → 문서ID → 차수 순으로 정렬
+    queue.sort(key=lambda t: (t.get('doc_name', '') or str(t.get('doc_id', '')),
+                               t.get('exam_no') or 0))
     return queue
 
 
