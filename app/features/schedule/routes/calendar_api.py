@@ -522,9 +522,16 @@ def api_export():
     version_name = versions[0]['name'] if versions else ''
 
     from app.features.schedule.services.export import export_xlsx, export_csv
+    from urllib.parse import quote
 
     safe_ver = version_name.replace('/', '_').replace('\\', '_') if version_name else ''
     filename_base = f'schedule_{safe_ver}_{start_date}_{end_date}' if safe_ver else f'schedule_{start_date}_{end_date}'
+
+    def _content_disposition(filename):
+        # RFC 5987: filename* 로 non-ASCII 파일명을 올바르게 인코딩
+        encoded = quote(filename, safe='')
+        ascii_name = filename.encode('ascii', errors='ignore').decode()
+        return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded}"
 
     if fmt == 'xlsx':
         try:
@@ -532,15 +539,21 @@ def api_export():
             return Response(
                 data,
                 mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                headers={'Content-Disposition': f'attachment; filename="{filename_base}.xlsx"'},
+                headers={'Content-Disposition': _content_disposition(f'{filename_base}.xlsx')},
             )
         except ImportError:
+            import logging
+            logging.getLogger(__name__).warning('openpyxl 없음 — CSV로 대체')
+            fmt = 'csv'
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception('xlsx 생성 실패 — CSV로 대체')
             fmt = 'csv'
 
     return Response(
         export_csv(enriched),
-        mimetype='text/csv; charset=utf-8',
-        headers={'Content-Disposition': f'attachment; filename="{filename_base}.csv"'},
+        content_type='text/csv; charset=utf-8',
+        headers={'Content-Disposition': _content_disposition(f'{filename_base}.csv')},
     )
 
 
