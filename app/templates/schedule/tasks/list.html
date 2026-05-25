@@ -108,7 +108,7 @@
         {% for task in tasks %}
         <tr class="task-row" onclick="location.href='{{ url_for('tasks.task_detail', task_id=task.id) }}'">
           <td class="task-cell-title fw-bold">
-            {{ task.doc_name or '-' }}
+            {{ task.display_name or task.doc_name or '-' }}
           </td>
           <td>
             {% for name in task.assignee_names %}

@@ -101,14 +101,14 @@
                        data-location-name="{{ block.location_name }}"
                        data-estimated-minutes="{{ block.estimated_minutes }}"
                        data-identifier-ids='{{ block.identifier_ids|tojson if block.identifier_ids else "" }}'
-                       title="{{ block.doc_name or block.task_title }} ({{ block.assignee_name }}) {{ block.start_time }}–{{ block.end_time }}"
+                       title="{{ block.display_name or block.task_title }} ({{ block.assignee_name }}) {{ block.start_time }}–{{ block.end_time }}"
                        style="top: {{ top_px }}px; height: {{ height_px }}px; background-color: {{ block.color }};">
                     <div class="resize-handle resize-handle-top"></div>
                     <div class="block-title">
                       {% if block.block_status == 'in_progress' %}<i class="bi bi-play-fill" style="color:#fff;font-size:0.65rem"></i>
                       {% elif block.block_status == 'completed' %}<i class="bi bi-check-lg" style="color:#fff;font-size:0.65rem"></i>
                       {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-lg" style="color:#fff;font-size:0.65rem"></i>
-                      {% endif %}{{ block.doc_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %}
+                      {% endif %}{{ block.display_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %}
                     </div>
                     <div class="block-info">
                       <span class="block-time">{{ block.start_time }}–{{ block.end_time }}</span>

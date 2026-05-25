@@ -228,6 +228,10 @@ def task_list():
                 tasks_all = [t for t in tasks_all
                              if execution_status_map.get(t['id']) == exec_status_filter]
 
+    from app.features.schedule.models.task import display_name as make_display_name
+    for t in tasks_all:
+        t['display_name'] = make_display_name(t)
+
     return render_template('schedule/tasks/list.html',
                            tasks=tasks_all, users=users,
                            locations=locations, versions=versions,
@@ -335,6 +339,9 @@ def task_detail(task_id):
     from app.features.execution.models.execution import ExecutionRepository
     all_executions = ExecutionRepository.get_all()
     identifier_execution = {ex['identifier_id']: ex for ex in all_executions}
+
+    from app.features.schedule.models.task import display_name as make_display_name
+    t['display_name'] = make_display_name(t)
 
     return render_template('schedule/tasks/detail.html', task=t,
                            assignee_names=assignee_names,

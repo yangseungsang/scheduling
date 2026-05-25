@@ -33,7 +33,7 @@
          data-location-id="{{ task.location_id }}"
          data-remaining-minutes="{{ task.remaining_unscheduled_minutes }}"
          data-estimated-minutes="{{ task.estimated_minutes }}"
-         data-title="{{ task.doc_name or task.doc_id }}"
+         data-title="{{ task.display_name or task.doc_id }}"
          data-location-name="{{ task.location_name }}"
          data-assignee-name="{{ task.assignee_name }}"
          data-queue-color="{{ queue_color }}"
@@ -41,7 +41,7 @@
       <div class="queue-card-color" style="background:{{ queue_color if not task.get('is_simple') else '#94a3b8' }}"></div>
       <div class="queue-card-body">
         <div class="queue-card-top">
-          <span class="queue-card-section-title">{{ task.doc_name }}</span>
+          <span class="queue-card-section-title">{{ task.display_name or task.doc_name }}</span>
           {% if task.get('is_simple') %}<span class="badge bg-secondary" style="font-size:0.6rem;vertical-align:middle;margin-left:4px">준비</span>{% endif %}
         </div>
         <div class="queue-card-assignee" style="font-size:0.7rem;color:#6b7280">
