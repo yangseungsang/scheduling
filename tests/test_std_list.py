@@ -56,6 +56,10 @@ def test_save_and_load_cache(tmp_path):
 
 def test_fetch_from_mysql_returns_rows():
     """MySQL 연결 성공 시 test_info, exam_no 행을 반환한다."""
+    from app.features.schedule.models import std_list as std_list_mod
+    import importlib
+    importlib.reload(std_list_mod)
+
     mock_cursor = MagicMock()
     mock_cursor.__enter__ = lambda s: mock_cursor
     mock_cursor.__exit__ = MagicMock(return_value=False)
@@ -69,9 +73,7 @@ def test_fetch_from_mysql_returns_rows():
 
     with patch('app.features.schedule.models.std_list.pymysql.connect',
                return_value=mock_conn):
-        from app.features.schedule.models import std_list
-        import importlib; importlib.reload(std_list)
-        result = std_list.fetch_from_mysql()
+        result = std_list_mod.fetch_from_mysql()
 
     assert len(result) == 3
     assert result[0] == {'test_info': 'TC-001', 'exam_no': 1}
