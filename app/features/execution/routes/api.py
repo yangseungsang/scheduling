@@ -162,12 +162,17 @@ def _build_item_dict(task, identifier, locations, scheduled_date, block_loc_id='
     # 블록 장소가 있으면 우선, 없으면 태스크 장소로 폴백
     loc_id = block_loc_id or task.get('location_id', '')
     loc_name = locations.get(loc_id, {}).get('name', '') if loc_id else ''
-    execution = ExecutionRepository.get_by_identifier(iid)
+    execution = ExecutionRepository.get_by_identifier_and_task(iid, task['id'])
+    exam_no = task.get('exam_no')
+    doc_name = task.get('doc_name', '')
+    display_name = f'{doc_name} ({exam_no}차)' if exam_no is not None else doc_name
     return {
         'identifier_id': iid,
         'identifier_name': identifier.get('name', ''),
         'task_id': task['id'],
-        'doc_name': task.get('doc_name', ''),
+        'exam_no': exam_no,
+        'doc_name': doc_name,
+        'display_name': display_name,
         'assignee_names': task.get('assignee_names', []),
         'estimated_minutes': identifier.get('estimated_minutes', 0),
         'location_id': loc_id,
@@ -214,8 +219,11 @@ def execution_list():
 @api_bp.route('/item/<identifier_id>')
 def get_item(identifier_id):
     """단일 식별자의 상세 실행 정보를 반환한다."""
+    task_id_filter = request.args.get('task_id', '')
     tasks, locations, date_map, block_loc_map = _load_schedule_data()
     for task in tasks:
+        if task_id_filter and task['id'] != task_id_filter:
+            continue
         for identifier in task.get('identifiers', []):
             if not isinstance(identifier, dict):
                 continue
