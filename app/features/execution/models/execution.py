@@ -56,6 +56,15 @@ class ExecutionRepository:
                 return item
         return None
 
+    @classmethod
+    def get_by_identifier_and_task(cls, identifier_id: str, task_id: str):
+        """(identifier_id, task_id) 조합으로 실행 레코드를 조회한다."""
+        for item in read_json(FILENAME):
+            if (item['identifier_id'] == identifier_id
+                    and item.get('task_id') == task_id):
+                return item
+        return None
+
     @staticmethod
     def compute_elapsed_seconds(segments):
         """segments 리스트를 기반으로 실제 경과 시간(초)을 계산한다.
@@ -108,7 +117,7 @@ class ExecutionRepository:
             total_count: 전체 시험 케이스 수
         """
         now = datetime.now().isoformat(timespec='seconds')
-        existing = cls.get_by_identifier(identifier_id)
+        existing = cls.get_by_identifier_and_task(identifier_id, task_id)
         if existing:
             # 이미 레코드가 있으면 새 레코드를 만들지 않고 기존 레코드를 초기화하여 재사용
             return cls._patch(
