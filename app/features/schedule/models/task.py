@@ -80,7 +80,7 @@ class TaskRepository(BaseRepository):
     def create(cls, doc_id, assignee_names, location_id,
                doc_name, identifiers,
                estimated_minutes, memo='',
-               version_id='', **kwargs):
+               version_id='', exam_no=None, **kwargs):
         """새 태스크를 생성한다.
 
         Args:
@@ -100,6 +100,7 @@ class TaskRepository(BaseRepository):
         data = {
             'doc_id': doc_id,
             'version_id': version_id,
+            'exam_no': exam_no,
             'assignee_names': assignee_names or [],
             'location_id': location_id,
             'doc_name': doc_name,
@@ -177,6 +178,30 @@ class TaskRepository(BaseRepository):
                 return t
         return None
 
+    @classmethod
+    def get_by_doc_and_exam(cls, doc_id, exam_no):
+        """(doc_id, exam_no) 조합으로 태스크를 조회한다.
+
+        exam_no=None이면 exam_no 필드가 없거나 None인 태스크를 찾는다.
+        """
+        try:
+            target = int(doc_id)
+        except (TypeError, ValueError):
+            return None
+        for t in cls.get_all():
+            if t.get('doc_id') == target and t.get('exam_no') == exam_no:
+                return t
+        return None
+
+    @staticmethod
+    def display_name(task_dict):
+        """exam_no가 있으면 'doc_name (N차)', 없으면 doc_name."""
+        name = task_dict.get('doc_name', '')
+        exam_no = task_dict.get('exam_no')
+        if exam_no is not None:
+            return f'{name} ({exam_no}차)'
+        return name
+
 
 # 하위 호환성을 위한 모듈 수준 별칭
 get_all = TaskRepository.get_all
@@ -188,3 +213,5 @@ delete = TaskRepository.delete
 validate_unique_identifiers = TaskRepository.validate_unique_identifiers
 compute_estimated_minutes = TaskRepository.compute_estimated_minutes
 get_by_doc_id = TaskRepository.get_by_doc_id
+get_by_doc_and_exam = TaskRepository.get_by_doc_and_exam
+display_name = TaskRepository.display_name
