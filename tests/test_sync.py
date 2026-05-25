@@ -274,3 +274,42 @@ class TestSyncAPI:
             data = resp.get_json()
             assert 'versions' in data
             assert 'tasks' in data
+
+
+# ===========================================================================
+# TestSyncStdListAPI (추가)
+# ===========================================================================
+
+class TestSyncStdListAPI:
+
+    @pytest.fixture(autouse=True)
+    def setup(self, tmp_path):
+        self.app = _make_app(tmp_path)
+
+    def test_sync_std_list_success(self):
+        """MySQL 조회 성공 시 캐시를 저장하고 200을 반환한다."""
+        from unittest.mock import patch
+        fake_rows = [
+            {'test_info': 'TC-001', 'exam_no': 1},
+            {'test_info': 'TC-001', 'exam_no': 2},
+        ]
+        with self.app.test_client() as c:
+            with patch(
+                'app.features.schedule.models.std_list.fetch_from_mysql',
+                return_value=fake_rows,
+            ):
+                r = c.post('/api/sync/std-list')
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['cached'] == 2
+
+    def test_sync_std_list_mysql_failure(self):
+        """MySQL 접속 실패 시 503을 반환한다."""
+        from unittest.mock import patch
+        with self.app.test_client() as c:
+            with patch(
+                'app.features.schedule.models.std_list.fetch_from_mysql',
+                side_effect=Exception('connection refused'),
+            ):
+                r = c.post('/api/sync/std-list')
+        assert r.status_code == 503

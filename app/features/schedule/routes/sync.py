@@ -6,9 +6,13 @@
 전체 리셋 후 재동기화 기능도 포함한다.
 """
 
+import logging as _logging
+
 from flask import Blueprint, jsonify, request
 from app.features.schedule.providers import get_provider
 from app.features.schedule.services.sync import SyncService
+
+_logger = _logging.getLogger(__name__)
 
 # 동기화 관련 API가 등록되는 블루프린트
 sync_bp = Blueprint('sync', __name__, url_prefix='/api/sync')
@@ -98,3 +102,16 @@ def sync_status():
         'versions': len(version.get_all()),
         'tasks': len(task.get_all()),
     })
+
+
+@sync_bp.route('/std-list', methods=['POST'])
+def sync_std_list():
+    """MySQL std_list 테이블에서 exam_no 정보를 가져와 로컬 캐시에 저장한다."""
+    from app.features.schedule.models import std_list as std_list_model
+    try:
+        rows = std_list_model.fetch_from_mysql()
+    except Exception as e:
+        _logger.error('std_list MySQL 조회 실패: %s', e)
+        return jsonify({'error': str(e)}), 503
+    std_list_model.save_cache(rows)
+    return jsonify({'cached': len(rows)})
