@@ -252,7 +252,7 @@ function renderPage() {
     <div class="sidebar-section">
       <div class="sidebar-field">
         <div class="sidebar-field-label">문서</div>
-        <div class="sidebar-field-value">${escHtml(item.doc_name || '-')}</div>
+        <div class="sidebar-field-value">${escHtml(item.display_name || item.doc_name || '-')}</div>
       </div>
       <div class="sidebar-field">
         <div class="sidebar-field-label">담당자</div>

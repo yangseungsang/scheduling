@@ -386,7 +386,7 @@ function buildRow(item) {
   const assignee = (item.assignee_names || []).join(', ') || '-';
   const status = item.execution?.status || 'pending';
   const cells = [];
-  if (colVisible('doc'))        cells.push(`<td class="td-doc">${escHtml(item.doc_name || '-')}</td>`);
+  if (colVisible('doc'))        cells.push(`<td class="td-doc">${escHtml(item.display_name || item.doc_name || '-')}</td>`);
   if (colVisible('identifier')) cells.push(`<td class="td-id">${escHtml(item.identifier_id)}</td>`);
   if (colVisible('name'))       cells.push(`<td class="td-name">${escHtml(item.identifier_name)}${renderCommentIcon(item)}</td>`);
   if (colVisible('assignee'))   cells.push(`<td class="td-meta">${escHtml(assignee)}</td>`);
