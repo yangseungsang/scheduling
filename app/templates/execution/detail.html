@@ -25,6 +25,7 @@
 {% block scripts %}
 <script>
   var IDENTIFIER_ID = {{ identifier_id | tojson }};
+  var TASK_ID = {{ task_id | tojson }};
   var BARCODE_PREFIX = {{ barcode_prefix | tojson }};
 </script>
 <script src="{{ url_for('static', filename='execution/js/execution-detail.js') }}?v={{ cache_bust }}"></script>

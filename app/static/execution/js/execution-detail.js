@@ -498,10 +498,12 @@ function _attachHandlers() {
 
 /**
  * 식별자별 localStorage 키를 반환한다.
- * IDENTIFIER_ID가 없는 환경(테스트 등)에서도 충돌하지 않도록 빈 문자열을 허용한다.
+ * TASK_ID를 포함해 원본/재시험이 같은 identifier_id를 가져도 충돌하지 않는다.
  */
 function _pendingCommentKey() {
-  return `pending_comment_${typeof IDENTIFIER_ID !== 'undefined' ? IDENTIFIER_ID : ''}`;
+  const iid = typeof IDENTIFIER_ID !== 'undefined' ? IDENTIFIER_ID : '';
+  const tid = typeof TASK_ID !== 'undefined' ? TASK_ID : '';
+  return `pending_comment_${iid}_${tid}`;
 }
 
 /** _pendingComment를 갱신하고 localStorage에도 백업한다. */
@@ -814,8 +816,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch { /* 무시 */ }
 
   try {
-    // IDENTIFIER_ID는 Jinja2 템플릿이 <script>로 주입하는 전역 변수다.
-    _item = await apiFetch(`/execution/api/item/${encodeURIComponent(IDENTIFIER_ID)}`);
+    // IDENTIFIER_ID, TASK_ID는 Jinja2 템플릿이 <script>로 주입하는 전역 변수다.
+    const taskParam = typeof TASK_ID !== 'undefined' && TASK_ID
+      ? `?task_id=${encodeURIComponent(TASK_ID)}` : '';
+    _item = await apiFetch(`/execution/api/item/${encodeURIComponent(IDENTIFIER_ID)}${taskParam}`);
     if (!_isStarted(_item.execution)) {
       // pending 상태: 이전에 미리 입력해 둔 코멘트를 localStorage에서 복원한다.
       _pendingComment = _item.execution?.comment || _loadPendingComment();
