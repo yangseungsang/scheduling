@@ -7,6 +7,7 @@ exam_no 기반 태스크 분리: std_list_cache.json의 데이터를 참조하�
 """
 
 from app.features.schedule.models import version, task
+from app.features.schedule.providers.base import NoChangesError
 from app.config import OfpidSettings
 
 
@@ -61,18 +62,22 @@ class SyncService:
         Returns:
             dict: {'added': int, 'updated': int, 'cancelled': int, 'warnings': list}
         """
+        try:
+            if version_id:
+                external = provider.get_test_data(version_id)
+            else:
+                external = provider.get_test_data_all()
+        except NoChangesError as exc:
+            return {'skipped': True, 'reason': 'no_change', 'updated_at': str(exc)}
+
         # exam_no 맵 구성: test_info → {exam_no, ...}
+        # 항목에 이미 'exam_no' 키가 있으면(dyn_ready 형식) 이 맵은 사용하지 않는다.
         exam_no_map = {}
         for row in load_std_list_cache():
             ti = row.get('test_info', '')
             en = row.get('exam_no')
             if ti and en is not None:
                 exam_no_map.setdefault(ti, set()).add(en)
-
-        if version_id:
-            external = provider.get_test_data(version_id)
-        else:
-            external = provider.get_test_data_all()
 
         synced_combos = set()  # {(doc_id, exam_no)} 이번 sync에서 처리한 조합
         added = updated = cancelled = 0
@@ -91,24 +96,27 @@ class SyncService:
                    or OfpidSettings.get_current_ofp_id()
                    or '')
 
-            # 이 문서의 식별자들이 갖는 exam_no 집합
-            doc_exam_nos = set()
-            for ident in identifiers:
-                ident_id = ident.get('id', '') if isinstance(ident, dict) else ident
-                doc_exam_nos.update(exam_no_map.get(ident_id, set()))
-
-            if not doc_exam_nos:
-                # exam_no 정보 없음 → exam_no=None 태스크 1개
-                combos_to_sync = [(None, identifiers)]
+            # dyn_ready 형식: item에 exam_no가 직접 포함 → 바로 사용
+            if 'exam_no' in item:
+                combos_to_sync = [(item['exam_no'], identifiers)]
             else:
-                combos_to_sync = []
-                for exam_no in sorted(doc_exam_nos):
-                    filtered = [
-                        i for i in identifiers
-                        if isinstance(i, dict)
-                        and exam_no in exam_no_map.get(i.get('id', ''), set())
-                    ]
-                    combos_to_sync.append((exam_no, filtered))
+                # 구 형식: std_list 캐시에서 exam_no 조회
+                doc_exam_nos = set()
+                for ident in identifiers:
+                    ident_id = ident.get('id', '') if isinstance(ident, dict) else ident
+                    doc_exam_nos.update(exam_no_map.get(ident_id, set()))
+
+                if not doc_exam_nos:
+                    combos_to_sync = [(None, identifiers)]
+                else:
+                    combos_to_sync = []
+                    for exam_no in sorted(doc_exam_nos):
+                        filtered = [
+                            i for i in identifiers
+                            if isinstance(i, dict)
+                            and exam_no in exam_no_map.get(i.get('id', ''), set())
+                        ]
+                        combos_to_sync.append((exam_no, filtered))
 
             for exam_no, idents in combos_to_sync:
                 est_minutes = sum(

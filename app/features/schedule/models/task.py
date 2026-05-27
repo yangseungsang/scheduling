@@ -25,21 +25,20 @@ class TaskRepository(BaseRepository):
     ID_PREFIX = 't_'
 
     @classmethod
-    def validate_unique_identifiers(cls, identifiers, exclude_task_id=None):
-        """식별자 ID의 전역 고유성을 검증한다.
+    def validate_unique_identifiers(cls, identifiers, exclude_task_id=None, exam_no=None):
+        """식별자 ID의 고유성을 검증한다.
 
-        새로 추가하려는 identifiers의 식별자 ID가
-        다른 태스크에 이미 존재하는지 확인한다.
+        같은 exam_no를 가진 태스크 내에서만 중복을 검사한다.
+        재시험(exam_no가 다른 태스크)은 동일한 식별자 ID를 허용한다.
 
         Args:
             identifiers: 검증할 식별자 목록 (dict 리스트, 각 dict에 'id' 키 포함)
-            exclude_task_id: 검증에서 제외할 태스크 ID
-                (태스크 수정 시 자기 자신의 식별자는 제외해야 함)
+            exclude_task_id: 검증에서 제외할 태스크 ID (수정 시 자기 자신 제외)
+            exam_no: 현재 태스크의 exam_no. 동일한 exam_no를 가진 태스크만 비교한다.
 
         Returns:
             list[str]: 중복된 식별자 ID 리스트. 중복이 없으면 빈 리스트.
         """
-        # identifiers에서 dict 형태인 항목의 ID만 추출
         new_ids = [item['id'] for item in identifiers if isinstance(item, dict)]
         if not new_ids:
             return []
@@ -47,11 +46,12 @@ class TaskRepository(BaseRepository):
         from app.features.schedule.store import read_json
         existing_ids = set()
         for t in read_json(cls.FILENAME):
-            # 수정 중인 태스크 자신은 중복 검사에서 제외
             if exclude_task_id and t['id'] == exclude_task_id:
                 continue
+            # 재시험은 exam_no가 다르면 같은 식별자 ID를 허용
+            if t.get('exam_no') != exam_no:
+                continue
             for item in t.get('identifiers', []):
-                # identifiers 항목이 dict이면 'id' 키로, 문자열이면 그 자체가 ID
                 if isinstance(item, dict):
                     existing_ids.add(item['id'])
                 else:

@@ -7,6 +7,8 @@
     - json_file (기본): 로컬 data/*.json 파일에서 데이터를 읽는다.
     - rest_api: 외부 REST API 서버에서 데이터를 가져온다.
               API_BASE_URL 환경 변수가 설정되지 않으면 json_file로 자동 폴백.
+    - dyn_ready: 자체 /dyn_ready/std-list/grouped 엔드포인트에서 데이터를 가져온다.
+              DYN_READY_URL 환경 변수로 베이스 URL을 지정한다(기본: http://127.0.0.1:5000).
 
 사용 예:
     # 기본 (json_file)
@@ -46,4 +48,7 @@ def get_provider():
             return JsonFileProvider()
         from app.features.schedule.providers.rest_api import RestApiProvider
         return RestApiProvider()
+    if provider_type == 'dyn_ready':
+        from app.features.schedule.providers.dyn_ready import DynReadyProvider
+        return DynReadyProvider()
     raise ValueError(f'Unknown provider type: {provider_type}')

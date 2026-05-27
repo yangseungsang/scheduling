@@ -8,6 +8,10 @@
 from abc import ABC, abstractmethod
 
 
+class NoChangesError(Exception):
+    """외부 데이터가 마지막 동기화 이후 변경되지 않았을 때 발생한다."""
+
+
 class BaseProvider(ABC):
     """외부 데이터 프로바이더의 추상 베이스 클래스.
 

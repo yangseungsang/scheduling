@@ -270,8 +270,8 @@ def task_new():
         # identifiers가 있으면 식별자 시간 합계 사용, 없으면 직접 입력값 사용
         estimated_minutes = _compute_estimated_minutes(identifiers) if identifiers else int(request.form.get('estimated_minutes', 0) or 0)
 
-        # 식별자 ID 중복 검사
-        dupes = task.validate_unique_identifiers(identifiers)
+        # 식별자 ID 중복 검사 (수동 생성은 exam_no=None)
+        dupes = task.validate_unique_identifiers(identifiers, exam_no=None)
         if dupes:
             flash(f'중복된 식별자가 있습니다: {", ".join(dupes)}', 'danger')
             return redirect(url_for('tasks.task_new'))
@@ -374,8 +374,8 @@ def task_edit(task_id):
         estimated_minutes = _compute_estimated_minutes(identifiers) if identifiers else int(request.form.get('estimated_minutes', 0) or 0)
         remaining_minutes = int(request.form.get('remaining_minutes', 0) or 0)
 
-        # 식별자 ID 중복 검사 (자기 자신은 제외)
-        dupes = task.validate_unique_identifiers(identifiers, exclude_task_id=task_id)
+        # 식별자 ID 중복 검사 (자기 자신은 제외, 같은 exam_no 내에서만 검사)
+        dupes = task.validate_unique_identifiers(identifiers, exclude_task_id=task_id, exam_no=t.get('exam_no'))
         if dupes:
             flash(f'중복된 식별자가 있습니다: {", ".join(dupes)}', 'danger')
             return redirect(url_for('tasks.task_edit', task_id=task_id))
@@ -482,8 +482,9 @@ def api_task_create():
     identifiers = data.get('identifiers') or data.get('test_list') or []
     estimated_minutes = _compute_estimated_minutes(identifiers) if identifiers else int(data.get('estimated_minutes', 0) or 0)
 
-    # 식별자 중복 검사
-    dupes = task.validate_unique_identifiers(identifiers)
+    # 식별자 중복 검사 (같은 exam_no 내에서만)
+    exam_no = data.get('exam_no')
+    dupes = task.validate_unique_identifiers(identifiers, exam_no=exam_no)
     if dupes:
         return jsonify({'error': f'중복된 식별자: {", ".join(dupes)}'}), 400
 
@@ -524,8 +525,8 @@ def api_task_update(task_id):
     identifiers = data.get('identifiers') or data.get('test_list') or t.get('identifiers', [])
     estimated_minutes = _compute_estimated_minutes(identifiers) if identifiers else int(data.get('estimated_minutes', 0) or 0)
 
-    # 식별자 중복 검사 (자기 자신은 제외)
-    dupes = task.validate_unique_identifiers(identifiers, exclude_task_id=task_id)
+    # 식별자 중복 검사 (자기 자신은 제외, 같은 exam_no 내에서만)
+    dupes = task.validate_unique_identifiers(identifiers, exclude_task_id=task_id, exam_no=t.get('exam_no'))
     if dupes:
         return jsonify({'error': f'중복된 식별자: {", ".join(dupes)}'}), 400
 
@@ -590,16 +591,23 @@ def api_check_identifier():
     Query Parameters:
         id (str): 확인할 식별자 ID
         exclude_task (str, optional): 중복 검사에서 제외할 태스크 ID
+        exam_no (int, optional): 현재 태스크의 exam_no (재시험 중복 허용에 사용)
 
     Returns:
         JSON: {'available': bool, 'duplicates': list}
     """
     identifier_id = request.args.get('id', '').strip()
     exclude_task = request.args.get('exclude_task', '')
+    raw_exam_no = request.args.get('exam_no', '')
+    try:
+        exam_no = int(raw_exam_no) if raw_exam_no != '' else None
+    except ValueError:
+        exam_no = None
     if not identifier_id:
         return jsonify({'available': True})
     dupes = task.validate_unique_identifiers(
         [{'id': identifier_id}],
         exclude_task_id=exclude_task or None,
+        exam_no=exam_no,
     )
     return jsonify({'available': len(dupes) == 0, 'duplicates': dupes})
