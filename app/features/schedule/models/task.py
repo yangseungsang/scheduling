@@ -195,10 +195,10 @@ class TaskRepository(BaseRepository):
 
     @staticmethod
     def display_name(task_dict):
-        """exam_no가 있으면 'doc_name (N차)', 없으면 doc_name."""
+        """exam_no가 2 이상이면 'doc_name (N차)', 1이거나 없으면 doc_name."""
         name = task_dict.get('doc_name', '')
         exam_no = task_dict.get('exam_no')
-        if exam_no is not None:
+        if exam_no is not None and exam_no != 1:
             return f'{name} ({exam_no}차)'
         return name
 

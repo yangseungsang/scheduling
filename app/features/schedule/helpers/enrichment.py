@@ -124,7 +124,7 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
             block['display_name'] = b.get('title', '(블록)')
         else:
             base = t.get('doc_name', '') if t else ''
-            block['display_name'] = f'{base} ({exam_no}차)' if exam_no is not None else base
+            block['display_name'] = f'{base} ({exam_no}차)' if exam_no is not None and exam_no != 1 else base
         block['assignee_names'] = assignee_name_list
         block['assignee_name'] = ', '.join(assignee_name_list) if assignee_name_list else '(미배정)'
         # 첫 번째 담당자의 색상을 대표 색상으로 사용
@@ -209,7 +209,10 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
 
     from app.features.execution.models.execution import ExecutionRepository
     all_executions = ExecutionRepository.get_all()
-    exec_by_identifier = {ex['identifier_id']: ex for ex in all_executions}
+    # (identifier_id, task_id) 조합을 키로 사용해 재시험 레코드가 섞이지 않게 한다.
+    exec_by_task_identifier = {
+        (ex['identifier_id'], ex.get('task_id', '')): ex for ex in all_executions
+    }
 
     queue = []
     for t in tasks:
@@ -222,8 +225,8 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
         identifiers = t.get('identifiers', [])
         if identifiers:
             exec_statuses = [
-                exec_by_identifier.get(
-                    idf['id'] if isinstance(idf, dict) else idf, {}
+                exec_by_task_identifier.get(
+                    (idf['id'] if isinstance(idf, dict) else idf, t['id']), {}
                 ).get('status', 'pending')
                 for idf in identifiers
             ]
@@ -296,7 +299,7 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
         exam_no = t.get('exam_no')
         task_item['exam_no'] = exam_no
         doc_nm = t.get('doc_name', '')
-        task_item['display_name'] = f'{doc_nm} ({exam_no}차)' if exam_no is not None else doc_nm
+        task_item['display_name'] = f'{doc_nm} ({exam_no}차)' if exam_no is not None and exam_no != 1 else doc_nm
 
         # 담당자 이름/색상 추가 (값 자체가 이름)
         raw_assignee_names = t.get('assignee_names', [])

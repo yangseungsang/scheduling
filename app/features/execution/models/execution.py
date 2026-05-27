@@ -20,6 +20,7 @@ DB 없이 store.py의 read_json/write_json을 통해 영속성을 유지한다.
         ]
 """
 
+import math
 from datetime import datetime
 
 from app.features.execution.store import read_json, write_json, generate_id
@@ -117,6 +118,10 @@ class ExecutionRepository:
             total_count: 전체 시험 케이스 수
         """
         now = datetime.now().isoformat(timespec='seconds')
+        from app.features.schedule.models import task as task_repo
+        task = task_repo.get_by_id(task_id)
+        exam_no = task.get('exam_no') if task else None
+
         existing = cls.get_by_identifier_and_task(identifier_id, task_id)
         if existing:
             # 이미 레코드가 있으면 새 레코드를 만들지 않고 기존 레코드를 초기화하여 재사용
@@ -128,11 +133,15 @@ class ExecutionRepository:
                 pass_count=0,
                 total_count=total_count,
                 completed_at=None,
+                exam_no=exam_no,
+                elapsed_seconds=0,
+                elapsed_mins=0,
             )
         data = {
             'id': generate_id(ID_PREFIX),
             'identifier_id': identifier_id,
             'task_id': task_id,
+            'exam_no': exam_no,
             'status': 'in_progress',
             'segments': [{'start': now, 'end': None}],  # 첫 번째 구간 시작
             'total_count': total_count,
@@ -143,6 +152,8 @@ class ExecutionRepository:
             'performer': '',
             'created_at': now,
             'completed_at': None,
+            'elapsed_seconds': 0,
+            'elapsed_mins': 0,
         }
         items = read_json(FILENAME)
         items.append(data)
@@ -168,7 +179,8 @@ class ExecutionRepository:
             # 마지막 구간의 end를 현재 시각으로 닫아 타이머 정지
             segments[-1] = {**segments[-1], 'end': now}
         elapsed_seconds = cls.compute_elapsed_seconds(segments)
-        return cls._patch(execution_id, status='paused', segments=segments, elapsed_seconds=elapsed_seconds)
+        elapsed_mins = math.ceil(elapsed_seconds / 60) if elapsed_seconds > 0 else 0
+        return cls._patch(execution_id, status='paused', segments=segments, elapsed_seconds=elapsed_seconds, elapsed_mins=elapsed_mins)
 
     @classmethod
     def resume(cls, execution_id):
@@ -214,6 +226,7 @@ class ExecutionRepository:
         # pass = 전체 - 실패 - 블락 (음수 방지)
         pass_count = max(0, total_count - fail_count - block_count)
         elapsed_seconds = cls.compute_elapsed_seconds(segments)
+        elapsed_mins = math.ceil(elapsed_seconds / 60) if elapsed_seconds > 0 else 0
         return cls._patch(
             execution_id,
             status='completed',
@@ -223,6 +236,7 @@ class ExecutionRepository:
             pass_count=pass_count,
             completed_at=now,
             elapsed_seconds=elapsed_seconds,
+            elapsed_mins=elapsed_mins,
         )
 
     @classmethod
@@ -255,10 +269,14 @@ class ExecutionRepository:
                 return cls._patch(existing['id'], comment=comment)
             return existing  # 이미 진행 중 — 덮어쓰지 않음
         now = datetime.now().isoformat(timespec='seconds')
+        from app.features.schedule.models import task as task_repo
+        task = task_repo.get_by_id(task_id)
+        exam_no = task.get('exam_no') if task else None
         data = {
             'id': generate_id(ID_PREFIX),
             'identifier_id': identifier_id,
             'task_id': task_id,
+            'exam_no': exam_no,
             'status': 'pending',
             'segments': [],          # 아직 시작 전이므로 구간 없음
             'total_count': 0,
@@ -270,6 +288,7 @@ class ExecutionRepository:
             'created_at': now,
             'completed_at': None,
             'elapsed_seconds': 0,
+            'elapsed_mins': 0,
         }
         items = read_json(FILENAME)
         items.append(data)
@@ -294,4 +313,5 @@ class ExecutionRepository:
             performer='',
             completed_at=None,
             elapsed_seconds=0,
+            elapsed_mins=0,
         )

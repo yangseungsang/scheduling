@@ -191,7 +191,7 @@
         '<div class="bd-box">' +
           '<div class="bd-header">' +
             '<div class="bd-header-left">' +
-              '<span class="bd-id">' + (task.doc_name || '') + '</span>' +
+              '<span class="bd-id">' + (task.display_name || task.doc_name || '') + '</span>' +
               statusBadge +
             '</div>' +
             '<button class="bd-x" id="block-detail-close">&times;</button>' +

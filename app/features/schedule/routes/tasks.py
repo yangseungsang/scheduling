@@ -164,8 +164,10 @@ def task_list():
     # task.json을 별도로 갱신할 필요가 없다.
     # -------------------------------------------------------------------------
     all_executions = ExecutionRepository.get_all()
-    # 빠른 조회를 위해 identifier_id → execution 딕셔너리로 변환
-    exec_by_identifier = {ex['identifier_id']: ex for ex in all_executions}
+    # (identifier_id, task_id) 조합을 키로 사용해 재시험 레코드가 섞이지 않게 한다.
+    exec_by_task_identifier = {
+        (ex['identifier_id'], ex.get('task_id', '')): ex for ex in all_executions
+    }
 
     execution_status_map = {}
     execution_minutes_map = {}  # task_id → 완료된 식별자의 예상시간 합계
@@ -182,7 +184,7 @@ def task_list():
         for idf in identifiers:
             iid = idf['id'] if isinstance(idf, dict) else idf
             est = idf.get('estimated_minutes', 0) if isinstance(idf, dict) else 0
-            ex = exec_by_identifier.get(iid)
+            ex = exec_by_task_identifier.get((iid, tid))
             # execution 레코드가 없으면 아직 시작 전이므로 'pending'
             s = ex['status'] if ex else 'pending'
             statuses.append(s)
@@ -335,10 +337,12 @@ def task_detail(task_id):
                     'end_time': b['end_time'],
                 }
 
-    # 식별자별 execution 상태
+    # 식별자별 execution 상태 (이 태스크에 속한 레코드만 사용)
     from app.features.execution.models.execution import ExecutionRepository
     all_executions = ExecutionRepository.get_all()
-    identifier_execution = {ex['identifier_id']: ex for ex in all_executions}
+    identifier_execution = {
+        ex['identifier_id']: ex for ex in all_executions if ex.get('task_id') == task_id
+    }
 
     from app.features.schedule.models.task import display_name as make_display_name
     t['display_name'] = make_display_name(t)
@@ -452,9 +456,9 @@ def api_task_detail(task_id):
     locations = location.get_all()
     loc_map = {loc['id']: loc['name'] for loc in locations}
     result = dict(t)
-    # 담당자 이름은 이미 assignee_names 필드에 저장되어 있음
-    # 장소 ID를 이름으로 변환하여 추가
     result['location_name'] = loc_map.get(t.get('location_id', ''), '')
+    from app.features.schedule.models.task import display_name as make_display_name
+    result['display_name'] = make_display_name(result)
     return jsonify({'task': result})
 
 

@@ -165,7 +165,7 @@ def _build_item_dict(task, identifier, locations, scheduled_date, block_loc_id='
     execution = ExecutionRepository.get_by_identifier_and_task(iid, task['id'])
     exam_no = task.get('exam_no')
     doc_name = task.get('doc_name', '')
-    display_name = f'{doc_name} ({exam_no}차)' if exam_no is not None else doc_name
+    display_name = f'{doc_name} ({exam_no}차)' if exam_no is not None and exam_no != 1 else doc_name
     return {
         'identifier_id': iid,
         'identifier_name': identifier.get('name', ''),
