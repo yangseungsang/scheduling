@@ -425,7 +425,8 @@ function renderTable(items) {
   tbody.querySelectorAll('tr').forEach(tr =>
     tr.addEventListener('click', () => {
       const item = JSON.parse(tr.dataset.item);
-      window.location.href = `/execution/${encodeURIComponent(item.identifier_id)}`;
+      const taskParam = item.task_id ? `?task_id=${encodeURIComponent(item.task_id)}` : '';
+      window.location.href = `/execution/${encodeURIComponent(item.identifier_id)}${taskParam}`;
     }));
 
   // 코멘트 아이콘(💬)의 Bootstrap Tooltip 초기화

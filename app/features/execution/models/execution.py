@@ -246,8 +246,10 @@ class ExecutionRepository:
         - pending 상태의 레코드가 있으면: 코멘트만 갱신
         - 이미 진행 중이거나 완료된 레코드면: 덮어쓰지 않고 기존 레코드 반환
           (진행 중 코멘트 변경은 /comment 엔드포인트를 사용해야 함)
+
+        task_id로 정확히 조회하여 재시험(동일 identifier, 다른 task)과 혼용되지 않게 한다.
         """
-        existing = cls.get_by_identifier(identifier_id)
+        existing = cls.get_by_identifier_and_task(identifier_id, task_id)
         if existing:
             if existing['status'] == 'pending':
                 return cls._patch(existing['id'], comment=comment)

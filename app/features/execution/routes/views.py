@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request
 
 from app.features.execution.barcode_config import IDENTIFIER_PREFIX
 from app.features.schedule.models import location as loc_repo
@@ -21,5 +21,7 @@ def index():
 
 @views_bp.route('/<identifier_id>')
 def detail(identifier_id):
+    task_id = request.args.get('task_id', '')
     return render_template('execution/detail.html', identifier_id=identifier_id,
+                           task_id=task_id,
                            barcode_prefix=IDENTIFIER_PREFIX)
