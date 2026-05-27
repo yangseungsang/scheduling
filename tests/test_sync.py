@@ -385,6 +385,56 @@ class TestSyncAPI:
             assert 'versions' in data
             assert 'tasks' in data
 
+    def test_reset_and_sync_clears_provider_meta_cache(self):
+        """reset-and-sync는 provider 메타 캐시를 초기화해 NoChangesError를 우회한다.
+
+        이전에 동기화한 타임스탬프가 남아 있어도 reset-and-sync가 메타를
+        초기화하므로 provider가 NoChangesError를 발생시키지 않는다.
+        """
+        import json
+        import os
+        from unittest.mock import patch
+        from app.features.schedule.providers.base import BaseProvider, NoChangesError
+
+        data_dir = self.app.config['DATA_DIR']
+        meta_path = os.path.join(data_dir, 'dyn_ready_meta.json')
+
+        # 이전 동기화로 남은 타임스탬프를 시뮬레이션
+        with open(meta_path, 'w') as f:
+            json.dump({'updated_at': '2026-01-01T00:00:00'}, f)
+
+        class MetaAwareProvider(BaseProvider):
+            """메타 파일에 타임스탬프가 있으면 NoChangesError를 발생시킨다."""
+            def get_versions(self):
+                return []
+            def get_test_data(self, version_id):
+                return []
+            def get_test_data_all(self):
+                if os.path.exists(meta_path):
+                    with open(meta_path) as f:
+                        meta = json.load(f)
+                    if meta.get('updated_at'):
+                        raise NoChangesError(meta['updated_at'])
+                return [{
+                    'doc_id': 1,
+                    'doc_name': '테스트 항목',
+                    'version_id': 'VER-001',
+                    'identifiers': [
+                        {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                    ],
+                }]
+
+        with self.app.test_client() as c:
+            with patch('app.features.schedule.routes.sync.get_provider',
+                       return_value=MetaAwareProvider()):
+                r = c.post('/api/sync/reset-and-sync', json={})
+        assert r.status_code == 200
+        d = r.get_json()
+        assert d['tasks'].get('added') == 1, (
+            '메타 캐시 미초기화로 NoChangesError 발생 — '
+            'reset-and-sync 후 태스크가 생성되지 않음'
+        )
+
 
 # ===========================================================================
 # TestSyncStdListAPI (추가)

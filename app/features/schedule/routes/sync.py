@@ -72,6 +72,7 @@ def reset_and_sync():
     write_json('schedule_blocks.json', [])
     write_json('tasks.json', [])
     write_json('versions.json', [])
+    write_json('dyn_ready_meta.json', {})  # provider 타임스탬프 캐시 초기화
     # 2. execution 데이터도 초기화
     exec_write_json('executions.json', [])
 
