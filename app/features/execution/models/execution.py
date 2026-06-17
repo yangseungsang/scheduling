@@ -296,6 +296,16 @@ class ExecutionRepository:
         return data
 
     @classmethod
+    def update_action_status(cls, execution_id, action_status):
+        """실행 레코드의 액션 상태를 갱신한다."""
+        return cls._patch(execution_id, action_status=action_status)
+
+    @classmethod
+    def update_action_input(cls, execution_id, action_input):
+        """실행 레코드의 액션 입력을 갱신한다."""
+        return cls._patch(execution_id, action_input=action_input)
+
+    @classmethod
     def reset(cls, execution_id):
         """실행 레코드를 pending(초기) 상태로 되돌린다.
 
