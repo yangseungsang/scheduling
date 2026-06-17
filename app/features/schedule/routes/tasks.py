@@ -459,6 +459,27 @@ def api_task_detail(task_id):
     result['location_name'] = loc_map.get(t.get('location_id', ''), '')
     from app.features.schedule.models.task import display_name as make_display_name
     result['display_name'] = make_display_name(result)
+
+    # 각 식별자의 실행 상태 정보 추가 (#108 확장)
+    all_executions = ExecutionRepository.get_all()
+    # (identifier_id, task_id) 조합을 키로 사용
+    exec_map = {
+        (ex['identifier_id'], ex.get('task_id', '')): ex['status']
+        for ex in all_executions if ex.get('task_id') == task_id
+    }
+    
+    # identifiers 리스트를 순회하며 상태 주입
+    enriched_identifiers = []
+    for idf in t.get('identifiers', []):
+        if isinstance(idf, dict):
+            status = exec_map.get((idf['id'], task_id), 'pending')
+            enriched_identifiers.append({**idf, 'execution_status': status})
+        else:
+            status = exec_map.get((idf, task_id), 'pending')
+            enriched_identifiers.append({'id': idf, 'execution_status': status})
+    
+    result['identifiers'] = enriched_identifiers
+    
     return jsonify({'task': result})
 
 

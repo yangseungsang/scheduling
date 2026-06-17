@@ -101,7 +101,9 @@
           '<tr style="color:#9ca3af;font-size:0.68rem;border-bottom:1px solid #f3f4f6">' +
             '<td style="padding:3px 4px"></td>' +
             '<td style="padding:3px 10px 3px 4px">식별자</td><td style="padding:3px 10px 3px 4px">시험항목</td><td style="padding:3px 10px 3px 4px">시간</td>' +
-            '<td style="padding:3px 10px 3px 4px">작성자</td><td style="padding:3px 4px">배치</td>' +
+            '<td style="padding:3px 10px 3px 4px">작성자</td>' +
+            '<td style="padding:3px 10px 3px 4px">실행상태</td>' +
+            '<td style="padding:3px 10px 3px 4px">배치정보</td>' +
             (blockId ? '<td style="padding:3px 4px"></td>' : '') + '</tr>' +
           allTestList.map(function(item) {
             if (typeof item === 'object' && item.id) {
@@ -111,16 +113,25 @@
               // 이 블록에 속한 식별자인지 여부 (분할 블록이 아니면 모두 해당)
               var inThisBlock = !isSplit || blockIdSet[item.id];
               if (inThisBlock) thisBlockIds.push(item.id);
+              
+              // 실행 상태 (Task API에서 보강된 정보 사용)
+              var execStatus = item.execution_status || 'pending';
+              var execColors = {completed:'#198754', in_progress:'#0d6efd', paused:'#0ea5e9', pending:'#94a3b8'};
+              var execLabels = {completed:'완료', in_progress:'진행', paused:'정지', pending:'대기'};
+              var eColor = execColors[execStatus] || '#94a3b8';
+              var eLabel = execLabels[execStatus] || '대기';
+              var execHtml = '<span style="color:' + eColor + ';font-weight:700">' + eLabel + '</span>';
+
               var sched = idScheduleMap[item.id];
               var schedHtml;
               if (sched) {
-                var statusColors = {completed:'#16a34a', in_progress:'#2563eb', cancelled:'#dc2626', pending:'#6c757d'};
+                var statusColors = {completed:'#198754', in_progress:'#0d6efd', cancelled:'#dc3545', pending:'#94a3b8'};
                 var statusLabels = {completed:'완료', in_progress:'진행', cancelled:'불가', pending:'대기'};
-                var sColor = statusColors[sched.status] || '#6c757d';
+                var sColor = statusColors[sched.status] || '#94a3b8';
                 var sLabel = statusLabels[sched.status] || '';
                 var statusBadge = sched.status !== 'pending'
                   ? ' <span style="font-size:0.6rem;font-weight:700;color:' + sColor + '">' + sLabel + '</span>'
-                  : '';
+                  : ' <span style="font-size:0.6rem;font-weight:700;color:#94a3b8">대기</span>';
                 schedHtml = '<a href="/schedule/?date=' + sched.date + '" style="color:#2563eb;text-decoration:none;font-size:0.72rem;white-space:nowrap">' + sched.time + '</a>' + statusBadge;
               } else {
                 schedHtml = '<span style="color:#adb5bd">미배치</span>';
@@ -138,18 +149,19 @@
                 '<td style="padding:3px 10px 3px 4px;color:#475569">' + itemName + '</td>' +
                 '<td style="padding:3px 10px 3px 4px;white-space:nowrap">' + mins + '분</td>' +
                 '<td style="padding:3px 10px 3px 4px;color:#6c757d">' + ow + '</td>' +
-                '<td style="padding:3px 4px">' + schedHtml + '</td>' +
+                '<td style="padding:3px 10px 3px 4px">' + execHtml + '</td>' +
+                '<td style="padding:3px 10px 3px 4px">' + schedHtml + '</td>' +
                 (blockId && inThisBlock && thisBlockIds.length > 0
                   ? '<td style="padding:3px 4px"><button type="button" class="btn btn-outline-secondary bd-row-to-queue" data-id="' + item.id + '" style="font-size:0.6rem;padding:0 4px;line-height:1.4" title="이 식별자를 큐로 되돌리기"><i class="bi bi-box-arrow-left"></i></button></td>'
                   : (blockId ? '<td></td>' : '')) +
                 '</tr>';
             }
-            return '<tr><td colspan="' + (blockId ? '7' : '6') + '" style="padding:3px 4px">' + item + '</td></tr>';
+            return '<tr><td colspan="' + (blockId ? '8' : '7') + '" style="padding:3px 4px">' + item + '</td></tr>';
           }).join('') +
           '<tr style="border-top:1px solid #e5e7eb">' +
             '<td></td><td style="padding:4px;font-weight:700">합계</td>' +
             '<td style="padding:4px;font-weight:700" colspan="2"><span id="bd-id-total">' + idTotalMin + '</span>분</td>' +
-            '<td colspan="' + (blockId ? '3' : '2') + '"></td></tr>' +
+            '<td colspan="' + (blockId ? '4' : '3') + '"></td></tr>' +
           '</table>' +
           (blockId && thisBlockIds.length >= 2
             ? '<div class="d-flex gap-1 mt-2">' +

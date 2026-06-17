@@ -96,7 +96,10 @@ class TestTaskCRUD:
         tid = _create_task(client, uid)
         r = client.get(f'/tasks/api/{tid}')
         assert r.status_code == 200
-        assert r.get_json()['task']['id'] == tid
+        data = r.get_json()
+        assert data['task']['id'] == tid
+        # execution_status 필드 포함 여부 확인
+        assert 'execution_status' in data['task']['identifiers'][0]
 
     def test_api_task_detail_nonexistent(self, client):
         r = client.get('/tasks/api/t_nonexist')

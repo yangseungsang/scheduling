@@ -1100,7 +1100,7 @@ i.spin { animation: spin 0.8s linear infinite; }
   border-radius: 6px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   width: fit-content;
-  min-width: 340px;
+  min-width: 600px;
   max-width: 95vw;
   max-height: 85vh;
   overflow-y: auto;

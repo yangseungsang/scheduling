@@ -68,6 +68,7 @@
                 {% if block.block_status == 'in_progress' %}<i class="bi bi-play-circle-fill month-status-icon"></i>
                 {% elif block.block_status == 'completed' %}<i class="bi bi-check-circle-fill month-status-icon"></i>
                 {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-circle-fill month-status-icon"></i>
+                {% else %}<i class="bi bi-hourglass month-status-icon"></i>
                 {% endif %}{{ block.display_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %}
               </div>
               {% endfor %}

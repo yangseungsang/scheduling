@@ -108,6 +108,7 @@
                       {% if block.block_status == 'in_progress' %}<i class="bi bi-play-fill" style="color:#fff;font-size:0.65rem"></i>
                       {% elif block.block_status == 'completed' %}<i class="bi bi-check-lg" style="color:#fff;font-size:0.65rem"></i>
                       {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-lg" style="color:#fff;font-size:0.65rem"></i>
+                      {% else %}<i class="bi bi-hourglass" style="color:#fff;font-size:0.65rem"></i>
                       {% endif %}{{ block.display_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %}
                     </div>
                     <div class="block-info">

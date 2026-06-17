@@ -102,6 +102,7 @@
                   {% if block.block_status == 'in_progress' %}진행
                   {% elif block.block_status == 'completed' %}완료
                   {% elif block.block_status == 'cancelled' %}불가
+                  {% else %}대기
                   {% endif %}
                 </span>
               </div>
