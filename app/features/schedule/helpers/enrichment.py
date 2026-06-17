@@ -21,6 +21,13 @@ from app.features.schedule.models import (
     user,
 )
 
+STATUS_COLORS = {
+    'pending': '#94a3b8',      # Slate 400
+    'in_progress': '#0d6efd',  # Bootstrap Primary / Blue 600
+    'completed': '#198754',    # Bootstrap Success / Green 600
+    'cancelled': '#dc3545',    # Bootstrap Danger / Red 600
+}
+
 
 def _section_color(section_name):
     """장절명(section_name)에서 일관된 HSL 색상을 생성한다.
@@ -68,13 +75,14 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
 
     각 블록에 태스크명, 담당자명, 장소명, 색상, 분할 상태, 예상 시간 등
     UI 렌더링에 필요한 필드를 덧붙인다.
+    블록 상태(block_status)는 execution 데이터에서 동적으로 계산한다.
 
     Args:
         blocks: 원본 스케줄 블록 딕셔너리 목록.
         users_map: {user_id: user_dict} 매핑.
         tasks_map: {task_id: task_dict} 매핑.
         locations_map: {location_id: location_dict} 매핑.
-        color_by: 블록 색상 기준. 'location'이면 장소 색상, 그 외에는 담당자 색상.
+        color_by: 블록 색상 기준. 'location', 'assignee', 'status' 중 하나.
 
     Returns:
         list: 보강된 블록 딕셔너리 목록.
@@ -86,6 +94,13 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         tid = ab.get('task_id')
         if tid:
             all_blocks_by_task.setdefault(tid, []).append(ab)
+
+    # execution 데이터 로드
+    from app.features.execution.models.execution import ExecutionRepository
+    all_executions = ExecutionRepository.get_all()
+    exec_by_task_identifier = {
+        (ex['identifier_id'], ex.get('task_id', '')): ex for ex in all_executions
+    }
 
     enriched = []
     for b in blocks:
@@ -131,9 +146,46 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         block['assignee_color'] = assignee_colors[0] if assignee_colors else '#6c757d'
         block['location_name'] = loc['name'] if loc else ''
         block['location_color'] = loc['color'] if loc else '#6c757d'
+
+        # -------------------------------------------------------------------------
+        # execution 기반 상태 동적 계산 (#108 확장)
+        # -------------------------------------------------------------------------
+        if t and not is_simple:
+            # 이 블록에 해당하는 식별자들 (없으면 전체)
+            b_iids = b.get('identifier_ids')
+            if b_iids is None:
+                b_iids = [idf['id'] if isinstance(idf, dict) else idf 
+                         for idf in t.get('identifiers', [])]
+            
+            # 각 식별자의 execution 상태 수집
+            statuses = []
+            for iid in b_iids:
+                ex = exec_by_task_identifier.get((iid, t['id']))
+                statuses.append(ex.get('status', 'pending') if ex else 'pending')
+            
+            if all(s == 'completed' for s in statuses):
+                derived_status = 'completed'
+            elif any(s in ('in_progress', 'paused') for s in statuses) or any(s == 'completed' for s in statuses):
+                derived_status = 'in_progress'
+            else:
+                derived_status = 'pending'
+            
+            # 수동 상태가 'cancelled'인 경우 보존
+            if b.get('block_status') == 'cancelled':
+                block['block_status'] = 'cancelled'
+            else:
+                block['block_status'] = derived_status
+        else:
+            block['block_status'] = b.get('block_status', 'pending')
+
         # color_by 설정에 따라 블록 표시 색상 결정
-        block['color'] = block['location_color'] if color_by == 'location' else block['assignee_color']
-        block['block_status'] = b.get('block_status', 'pending')
+        if color_by == 'status':
+            block['color'] = STATUS_COLORS.get(block['block_status'], STATUS_COLORS['pending'])
+        elif color_by == 'location':
+            block['color'] = block['location_color']
+        else:
+            block['color'] = block['assignee_color']
+
         block['memo'] = t.get('memo', '') if t else b.get('memo', '')
         block['identifier_ids'] = b.get('identifier_ids')
         block['is_simple'] = b.get('is_simple', False)

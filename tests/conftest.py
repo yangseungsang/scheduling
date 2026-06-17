@@ -39,7 +39,7 @@ def app(tmp_path):
             ],
             'grid_interval_minutes': 15,
             'max_schedule_days': 14,
-            'block_color_by': 'assignee',
+            'block_color_by': 'status',
         }, f)
 
     application = create_app()

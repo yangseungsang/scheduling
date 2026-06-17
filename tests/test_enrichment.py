@@ -48,6 +48,46 @@ class TestEnrichBlocks:
         assert block['is_split'] is True
         assert block['block_identifier_count'] == 1
 
+    def test_enrich_status_derived_from_execution(self, app, client):
+        """블록 상태(block_status)가 execution 데이터에 의해 동적으로 결정되는지 검증 (#108)."""
+        uid = _create_user(client)
+        vid = _create_version(client)
+        tid = _create_task(client, uid, version_id=vid)
+
+        # 블록 생성 (TC-001만 포함)
+        r = client.post('/schedule/api/blocks', json={
+            'task_id': tid,
+            'assignee_names': [uid],
+            'date': '2026-03-10',
+            'start_time': '09:00',
+            'end_time': '10:00',
+            'identifier_ids': ['TC-001'],
+            'block_status': 'pending'
+        })
+        bid = r.get_json()['id']
+
+        # TC-001 을 진행 중으로 설정
+        from app.features.execution.models.execution import ExecutionRepository
+        with app.app_context():
+            ExecutionRepository.start('TC-001', tid)
+
+        # 캘린더 조회 시 블록 상태가 in_progress 여야 함
+        r = client.get(f'/schedule/api/day?date=2026-03-10&version={vid}')
+        block = next(b for b in r.get_json()['blocks'] if b['id'] == bid)
+        assert block['block_status'] == 'in_progress'
+        # 색상도 in_progress (#0d6efd) 여야 함
+        assert block['color'] == '#0d6efd'
+
+        # TC-001 을 완료로 설정
+        with app.app_context():
+            ex = ExecutionRepository.get_by_identifier_and_task('TC-001', tid)
+            ExecutionRepository.complete(ex['id'], fail_count=0)
+
+        r = client.get(f'/schedule/api/day?date=2026-03-10&version={vid}')
+        block = next(b for b in r.get_json()['blocks'] if b['id'] == bid)
+        assert block['block_status'] == 'completed'
+        assert block['color'] == '#198754'
+
 
 class TestQueueTasks:
     """Verify that queue_tasks in /schedule/api/day reflects task status and scheduled hours."""
