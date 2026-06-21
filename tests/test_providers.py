@@ -95,3 +95,72 @@ class TestJsonFileProvider:
             provider = JsonFileProvider()
             data = provider.get_test_data('v_nonexistent')
             assert data == []
+
+
+class TestDynReadyProvider:
+    def test_same_timestamp_and_same_data_skips_sync(self, app):
+        from unittest.mock import Mock, patch
+
+        from app.features.schedule.providers.base import NoChangesError
+        from app.features.schedule.providers.dyn_ready import DynReadyProvider
+
+        payload = {
+            'updated_at': '2026-06-21T10:00:00',
+            'data': [{
+                'doc_id': 1,
+                'doc_name': '시스템',
+                'identifiers': [{
+                    'test_id': 'TC-001',
+                    'exam_no': 1,
+                    'estimated_minutes': 30,
+                }],
+            }],
+        }
+        response = Mock()
+        response.json.return_value = payload
+        response.raise_for_status.return_value = None
+
+        with app.app_context(), patch(
+            'app.features.schedule.providers.dyn_ready.requests.get',
+            return_value=response,
+        ):
+            provider = DynReadyProvider()
+            provider.get_test_data_all()
+            with pytest.raises(NoChangesError):
+                provider.get_test_data_all()
+
+    def test_same_timestamp_but_deleted_data_runs_sync(self, app):
+        from unittest.mock import Mock, patch
+
+        from app.features.schedule.providers.dyn_ready import DynReadyProvider
+
+        initial_payload = {
+            'updated_at': '2026-06-21T10:00:00',
+            'data': [{
+                'doc_id': 1,
+                'doc_name': '시스템',
+                'identifiers': [{
+                    'test_id': 'TC-001',
+                    'exam_no': 1,
+                    'estimated_minutes': 30,
+                }],
+            }],
+        }
+        deleted_payload = {
+            'updated_at': '2026-06-21T10:00:00',
+            'data': [],
+        }
+        responses = []
+        for payload in (initial_payload, deleted_payload):
+            response = Mock()
+            response.json.return_value = payload
+            response.raise_for_status.return_value = None
+            responses.append(response)
+
+        with app.app_context(), patch(
+            'app.features.schedule.providers.dyn_ready.requests.get',
+            side_effect=responses,
+        ):
+            provider = DynReadyProvider()
+            assert len(provider.get_test_data_all()) == 1
+            assert provider.get_test_data_all() == []

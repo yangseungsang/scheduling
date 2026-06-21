@@ -4,6 +4,7 @@ updated_at을 로컬 캐시와 비교하여 변경이 없으면 NoChangesError�
 identifiers의 exam_no를 기준으로 (doc_id, exam_no) 조합별로 묶어 반환한다.
 """
 
+import hashlib
 import json
 import os
 
@@ -33,6 +34,21 @@ def _save_meta(meta):
         json.dump(meta, f)
 
 
+def _data_hash(payload):
+    """응답 데이터의 안정적인 지문을 계산한다.
+
+    updated_at이 데이터 삭제를 반영하지 않는 경우에도 실제 응답 내용의
+    변화를 감지할 수 있도록 메타데이터와 함께 저장한다.
+    """
+    serialized = json.dumps(
+        payload.get('data', []),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(',', ':'),
+    )
+    return hashlib.sha256(serialized.encode('utf-8')).hexdigest()
+
+
 class DynReadyProvider(BaseProvider):
 
     def __init__(self):
@@ -47,7 +63,9 @@ class DynReadyProvider(BaseProvider):
     def get_test_data_all(self, force=False):
         """grouped 엔드포인트에서 데이터를 가져와 (doc_id, exam_no) 단위 리스트로 반환한다.
 
-        updated_at이 캐시와 동일하면 NoChangesError를 발생시킨다.
+        updated_at과 응답 데이터가 모두 캐시와 동일하면 NoChangesError를
+        발생시킨다. 삭제처럼 updated_at에 드러나지 않는 변경은 데이터
+        지문 비교로 감지한다.
         force=True이면 updated_at 비교 없이 항상 동기화한다.
         """
         resp = requests.get(f'{self.base_url}{_ENDPOINT}', timeout=10)
@@ -55,12 +73,17 @@ class DynReadyProvider(BaseProvider):
         payload = resp.json()
 
         new_ts = str(payload.get('updated_at', ''))
+        new_hash = _data_hash(payload)
         meta = _load_meta()
 
-        if not force and new_ts and new_ts == meta.get('updated_at', ''):
+        if (not force
+                and new_ts
+                and new_ts == meta.get('updated_at', '')
+                and new_hash == meta.get('data_hash', '')):
             raise NoChangesError(new_ts)
 
         meta['updated_at'] = new_ts
+        meta['data_hash'] = new_hash
         _save_meta(meta)
 
         return _transform(payload)
