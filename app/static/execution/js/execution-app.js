@@ -279,7 +279,7 @@ function setSort(col) {
  *   - 날짜·장소 필터는 loadList() 단계에서 서버에 파라미터로 전달하므로 여기서는 처리 안 함
  *
  * 정렬:
- *   - 'date': scheduled_date 문자열 비교 (ISO 형식이므로 사전순 = 날짜순)
+ *   - 'date': display_date 문자열 비교 (완료 시각 우선, 없으면 배치 날짜)
  *   - 'location': location_name 문자열 비교
  *   - 'status': STATUS_ORDER 숫자 비교
  */
@@ -293,7 +293,7 @@ function applyAndRender() {
   if (_sortCol) {
     items.sort((a, b) => {
       let va, vb;
-      if (_sortCol === 'date')     { va = a.scheduled_date || ''; vb = b.scheduled_date || ''; }
+      if (_sortCol === 'date')     { va = a.display_date || a.scheduled_date || ''; vb = b.display_date || b.scheduled_date || ''; }
       else if (_sortCol === 'location') { va = a.location_name || ''; vb = b.location_name || ''; }
       else if (_sortCol === 'status')   {
         // 상태는 문자열이 아닌 미리 정의된 숫자 순서로 비교한다.
@@ -391,7 +391,7 @@ function buildRow(item) {
   if (colVisible('name'))       cells.push(`<td class="td-name">${escHtml(item.identifier_name)}${renderCommentIcon(item)}</td>`);
   if (colVisible('assignee'))   cells.push(`<td class="td-meta">${escHtml(assignee)}</td>`);
   if (colVisible('location'))   cells.push(`<td class="td-meta">${escHtml(item.location_name || '-')}</td>`);
-  if (colVisible('date'))       cells.push(`<td class="td-meta">${escHtml(item.scheduled_date || '-')}</td>`);
+  if (colVisible('date'))       cells.push(`<td class="td-meta">${escHtml(item.display_date || item.scheduled_date || '-')}</td>`);
   if (colVisible('estimated'))  cells.push(`<td class="td-meta">${formatMinutes(item.estimated_minutes)}</td>`);
   if (colVisible('performer'))  cells.push(`<td>${escHtml(item.execution?.performer || '-')}</td>`);
   if (colVisible('result'))     cells.push(renderResultCell(item));

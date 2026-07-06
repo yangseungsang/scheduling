@@ -337,8 +337,8 @@ function renderPage() {
     const dis    = !started ? 'disabled' : '';
     const failV  = started ? ex.fail_count      : 0;
     const blockV = started ? (ex.block_count ?? 0) : 0;
-    const passV  = started ? ex.pass_count      : 0;
     const total  = started ? ex.total_count     : 0;
+    const passV  = started ? Math.max(0, total - failV - blockV) : 0;
     const maxA   = started ? `max="${total}"`   : '';
     failPassHtml = `
     <div class="exec-counts-bar mb-3">
@@ -628,6 +628,7 @@ async function doStart() {
       id: ex.id, status: ex.status, elapsed_seconds: 0,
       total_count: ex.total_count, fail_count: 0, block_count: 0, pass_count: 0,
       comment: _pendingComment, performer: ex.performer || _pendingPerformer,
+      completed_at: ex.completed_at || null,
     };
     // 시작 전에 입력된 코멘트·수행자를 이제 실제 execution에 반영한다.
     if (_pendingComment)   await apiFetch('/execution/api/comment', 'PUT', { execution_id: ex.id, comment: _pendingComment });
@@ -693,8 +694,9 @@ async function doComplete() {
       ..._item.execution, status: 'completed',
       fail_count: ex.fail_count, block_count: ex.block_count ?? blockCount,
       pass_count: ex.pass_count, elapsed_seconds: _computeElapsed(ex),
-      comment,
+      total_count: ex.total_count, comment, completed_at: ex.completed_at || null,
     };
+    _item.display_date = _item.execution.completed_at || _item.scheduled_date || '';
     renderPage();
   } catch { alert('완료 처리 실패'); }
 }
