@@ -6,7 +6,7 @@ exam_no 기반 태스크 분리: std_list_cache.json의 데이터를 참조하�
 (doc_id, exam_no) 조합별로 독립 태스크를 생성한다.
 """
 
-from app.features.schedule.models import version, task
+from app.features.schedule.models import version, task, schedule_block
 from app.features.schedule.providers.base import NoChangesError
 from app.config import OfpidSettings
 
@@ -15,6 +15,55 @@ def load_std_list_cache():
     """std_list 로컬 캐시를 읽어 반환한다. 없으면 []."""
     from app.features.schedule.models.std_list import load_cache
     return load_cache()
+
+
+def _task_blocks(task_id):
+    """task_id에 연결된 스케줄 블록 목록을 반환한다."""
+    return [b for b in schedule_block.get_all() if b.get('task_id') == task_id]
+
+
+def _scheduled_identifier_ids(task_dict):
+    """해당 task에서 이미 스케줄 블록에 배치된 식별자 ID 집합을 반환한다.
+
+    identifier_ids=None인 블록은 task 전체가 배치된 것으로 간주한다.
+    """
+    identifiers = [
+        i.get('id') for i in task_dict.get('identifiers', [])
+        if isinstance(i, dict) and i.get('id')
+    ]
+    scheduled = set()
+    for block in _task_blocks(task_dict['id']):
+        block_ids = block.get('identifier_ids')
+        if block_ids is None:
+            scheduled.update(identifiers)
+        else:
+            scheduled.update(block_ids)
+    return scheduled
+
+
+def _merge_preserving_scheduled_removed(existing, incoming, warnings):
+    """동기화에서 삭제된 식별자 중 이미 배치된 항목은 보존한다."""
+    incoming_ids = {
+        i.get('id') for i in incoming
+        if isinstance(i, dict) and i.get('id')
+    }
+    scheduled_ids = _scheduled_identifier_ids(existing)
+    merged = list(incoming)
+
+    for old in existing.get('identifiers', []):
+        if not isinstance(old, dict):
+            continue
+        old_id = old.get('id')
+        if not old_id or old_id in incoming_ids:
+            continue
+        if old_id in scheduled_ids:
+            merged.append(old)
+            warnings.append(
+                f"{existing.get('doc_name', '')} / {old_id}: "
+                "이미 스케줄 블록에 배치되어 동기화 삭제를 건너뜀"
+            )
+
+    return merged
 
 
 class SyncService:
@@ -60,7 +109,8 @@ class SyncService:
             version_id: 특정 버전 ID로 제한. None이면 전체.
 
         Returns:
-            dict: {'added': int, 'updated': int, 'cancelled': int, 'warnings': list}
+            dict: {'added': int, 'updated': int, 'deleted': int,
+                   'cancelled': int, 'warnings': list}
         """
         try:
             if version_id:
@@ -80,7 +130,7 @@ class SyncService:
                 exam_no_map.setdefault(ti, set()).add(en)
 
         synced_combos = set()  # {(doc_id, exam_no)} 이번 sync에서 처리한 조합
-        added = updated = cancelled = 0
+        added = updated = deleted = 0
         warnings = []
 
         for item in external:
@@ -128,6 +178,14 @@ class SyncService:
 
                 existing = task.get_by_doc_and_exam(doc_id, exam_no)
                 if existing:
+                    idents = _merge_preserving_scheduled_removed(
+                        existing, idents, warnings,
+                    )
+                    est_minutes = sum(
+                        i.get('estimated_minutes', 0)
+                        for i in idents
+                        if isinstance(i, dict)
+                    )
                     task.patch(existing['id'],
                                identifiers=idents,
                                estimated_minutes=est_minutes,
@@ -147,15 +205,23 @@ class SyncService:
                     )
                     added += 1
 
-        # 이번 sync 결과에 없는 (doc_id, exam_no) 조합을 취소 처리
+        # 이번 sync 결과에 없는 (doc_id, exam_no) 조합은 삭제한다.
+        # 단, 이미 스케줄 블록에 배치된 task는 삭제하지 않고 경고만 반환한다.
         for t in task.get_all():
             did = t.get('doc_id')
             if did is None:
                 continue
             combo = (did, t.get('exam_no'))
-            if combo not in synced_combos and t.get('status') != 'cancelled':
-                task.patch(t['id'], status='cancelled')
-                cancelled += 1
+            if combo not in synced_combos:
+                if _task_blocks(t['id']):
+                    warnings.append(
+                        f"{t.get('doc_name', '')}: 이미 스케줄 블록에 배치되어 "
+                        "동기화 삭제를 건너뜀"
+                    )
+                    continue
+                task.delete(t['id'])
+                deleted += 1
 
         return {'added': added, 'updated': updated,
-                'cancelled': cancelled, 'warnings': warnings}
+                'deleted': deleted, 'cancelled': deleted,
+                'warnings': warnings}
