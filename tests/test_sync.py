@@ -5,7 +5,7 @@ import os
 import pytest
 
 from app import create_app
-from app.features.schedule.models import version, task
+from app.features.schedule.models import version, task, schedule_block
 from app.features.schedule.providers.base import BaseProvider
 from app.features.schedule.services.sync import SyncService
 
@@ -212,7 +212,7 @@ class TestSyncTestData:
             assert t['assignee_names'] == ['홍길동']
             assert t['location_id'] == 'loc_xyz'
 
-    def test_sync_cancels_removed_task(self):
+    def test_sync_deletes_removed_unscheduled_task(self):
         class MockProvider(BaseProvider):
             def get_versions(self):
                 return []
@@ -233,10 +233,124 @@ class TestSyncTestData:
             )
 
             result = SyncService.sync_test_data(MockProvider())
-            assert result['cancelled'] == 1
+            assert result['deleted'] == 1
 
+            assert task.get_by_doc_id(1) is None
+
+    def test_sync_keeps_removed_task_when_scheduled_and_warns(self):
+        class MockProvider(BaseProvider):
+            def get_versions(self):
+                return []
+            def get_test_data(self, version_id):
+                return []
+            def get_test_data_all(self):
+                return []
+
+        with self.app.app_context():
+            t = task.create(
+                doc_id=1,
+                version_id='VER-001',
+                assignee_names=[],
+                location_id='',
+                doc_name='시스템',
+                identifiers=[{'id': 'TC-001', 'estimated_minutes': 60, 'owners': []}],
+                estimated_minutes=60,
+            )
+            schedule_block.create(
+                task_id=t['id'],
+                assignee_names=[],
+                location_id='',
+                date='2026-07-07',
+                start_time='09:00',
+                end_time='10:00',
+            )
+
+            result = SyncService.sync_test_data(MockProvider())
+            assert result['deleted'] == 0
+            assert task.get_by_doc_id(1) is not None
+            assert any('이미 스케줄 블록에 배치' in w for w in result['warnings'])
+
+    def test_sync_removes_deleted_queue_identifier(self):
+        class MockProvider(BaseProvider):
+            def get_versions(self):
+                return []
+            def get_test_data(self, version_id):
+                return []
+            def get_test_data_all(self):
+                return [{
+                    'doc_id': 1,
+                    'doc_name': '시스템',
+                    'version_id': 'VER-001',
+                    'identifiers': [
+                        {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                    ],
+                }]
+
+        with self.app.app_context():
+            task.create(
+                doc_id=1,
+                version_id='VER-001',
+                assignee_names=[],
+                location_id='',
+                doc_name='시스템',
+                identifiers=[
+                    {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                    {'id': 'TC-002', 'estimated_minutes': 30, 'owners': []},
+                ],
+                estimated_minutes=90,
+            )
+
+            result = SyncService.sync_test_data(MockProvider())
+            assert result['warnings'] == []
             t = task.get_by_doc_id(1)
-            assert t['status'] == 'cancelled'
+            assert [i['id'] for i in t['identifiers']] == ['TC-001']
+            assert t['estimated_minutes'] == 60
+
+    def test_sync_keeps_deleted_scheduled_identifier_and_warns(self):
+        class MockProvider(BaseProvider):
+            def get_versions(self):
+                return []
+            def get_test_data(self, version_id):
+                return []
+            def get_test_data_all(self):
+                return [{
+                    'doc_id': 1,
+                    'doc_name': '시스템',
+                    'version_id': 'VER-001',
+                    'identifiers': [
+                        {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                    ],
+                }]
+
+        with self.app.app_context():
+            t = task.create(
+                doc_id=1,
+                version_id='VER-001',
+                assignee_names=[],
+                location_id='',
+                doc_name='시스템',
+                identifiers=[
+                    {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                    {'id': 'TC-002', 'estimated_minutes': 30, 'owners': []},
+                ],
+                estimated_minutes=90,
+            )
+            schedule_block.create(
+                task_id=t['id'],
+                assignee_names=[],
+                location_id='',
+                date='2026-07-07',
+                start_time='09:00',
+                end_time='10:00',
+                identifier_ids=['TC-002'],
+            )
+
+            result = SyncService.sync_test_data(MockProvider())
+            t = task.get_by_doc_id(1)
+            assert [i['id'] for i in t['identifiers']] == ['TC-001', 'TC-002']
+            assert t['estimated_minutes'] == 90
+            assert any('TC-002' in w and '이미 스케줄 블록에 배치' in w
+                       for w in result['warnings'])
 
     def test_sync_creates_exam_no_tasks_from_cache(self):
         """std_list 캐시가 있으면 (doc_id, exam_no) 조합별로 태스크를 생성한다."""
@@ -341,12 +455,9 @@ class TestSyncTestData:
                 SyncService.sync_test_data(MockProvider())
 
             tasks = task.get_all()
-            # exam_no=None 태스크는 cancelled, exam_no=1 태스크가 새로 생성됨
-            cancelled = [t for t in tasks if t.get('status') == 'cancelled']
-            active = [t for t in tasks if t.get('status') != 'cancelled']
-            assert len(cancelled) == 1
-            assert len(active) == 1
-            assert active[0]['exam_no'] == 1
+            # exam_no=None 태스크는 삭제되고, exam_no=1 태스크가 새로 생성됨
+            assert len(tasks) == 1
+            assert tasks[0]['exam_no'] == 1
 
 
 # ===========================================================================
