@@ -65,9 +65,33 @@ def _notify_timing(identifier_id: str, task_id: str, elapsed_seconds: int):
     threading.Thread(target=_send, daemon=True).start()
 
 
-def _get_total_count(identifier_id: str) -> int:
-    # TODO: 실제 외부 API 연동 — 현재는 모든 식별자에 10을 고정 반환
-    return 10
+def _identifier_total_count(identifier: dict) -> int:
+    """식별자 데이터에 저장된 전체 시험 건수를 반환한다.
+
+    외부 API 연동 전까지 10을 고정 반환하던 값이 결과를 오염시키지 않도록,
+    동기화 데이터에 명시된 카운트 필드를 우선 사용하고 없으면 0으로 둔다.
+    """
+    for key in ('total_count', 'test_count', 'case_count', 'count'):
+        value = identifier.get(key)
+        if value in (None, ''):
+            continue
+        try:
+            return max(0, int(value))
+        except (TypeError, ValueError):
+            continue
+    return 0
+
+
+def _get_total_count(identifier_id: str, task_id: str = '') -> int:
+    from app.features.schedule.models import task as task_repo
+
+    for task in task_repo.get_all():
+        if task_id and task.get('id') != task_id:
+            continue
+        for identifier in task.get('identifiers', []):
+            if isinstance(identifier, dict) and identifier.get('id') == identifier_id:
+                return _identifier_total_count(identifier)
+    return 0
 
 
 def _execution_response(ex):
@@ -92,6 +116,7 @@ def _execution_response(ex):
         'pass_count': ex.get('pass_count', 0),
         'comment': ex.get('comment', ''),
         'performer': ex.get('performer', ''),
+        'completed_at': ex.get('completed_at'),
     }
 
 
@@ -101,9 +126,9 @@ def _load_schedule_data():
     Returns:
         tasks (list): 전체 태스크 목록
         locations (dict): location_id → location 객체
-        date_map (dict): identifier_id → 가장 이른 배치 날짜(YYYY-MM-DD)
+        date_map (dict): (task_id, identifier_id) → 가장 이른 배치 날짜(YYYY-MM-DD)
             식별자가 여러 블록에 걸쳐 배치됐을 때 가장 빠른 날짜를 사용한다.
-        block_loc_map (dict): identifier_id → 블록에 지정된 location_id
+        block_loc_map (dict): (task_id, identifier_id) → 블록에 지정된 location_id
             블록에 장소가 명시되지 않은 식별자는 포함되지 않으며,
             이 경우 태스크의 location_id로 폴백한다.
             (버그 #104 수정: 이전에는 항상 태스크 장소를 사용했다.)
@@ -120,8 +145,8 @@ def _load_schedule_data():
     blocks = block_repo.get_all()
     locations = {loc['id']: loc for loc in loc_repo.get_all()}
 
-    date_map = {}        # identifier_id → earliest scheduled date
-    block_loc_map = {}   # identifier_id → location_id from block
+    date_map = {}        # (task_id, identifier_id) → earliest scheduled date
+    block_loc_map = {}   # (task_id, identifier_id) → location_id from block
 
     for block in blocks:
         block_date = block.get('date', '')
@@ -136,11 +161,12 @@ def _load_schedule_data():
             iid = identifier['id'] if isinstance(identifier, dict) else identifier
             # block_iids가 None(전체 포함 블록)이거나 해당 식별자가 블록에 속할 때만 처리
             if block_iids is None or iid in block_iids:
+                key = (block_task_id, iid)
                 # 더 이른 날짜의 블록이 발견되면 날짜와 장소를 함께 갱신
-                if iid not in date_map or block_date < date_map[iid]:
-                    date_map[iid] = block_date
+                if key not in date_map or block_date < date_map[key]:
+                    date_map[key] = block_date
                     if block_loc:
-                        block_loc_map[iid] = block_loc
+                        block_loc_map[key] = block_loc
 
     return tasks, locations, date_map, block_loc_map
 
@@ -163,6 +189,7 @@ def _build_item_dict(task, identifier, locations, scheduled_date, block_loc_id='
     loc_id = block_loc_id or task.get('location_id', '')
     loc_name = locations.get(loc_id, {}).get('name', '') if loc_id else ''
     execution = ExecutionRepository.get_by_identifier_and_task(iid, task['id'])
+    completed_at = execution.get('completed_at') if execution else None
     exam_no = task.get('exam_no')
     doc_name = task.get('doc_name', '')
     display_name = f'{doc_name} ({exam_no}차)' if exam_no is not None and exam_no != 1 else doc_name
@@ -178,6 +205,8 @@ def _build_item_dict(task, identifier, locations, scheduled_date, block_loc_id='
         'location_id': loc_id,
         'location_name': loc_name,
         'scheduled_date': scheduled_date,
+        'display_date': completed_at or scheduled_date,
+        'total_count': _identifier_total_count(identifier),
         # 실행 레코드가 없으면 None (미시작 상태를 프론트에서 pending으로 표시)
         'execution': _execution_response(execution),
     }
@@ -203,8 +232,9 @@ def execution_list():
             if not isinstance(identifier, dict):
                 continue
             iid = identifier['id']
-            scheduled_date = date_map.get(iid, '')
-            block_loc_id = block_loc_map.get(iid, '')
+            key = (task['id'], iid)
+            scheduled_date = date_map.get(key, '')
+            block_loc_id = block_loc_map.get(key, '')
             # 필터 적용 시 블록 장소 우선, 없으면 태스크 장소로 폴백
             loc_id = block_loc_id or task.get('location_id', '')
             if date_filter and scheduled_date != date_filter:
@@ -231,16 +261,16 @@ def get_item(identifier_id):
                 continue
             return jsonify(_build_item_dict(
                 task, identifier, locations,
-                date_map.get(identifier_id, ''),
-                block_loc_map.get(identifier_id, ''),
+                date_map.get((task['id'], identifier_id), ''),
+                block_loc_map.get((task['id'], identifier_id), ''),
             ))
     return jsonify({'error': 'not found'}), 404
 
 
 @api_bp.route('/total-count/<identifier_id>')
 def total_count(identifier_id):
-    """식별자의 전체 시험 케이스 수를 반환한다. (현재 외부 API 미연동, 고정값 반환)"""
-    return jsonify({'total_count': _get_total_count(identifier_id)})
+    """식별자의 전체 시험 케이스 수를 반환한다."""
+    return jsonify({'total_count': _get_total_count(identifier_id, request.args.get('task_id', ''))})
 
 
 @api_bp.route('/whoami')
@@ -296,7 +326,7 @@ def start():
             if performer:
                 return jsonify({'error': f'"{performer}"님이 시험을 진행 중입니다.', 'code': 'another_user_busy'}), 409
 
-    total = _get_total_count(identifier_id)
+    total = _get_total_count(identifier_id, task_id)
     ex = ExecutionRepository.start(identifier_id, task_id, total_count=total)
 
     # start() 후 performer가 비어 있을 때만 세션 사용자를 지정

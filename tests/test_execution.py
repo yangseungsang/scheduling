@@ -216,6 +216,101 @@ class TestExecutionAPI:
         assert r.status_code == 200
         assert 'total_count' in r.get_json()
 
+    def test_total_count_uses_identifier_data_not_hardcoded_ten(self, exec_app, exec_client):
+        with exec_app.app_context():
+            from app.features.schedule.models import task as task_repo
+
+            task_repo.create(
+                doc_id=1,
+                assignee_names=[],
+                location_id='',
+                doc_name='카운트 문서',
+                identifiers=[
+                    {'id': 'TC-COUNT', 'name': '카운트 시험', 'estimated_minutes': 10, 'total_count': 7},
+                ],
+                estimated_minutes=10,
+            )
+
+        r = exec_client.get('/execution/api/total-count/TC-COUNT')
+        assert r.status_code == 200
+        assert r.get_json()['total_count'] == 7
+
+    def test_complete_result_counts_and_completed_date_are_listed(self, exec_app, exec_client):
+        with exec_app.app_context():
+            from app.features.schedule.models import task as task_repo
+            from app.features.execution.models.execution import ExecutionRepository
+
+            t = task_repo.create(
+                doc_id=2,
+                assignee_names=[],
+                location_id='',
+                doc_name='결과 문서',
+                identifiers=[
+                    {'id': 'TC-RESULT', 'name': '결과 시험', 'estimated_minutes': 10, 'total_count': 9},
+                ],
+                estimated_minutes=10,
+            )
+            ex = ExecutionRepository.start('TC-RESULT', t['id'], total_count=9)
+            done = ExecutionRepository.complete(ex['id'], fail_count=2, block_count=3)
+
+        r = exec_client.get('/execution/api/list')
+        item = next(i for i in r.get_json() if i['identifier_id'] == 'TC-RESULT')
+        assert item['execution']['fail_count'] == 2
+        assert item['execution']['block_count'] == 3
+        assert item['execution']['pass_count'] == 4
+        assert item['execution']['total_count'] == 9
+        assert item['execution']['completed_at'] == done['completed_at']
+        assert item['display_date'] == done['completed_at']
+
+    def test_list_uses_scheduled_block_location_per_task_identifier(self, exec_app, exec_client):
+        with exec_app.app_context():
+            from app.features.schedule.models import location as loc_repo
+            from app.features.schedule.models import schedule_block as block_repo
+            from app.features.schedule.models import task as task_repo
+
+            loc_a = loc_repo.create('시험실A', '#111111')
+            loc_b = loc_repo.create('시험실B', '#222222')
+            task1 = task_repo.create(
+                doc_id=3,
+                assignee_names=[],
+                location_id=loc_a['id'],
+                doc_name='원본',
+                identifiers=[{'id': 'TC-SAME', 'name': '원본 시험', 'estimated_minutes': 10}],
+                estimated_minutes=10,
+            )
+            task2 = task_repo.create(
+                doc_id=4,
+                assignee_names=[],
+                location_id=loc_a['id'],
+                doc_name='재시험',
+                identifiers=[{'id': 'TC-SAME', 'name': '재시험', 'estimated_minutes': 10}],
+                estimated_minutes=10,
+                exam_no=2,
+            )
+            block_repo.create(
+                task_id=task1['id'],
+                assignee_names=[],
+                location_id=loc_a['id'],
+                date='2026-07-01',
+                start_time='09:00',
+                end_time='10:00',
+                identifier_ids=['TC-SAME'],
+            )
+            block_repo.create(
+                task_id=task2['id'],
+                assignee_names=[],
+                location_id=loc_b['id'],
+                date='2026-07-01',
+                start_time='10:00',
+                end_time='11:00',
+                identifier_ids=['TC-SAME'],
+            )
+
+        r = exec_client.get('/execution/api/list')
+        items = {i['task_id']: i for i in r.get_json() if i['identifier_id'] == 'TC-SAME'}
+        assert items[task1['id']]['location_name'] == '시험실A'
+        assert items[task2['id']]['location_name'] == '시험실B'
+
     def test_execution_page(self, exec_client):
         r = exec_client.get('/execution/')
         assert r.status_code == 200
