@@ -24,13 +24,13 @@ def _meta_path():
 def _load_meta():
     path = _meta_path()
     if os.path.exists(path):
-        with open(path) as f:
+        with open(path, encoding='utf-8') as f:
             return json.load(f)
     return {}
 
 
 def _save_meta(meta):
-    with open(_meta_path(), 'w') as f:
+    with open(_meta_path(), 'w', encoding='utf-8') as f:
         json.dump(meta, f)
 
 
