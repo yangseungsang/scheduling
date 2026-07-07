@@ -222,9 +222,13 @@ async function doSync(endpoint) {
     });
     const data = await res.json();
     const msgs = [];
-    if (data.versions) msgs.push(`버전: +${data.versions.added} ~${data.versions.updated}`);
+    if (data.versions) {
+      msgs.push(`버전: 추가 ${data.versions.added}건, 업데이트 ${data.versions.updated}건`);
+    }
     const taskData = data.tasks || (data.added !== undefined ? data : null);
-    if (taskData) msgs.push(`시험항목: +${taskData.added} ~${taskData.updated} ✗${taskData.cancelled}`);
+    if (taskData) {
+      msgs.push(`시험항목: 추가 ${taskData.added}건, 업데이트 ${taskData.updated}건, 취소 ${taskData.cancelled}건`);
+    }
     if (msgs.length === 0) msgs.push('동기화 완료');
     alert('동기화 완료\n' + msgs.join('\n'));
     location.reload();
