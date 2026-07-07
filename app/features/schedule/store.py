@@ -59,7 +59,7 @@ def read_json(filename):
     if not os.path.exists(path):
         # settings.json은 단일 객체, 나머지는 배열 형태
         return [] if filename != 'settings.json' else {}
-    with portalocker.Lock(path, 'r', timeout=5) as f:
+    with portalocker.Lock(path, 'r', timeout=5, encoding='utf-8') as f:
         content = f.read()
         if not content.strip():
             # 파일이 비어 있는 경우에도 기본값 반환
@@ -81,6 +81,6 @@ def write_json(filename, data):
     # 데이터 유실 방지를 위해 기존 파일을 .bak으로 백업
     if os.path.exists(path):
         shutil.copy2(path, path + '.bak')
-    with portalocker.Lock(path, 'w', timeout=5) as f:
+    with portalocker.Lock(path, 'w', timeout=5, encoding='utf-8') as f:
         # ensure_ascii=False: 한글 등 유니코드를 그대로 저장
         json.dump(data, f, ensure_ascii=False, indent=2)
