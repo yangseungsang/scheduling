@@ -14,6 +14,8 @@ from xml.sax.saxutils import escape
 
 # 내보내기 열 헤더 (기존 Excel 양식)
 HEADERS = ['날짜', '문서명']
+CALENDAR_COLUMN_WIDTH = 34
+DATE_FILL_COLOR = 'EAF3F8'
 
 def _block_to_row(b):
     """블록 딕셔너리를 내보내기용 행(row) 데이터로 변환한다."""
@@ -31,8 +33,9 @@ def _block_label(b):
     return name
 
 
-def _sheet_xml(rows, styled_rows=None):
+def _sheet_xml(rows, styled_rows=None, col_width=None, merged_ranges=None):
     styled_rows = styled_rows or {}
+    merged_ranges = merged_ranges or []
 
     def col_name(index):
         name = ''
@@ -51,13 +54,30 @@ def _sheet_xml(rows, styled_rows=None):
             style_attr = f' s="{style}"' if style else ''
             cells.append(f'<c r="{ref}" t="inlineStr"{style_attr}><is><t>{text}</t></is></c>')
         xml_rows.append(f'<row r="{r_idx}">{"".join(cells)}</row>')
+    cols_xml = ''
+    if col_width:
+        cols_xml = (
+            f'<cols><col min="1" max="7" width="{col_width}" '
+            'customWidth="1"/></cols>'
+        )
+    merge_xml = ''
+    if merged_ranges:
+        merge_xml = (
+            f'<mergeCells count="{len(merged_ranges)}">'
+            + ''.join(f'<mergeCell ref="{ref}"/>' for ref in merged_ranges)
+            + '</mergeCells>'
+        )
+
     return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
         '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+        + cols_xml +
         '<sheetData>'
         + ''.join(xml_rows) +
-        '</sheetData></worksheet>'
+        '</sheetData>'
+        + merge_xml +
+        '</worksheet>'
     )
 
 
@@ -72,9 +92,11 @@ def _export_xlsx_stdlib(enriched_blocks, start_date, end_date, version_name=''):
     calendar_rows = [[f'스케줄: {start_date} ~ {end_date}' + (f' / {version_name}' if version_name else '')]]
     day_names = ['월', '화', '수', '목', '금', '토', '일']
     calendar_rows.append(day_names)
+    date_row_indexes = []
     current = d_start
     while current <= d_end:
         week_days = [current + timedelta(days=i) for i in range(7)]
+        date_row_indexes.append(len(calendar_rows) + 1)
         calendar_rows.append([
             day.strftime('%m/%d') if d_start <= day <= d_end else ''
             for day in week_days
@@ -94,15 +116,16 @@ def _export_xlsx_stdlib(enriched_blocks, start_date, end_date, version_name=''):
 
     data_rows = [HEADERS] + [_block_to_row(b) for b in enriched_blocks]
     calendar_styles = {1: 1, 2: 1}
+    calendar_styles.update({row_idx: 2 for row_idx in date_row_indexes})
     data_styles = {1: 1}
 
     styles_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>
-  <fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF4472C4"/><bgColor indexed="64"/></patternFill></fill></fills>
+  <fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF4472C4"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEAF3F8"/><bgColor indexed="64"/></patternFill></fill></fills>
   <borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-  <cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>
+  <cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>
 </styleSheet>'''
 
     buf = io.BytesIO()
@@ -123,7 +146,15 @@ def _export_xlsx_stdlib(enriched_blocks, start_date, end_date, version_name=''):
         z.writestr('xl/_rels/workbook.xml.rels', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>''')
         z.writestr('xl/styles.xml', styles_xml)
-        z.writestr('xl/worksheets/sheet1.xml', _sheet_xml(calendar_rows, calendar_styles))
+        z.writestr(
+            'xl/worksheets/sheet1.xml',
+            _sheet_xml(
+                calendar_rows,
+                calendar_styles,
+                col_width=CALENDAR_COLUMN_WIDTH,
+                merged_ranges=['A1:G1'],
+            ),
+        )
         z.writestr('xl/worksheets/sheet2.xml', _sheet_xml(data_rows, data_styles))
     return buf.getvalue()
 
@@ -197,6 +228,9 @@ def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
     header_font_white = Font(bold=True, size=11, color='FFFFFF')
     date_font = Font(bold=True, size=10)
     block_font = Font(size=9)
+    date_fill = PatternFill(
+        start_color=DATE_FILL_COLOR, end_color=DATE_FILL_COLOR, fill_type='solid'
+    )
     today_fill = PatternFill(start_color='E8F4FD', end_color='E8F4FD', fill_type='solid')
     weekend_fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
     center_align = Alignment(horizontal='center', vertical='top', wrap_text=True)
@@ -214,7 +248,7 @@ def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
 
     # 열 너비 설정 (7일 = 7열)
     for c in range(1, 8):
-        ws.column_dimensions[get_column_letter(c)].width = 22
+        ws.column_dimensions[get_column_letter(c)].width = CALENDAR_COLUMN_WIDTH
 
     # 주간 반복: 요일 행 + 날짜 행 + 블록 행 (월~일)
     row = 3
@@ -237,10 +271,9 @@ def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
             cell.font = date_font
             cell.alignment = center_align
             cell.border = thin_border
+            cell.fill = date_fill
             if day == today:
                 cell.fill = today_fill
-            elif day.weekday() >= 5:
-                cell.fill = weekend_fill
         row += 1
 
         max_blocks = 0
