@@ -1,122 +1,169 @@
 # PRD: 소프트웨어 시험 절차 스케줄링 서비스
 
-## Context
+## 1. 목적
 
-소프트웨어 시험 절차를 장소/버전별로 관리하고, 캘린더 형태로 스케줄링하는 웹 서비스. 드래그앤드롭으로 수동 배치하며, JSON 파일 기반 데이터 저장소를 사용한다.
+시험 담당자가 외부 시험 절차를 가져와 캘린더에 배치하고, 식별자별 실제 실행 시간과 결과를 추적할 수 있게 한다.
 
-## 기술 스택
+이 제품은 자동 최적화 스케줄러가 아니라 사람이 드래그앤드롭으로 계획을 조정하는 운영 도구다.
 
-- **Backend:** Flask + Jinja2
-- **Frontend:** Bootstrap 5 + 바닐라 JavaScript (10개 모듈)
-- **데이터 저장:** JSON 파일 (DB 없음, portalocker 파일 잠금)
-- **포트:** 5001
-- **테스트:** pytest (157개)
+## 2. 사용자
 
----
+| 사용자 | 필요 |
+| --- | --- |
+| 시험 담당자 | 오늘/이번 주 배정된 시험을 확인하고 실행 상태를 기록한다 |
+| 스케줄 관리자 | 시험 절차를 동기화하고 담당자/장소/시간표를 배치한다 |
+| 프로젝트 관리자 | 버전별 시험 계획, 잔여 시간, 완료/실패/보류 결과를 확인한다 |
 
-## 1. 데이터 계층
+## 3. 핵심 업무 흐름
 
+1. 관리자가 시험 절차를 동기화한다.
+2. 동기화된 task가 캘린더 옆 큐에 표시된다.
+3. 관리자가 task 또는 일부 식별자를 시간표로 드래그한다.
+4. 필요하면 블록을 이동, 리사이즈, 분리, 잠금 처리한다.
+5. 시험 담당자가 실행 화면에서 식별자를 시작한다.
+6. 담당자가 일시정지/재개/완료를 기록한다.
+7. 완료 시 pass/fail/block 수와 실제 소요 시간이 저장된다.
+
+## 4. 기능 요구사항
+
+### 4.1 시험 절차 동기화
+
+서비스는 다음 provider를 지원해야 한다.
+
+| provider | 요구사항 |
+| --- | --- |
+| `json_file` | 로컬 `procedures.json`, `versions.json`에서 데이터를 읽는다 |
+| `rest_api` | 외부 `/versions`, `/procedures` API에서 데이터를 읽는다 |
+| `dyn_ready` | `/dyn_ready/std-list/grouped` 응답을 읽고 변경이 없으면 스킵한다 |
+
+동기화 규칙:
+
+1. `doc_id`와 `exam_no` 조합으로 task를 생성/갱신한다.
+2. provider 데이터에 `exam_no`가 없으면 `std_list_cache.json`의 `test_info -> exam_no` 매핑을 사용한다.
+3. 같은 `exam_no` 안에서는 식별자 ID가 중복되면 안 된다.
+4. 다른 `exam_no`에서는 같은 식별자 ID를 허용한다.
+5. 이미 배치된 식별자가 외부 데이터에서 빠져도 즉시 삭제하지 않고 경고한다.
+
+### 4.2 Task 관리
+
+Task는 문서/절차 단위이며 다음 정보를 가진다.
+
+| 필드 | 설명 |
+| --- | --- |
+| `doc_id` | 외부 문서 ID |
+| `doc_name` | 표시 이름 |
+| `version_id` | OFP/스케줄 버전 |
+| `exam_no` | 시험 차수 |
+| `assignee_names` | 시험 담당자 이름 배열 |
+| `location_id` | 기본 시험 장소 |
+| `identifiers` | 시험 식별자 목록 |
+| `estimated_minutes` | 식별자 예상 시간 합 |
+| `remaining_minutes` | 아직 배치되지 않은 시간 |
+| `memo` | 메모 |
+
+진행 상태는 task에 직접 저장하지 않고 실행 데이터에서 계산한다. `status='cancelled'`는 외부 삭제/취소 표시 용도로만 사용한다.
+
+### 4.3 캘린더
+
+| 뷰 | URL | 요구사항 |
+| --- | --- | --- |
+| 일간 | `/schedule/` | 장소별 컬럼, 시간 슬롯, 블록 이동/리사이즈 |
+| 주간 | `/schedule/week` | 평일 5일과 장소 서브컬럼 |
+| 월간 | `/schedule/month` | 평일 중심 월간 일정 표시 |
+
+공통 요구사항:
+
+1. 장소 필터를 제공한다.
+2. 필터 선택은 새로고침 후에도 유지한다.
+3. 휴식/점심 시간은 시간 계산과 UI 표시에서 반영한다.
+4. 잠긴 블록은 이동/리사이즈/일괄 이동 대상에서 제외한다.
+
+### 4.4 드래그앤드롭
+
+지원해야 하는 조작:
+
+1. 큐 task를 시간표에 배치한다.
+2. 여러 식별자 중 일부만 선택해 배치한다.
+3. 기존 블록을 같은 날 또는 다른 날로 이동한다.
+4. 기존 블록을 큐로 되돌린다.
+5. 블록을 리사이즈한다.
+6. 여러 블록 또는 큐 항목을 선택해 순차 배치/이동한다.
+7. 업무 종료 시간을 넘으면 다음 근무일로 자동 넘긴다.
+
+리사이즈는 계획 시간이 아니라 실제 배정 시간 변경으로 처리하며, 단순히 큐 잔여 시간을 복원하지 않는다.
+
+### 4.5 식별자 분할
+
+하나의 task는 여러 식별자를 가질 수 있고, 식별자 단위로 분할 배치할 수 있어야 한다.
+
+요구사항:
+
+1. 큐 드래그 시 식별자 선택 피커를 제공한다.
+2. 이미 배치된 식별자는 배치됨으로 표시한다.
+3. 식별자를 다른 블록으로 옮기면 기존 블록에서 제거한다.
+4. 블록 상세에서 이 블록/다른 블록/미배치 상태를 구분한다.
+5. `identifier_ids=null` 블록은 전체 식별자를 포함한 것으로 본다.
+6. 미배치 식별자가 있으면 큐에는 그 잔여 시간만 표시한다.
+
+### 4.6 단순 블록
+
+시험 외 일정(준비, 회의 등)을 생성할 수 있어야 한다.
+
+단순 블록은 task 없이 제목과 시간 중심으로 관리되며, `is_simple=true`와 `title`을 사용한다.
+
+### 4.7 실행 관리
+
+실행 화면은 배치된 식별자별 실행 상태를 제공해야 한다.
+
+상태:
+
+```text
+pending -> in_progress -> paused -> in_progress -> completed
 ```
-문서명 (doc_name)                    ← 최상단 그룹
-  └─ 시험식별자 (identifiers[].id)     ← N개, 각각 예상시간 보유
-       └─ 작성자 (identifiers[].owners) ← N개, 해당 식별자를 작성한 인원
-```
 
-- **시험 담당자** (assignee_names) = 테스트를 수행하는 사람 (이름 기반)
-- **작성자** (owners) = 시험식별자를 작성/개발한 사람 (자유 텍스트)
-- 두 그룹은 겹치지 않음 (작성한 사람과 테스트하는 사람은 별개)
+요구사항:
 
----
+1. 실행 레코드가 없으면 pending으로 표시한다.
+2. 시작 시 `(identifier_id, task_id)` 조합으로 실행 레코드를 만든다.
+3. 재시작하면 기존 레코드를 초기화한다.
+4. 일시정지/재개는 실제 동작 구간인 `segments[]`로 기록한다.
+5. 완료 시 fail/block/pass 수를 저장한다.
+6. 수행자와 코멘트를 저장할 수 있어야 한다.
+7. 완료 후 외부 API 설정이 있으면 실제 소요 시간을 비동기로 전송한다.
 
-## 2. 핵심 기능
+### 4.8 내보내기
 
-### 2.1 시험 항목(Task) 관리
+CSV/XLSX 내보내기를 지원해야 한다.
 
-속성:
-- `doc_id` (int) — 문서 ID
-- `doc_name` — 문서명 (최상단 표시명)
-- `version_id` — 소프트웨어 버전
-- `assignee_names` — 시험 담당자 이름 배열 (복수)
-- `location_id` — 시험 장소
-- `identifiers` — 시험 식별자 배열:
-  ```json
-  [{"id": "TC-001", "name": "시험항목", "estimated_minutes": 60, "owners": ["김민수"]}]
-  ```
-- `estimated_minutes` — 식별자 시간 합 (불변, 리사이즈로 바뀌지 않음)
-- `remaining_minutes` — 잔여 시간
-- `status` — waiting / in_progress / completed
-- `memo`
-- `is_simple` — 단순 블록 여부 (시험 준비, 회의 등)
+포함 정보:
 
-필터링: 상태, 담당자(이름), 장소, 문서명, 날짜
+1. 날짜/시간/장소/담당자
+2. 문서명과 식별자 정보
+3. 버전 정보
+4. 분할 블록의 `N/M` 표시
+5. 상태와 메모
 
-### 2.2 스케줄 블록 관리
+## 5. 데이터 요구사항
 
-속성:
-- `task_id` — 연결된 시험항목 (단순 블록은 null)
-- `assignee_names` — 담당자 이름 배열
-- `location_id`
-- `date`, `start_time`, `end_time`
-- `is_locked` — 잠금 (이동/리사이즈 불가)
-- `block_status` — pending / in_progress / completed / cancelled
-- `identifier_ids` — 이 블록에 할당된 식별자 (null = 전체)
-- `title` — 단순 블록용 제목
-- `is_simple` — 단순 블록 여부
-- `overflow_minutes` — 초과 시간 (다음날 넘김 시)
-- `memo`
+영속 데이터는 JSON 파일로 관리한다.
 
-### 2.3 캘린더 뷰
+| 파일 | 요구사항 |
+| --- | --- |
+| `tasks.json` | 동기화된 시험 문서/task 저장 |
+| `schedule_blocks.json` | 캘린더 배치 저장 |
+| `users.json` | 담당자 기준 정보 |
+| `locations.json` | 장소 기준 정보 |
+| `versions.json` | 버전 기준 정보 |
+| `settings.json` | 근무 시간과 화면 설정 |
+| `procedures.json` | 로컬 provider 입력 |
+| `std_list_cache.json` | 재시험 차수 매핑 |
+| `executions.json` | 타이머와 실행 결과 |
 
-| 뷰 | URL | 특징 |
-|----|-----|------|
-| 일간 | `/schedule/` | 장소별 컬럼, 5분 그리드, 리사이즈/이동 |
-| 주간 | `/schedule/week` | 평일 5일 × 장소별 서브컬럼, 초기 진입 페이지 |
-| 월간 | `/schedule/month` | 평일만 달력, 항목 수에 따라 셀 높이 자동 확장 |
+파일 쓰기는 백업과 파일 잠금을 사용해야 한다.
 
-공통: 장소 필터 (복수 선택, 컬럼 단위 숨김, localStorage 유지)
+## 6. 설정 요구사항
 
-### 2.4 드래그앤드롭
-
-- **큐→시간표**: 항목 드래그하여 시간대에 배치, 고스트 그리드 스냅 + 휴식 시간 높이 반영
-- **블록 이동**: 같은날/다른날/큐복귀, 종료시간 초과 시 다음 근무일 자동 넘김
-- **블록 리사이즈**: 상/하 핸들
-- **다중 선택**: Ctrl+클릭 토글, Shift+클릭 범위 선택, Esc 해제
-- **큐 다중 드래그**: Shift+클릭 범위 선택 후 드래그 → 순차 배치
-- **블록 다중 이동**: 선택 후 드래그 → 순차 배치, 종료시간 초과 시 다음날 자동 전환
-
-### 2.5 분할 배치
-
-- 하나의 문서에 여러 식별자가 있을 때, 일부만 선택하여 배치 가능
-- 큐에서 드래그 시 식별자 선택 피커 표시 (전체 선택/해제 버튼)
-- 이미 배치된 식별자는 비활성 표시 + "배치됨" 뱃지
-- 배치된 식별자를 다시 선택하면 기존 블록에서 자동 제거
-- 우클릭 → "분리" / "일부 큐로 보내기"로 식별자 단위 관리
-- 분할 뱃지: `2/5` — 부분 배치(나머지 큐)는 빨간색, 전체 배치는 기본색
-- 상세 팝업에서 체크박스로 식별자 선택 + 분리/큐 복귀 버튼
-- 행별 큐 복귀 버튼 (배치 열 옆)
-- 같은 task 항목 호버 시 빨간 내부 테두리로 관련 블록 강조
-
-### 2.6 시간 관리 규칙
-
-- `estimated_minutes` = 식별자 시간 합 (불변)
-- **리사이즈** = 실제 시간 변경 (remaining 변경 안 됨, 큐 미노출)
-- **큐 복귀** (블록 삭제) = remaining 재계산
-- 분할 안 된 블록이 있으면 해당 task는 큐에서 제거
-- 분할된 블록만 있으면 미배치 식별자의 시간만 큐에 표시
-- **종료시간 초과**: actual_work_end 기준 자동 감지 → 다음 근무일 자동 넘김
-- 넘김 실패(겹침) 시 초과분은 줄어듦
-
-### 2.7 추가 기능
-
-- **간단 블록**: 시험 외 일정 (시험 준비, 회의 등), 제목+시간만으로 큐에 추가
-- **일정 밀기/당기기**: 특정 날짜 이후 블록을 +1/-1일 이동, 주말 건너뛰기
-- **내보내기**: CSV/Excel, 날짜 범위 지정, 버전 정보 포함, 분리 블록 (N/M) 표시
-- **점심/휴식 표시**: 시간표 슬롯에 빗금 배경, 블록 오버레이
-- **큐 그룹화**: 담당자별 그룹 토글 버튼
-
----
-
-## 3. 설정
+관리자는 다음 값을 수정할 수 있어야 한다.
 
 ```json
 {
@@ -133,63 +180,32 @@
 }
 ```
 
-- 일간 뷰는 5분 그리드 고정 (주간은 grid_interval_minutes 사용)
-- actual_work_start/actual_work_end로 그리드 시작/종료 시간 결정
+## 7. 비기능 요구사항
 
----
+| 항목 | 요구사항 |
+| --- | --- |
+| 로컬 실행 | `python3 run.py`로 개발 서버 실행 |
+| 기본 포트 | 5001 |
+| 저장 안정성 | JSON 쓰기 전 `.bak` 백업 생성 |
+| 동시 접근 | `portalocker`로 파일 잠금 |
+| 테스트 | pytest 기반 회귀 테스트 유지 |
+| 포맷 | ruff 설정 준수 |
+| 운영 보안 | 운영 환경에서는 `SECRET_KEY`와 외부 API 키를 환경 변수로 설정 |
 
-## 4. URL 구조
+## 8. 성공 기준
 
-### 페이지
-- `/` → 리다이렉트 → `/schedule/week`
-- `/schedule/`, `/schedule/week`, `/schedule/month`
-- `/tasks/`, `/tasks/new`, `/tasks/<id>`, `/tasks/<id>/edit`
-- `/admin/settings`, `/admin/users`, `/admin/locations`
+1. 동기화 후 task 큐가 최신 절차를 보여준다.
+2. 관리자가 식별자 단위로 일정을 배치/분리/복귀할 수 있다.
+3. 시간표가 휴식 시간과 업무 종료 초과를 반영한다.
+4. 실행 담당자가 식별자별 타이머와 결과를 기록할 수 있다.
+5. task 상태가 실행 결과와 모순되지 않는다.
+6. 내보내기 파일이 현재 캘린더와 버전 정보를 반영한다.
 
-### API
-- `POST/PUT/DELETE /schedule/api/blocks`, `/schedule/api/blocks/<id>/lock|status|memo`
-- `POST /schedule/api/simple-blocks`
-- `GET /schedule/api/blocks/by-task/<task_id>`
-- `POST /schedule/api/blocks/shift`
-- `POST /schedule/api/blocks/<id>/split`
-- `POST /schedule/api/blocks/<id>/return-identifiers`
-- `GET /schedule/api/export`
-- `GET /schedule/api/day|week|month`
-- `GET/POST/PUT/DELETE /tasks/api/*`
-- `GET /tasks/api/check-identifier`
-- `GET /tasks/api/procedure/<int:doc_id>`
-- `GET/PUT /admin/api/settings`
-- `GET/POST/PUT/DELETE /admin/api/users|locations|versions`
-- `POST /api/sync/versions|test-data|reset-and-sync`
-- `GET /api/sync/status`
+## 9. 관련 기술 문서
 
----
-
-## 5. 프로젝트 구조
-
-```
-scheduling/
-├── run.py
-├── scripts/csv_to_json.py              # CSV → JSON 변환
-├── app/
-│   ├── __init__.py                      # create_app()
-│   ├── features/
-│   │   ├── schedule/                    # 관리자 시간표
-│   │   │   ├── store.py                 # JSON I/O + 파일 잠금
-│   │   │   ├── data/                    # JSON 데이터 파일
-│   │   │   ├── models/                  # BaseRepository + 도메인 모델
-│   │   │   ├── routes/                  # 뷰 + API + 헬퍼
-│   │   │   ├── helpers/                 # enrichment, overlap, time_utils
-│   │   │   ├── services/               # export, procedure, sync
-│   │   │   └── providers/              # 외부 데이터 프로바이더
-│   │   └── execution/                   # 시험 실행 (설계 완료, 미구현)
-│   ├── templates/
-│   │   ├── schedule/                    # 시간표 템플릿
-│   │   └── execution/                   # 실행 페이지 템플릿 (예정)
-│   └── static/
-│       └── schedule/
-│           ├── css/style.css
-│           └── js/ (10개 모듈)
-├── tests/ (157개)
-└── docs/
-```
+| 문서 | 내용 |
+| --- | --- |
+| `docs/architecture.md` | 전체 시스템 구조와 데이터 흐름 |
+| `docs/BACKEND.md` | 백엔드 라우트, 모델, 서비스 상세 |
+| `docs/FRONTEND.md` | 템플릿과 JS 모듈 구조 |
+| `docs/data-files.md` | JSON 파일별 스키마 |
