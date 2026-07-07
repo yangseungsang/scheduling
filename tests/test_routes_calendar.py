@@ -1,4 +1,7 @@
 """Tests for calendar/schedule routes."""
+import zipfile
+from io import BytesIO
+
 from tests.conftest import (
     _create_user, _create_location, _create_task, _create_version, _create_block,
 )
@@ -375,6 +378,15 @@ class TestExportAPI:
         assert r.status_code == 200
         assert 'spreadsheetml' in r.content_type
         assert len(r.data) > 1000  # non-trivial xlsx file
+        with zipfile.ZipFile(BytesIO(r.data)) as z:
+            names = set(z.namelist())
+            assert 'xl/worksheets/sheet1.xml' in names
+            assert 'xl/worksheets/sheet2.xml' in names
+            assert 'xl/styles.xml' in names
+            data_sheet = z.read('xl/worksheets/sheet2.xml').decode('utf-8')
+            assert '날짜' in data_sheet
+            assert '문서명' in data_sheet
+            assert '시스템' in data_sheet
 
     def test_export_empty_range(self, client):
         r = client.get(

@@ -7,16 +7,17 @@
 
 import csv
 import io
+import zipfile
 from datetime import date, datetime, timedelta
+from xml.sax.saxutils import escape
 
 
-# 내보내기 열 헤더 (날짜와 문서명만 포함)
+# 내보내기 열 헤더 (기존 Excel 양식)
 HEADERS = ['날짜', '문서명']
-
 
 def _block_to_row(b):
     """블록 딕셔너리를 내보내기용 행(row) 데이터로 변환한다."""
-    name = b.get('doc_name', '') or b.get('task_title', '')
+    name = b.get('display_name') or b.get('doc_name', '') or b.get('task_title', '')
     if b.get('is_split'):
         name += ' (' + str(b.get('block_identifier_count', '?')) + '/' + str(b.get('total_identifier_count', '?')) + ')'
     return [b.get('date', ''), name]
@@ -24,10 +25,107 @@ def _block_to_row(b):
 
 def _block_label(b):
     """블록의 표시 라벨을 생성한다 (달력 시트용)."""
-    name = b.get('doc_name', '') or b.get('task_title', '')
+    name = b.get('display_name') or b.get('doc_name', '') or b.get('task_title', '')
     if b.get('is_split'):
         name += ' (' + str(b.get('block_identifier_count', '?')) + '/' + str(b.get('total_identifier_count', '?')) + ')'
     return name
+
+
+def _sheet_xml(rows, styled_rows=None):
+    styled_rows = styled_rows or {}
+
+    def col_name(index):
+        name = ''
+        while index:
+            index, rem = divmod(index - 1, 26)
+            name = chr(65 + rem) + name
+        return name
+
+    xml_rows = []
+    for r_idx, row in enumerate(rows, 1):
+        cells = []
+        style = styled_rows.get(r_idx, 0)
+        for c_idx, value in enumerate(row, 1):
+            ref = f'{col_name(c_idx)}{r_idx}'
+            text = escape(str(value) if value is not None else '')
+            style_attr = f' s="{style}"' if style else ''
+            cells.append(f'<c r="{ref}" t="inlineStr"{style_attr}><is><t>{text}</t></is></c>')
+        xml_rows.append(f'<row r="{r_idx}">{"".join(cells)}</row>')
+    return (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+        '<sheetData>'
+        + ''.join(xml_rows) +
+        '</sheetData></worksheet>'
+    )
+
+
+def _export_xlsx_stdlib(enriched_blocks, start_date, end_date, version_name=''):
+    """openpyxl이 없는 환경에서도 기본 서식이 있는 XLSX를 생성한다."""
+    d_start = datetime.strptime(start_date, '%Y-%m-%d').date()
+    d_end = datetime.strptime(end_date, '%Y-%m-%d').date()
+    blocks_by_date = {}
+    for b in enriched_blocks:
+        blocks_by_date.setdefault(b.get('date', ''), []).append(b)
+
+    calendar_rows = [[f'스케줄: {start_date} ~ {end_date}' + (f' / {version_name}' if version_name else '')]]
+    day_names = ['월', '화', '수', '목', '금', '토', '일']
+    calendar_rows.append(day_names)
+    current = d_start
+    while current <= d_end:
+        week_days = [current + timedelta(days=i) for i in range(7)]
+        calendar_rows.append([
+            day.strftime('%m/%d') if d_start <= day <= d_end else ''
+            for day in week_days
+        ])
+        max_blocks = max(
+            [len(blocks_by_date.get(day.isoformat(), [])) for day in week_days] + [1]
+        )
+        for block_idx in range(max_blocks):
+            calendar_rows.append([
+                _block_label(blocks_by_date.get(day.isoformat(), [])[block_idx])
+                if block_idx < len(blocks_by_date.get(day.isoformat(), []))
+                else ''
+                for day in week_days
+            ])
+        calendar_rows.append([''] * 7)
+        current += timedelta(days=7)
+
+    data_rows = [HEADERS] + [_block_to_row(b) for b in enriched_blocks]
+    calendar_styles = {1: 1, 2: 1}
+    data_styles = {1: 1}
+
+    styles_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>
+  <fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF4472C4"/><bgColor indexed="64"/></patternFill></fill></fills>
+  <borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>
+</styleSheet>'''
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
+        z.writestr('[Content_Types].xml', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+</Types>''')
+        z.writestr('_rels/.rels', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>''')
+        z.writestr('xl/workbook.xml', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="스케줄" sheetId="1" r:id="rId1"/><sheet name="데이터" sheetId="2" r:id="rId2"/></sheets></workbook>''')
+        z.writestr('xl/_rels/workbook.xml.rels', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>''')
+        z.writestr('xl/styles.xml', styles_xml)
+        z.writestr('xl/worksheets/sheet1.xml', _sheet_xml(calendar_rows, calendar_styles))
+        z.writestr('xl/worksheets/sheet2.xml', _sheet_xml(data_rows, data_styles))
+    return buf.getvalue()
 
 
 def export_csv(enriched_blocks):
@@ -66,9 +164,12 @@ def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
     Returns:
         bytes: XLSX 파일 바이너리 데이터.
     """
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-    from openpyxl.utils import get_column_letter
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        return _export_xlsx_stdlib(enriched_blocks, start_date, end_date, version_name)
 
     wb = Workbook()
     ws = wb.active
@@ -83,9 +184,9 @@ def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
     d_start = datetime.strptime(start_date, '%Y-%m-%d').date()
     d_end = datetime.strptime(end_date, '%Y-%m-%d').date()
     week_start = d_start - timedelta(days=d_start.weekday())  # 월요일로 맞춤
-    week_end = d_end + timedelta(days=4 - d_end.weekday()) if d_end.weekday() < 5 else d_end  # 금요일까지
+    week_end = d_end + timedelta(days=6 - d_end.weekday())
 
-    day_names = ['월', '화', '수', '목', '금']
+    day_names = ['월', '화', '수', '목', '금', '토', '일']
 
     # 엑셀 스타일 정의
     thin_border = Border(
@@ -96,11 +197,14 @@ def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
     header_font_white = Font(bold=True, size=11, color='FFFFFF')
     date_font = Font(bold=True, size=10)
     block_font = Font(size=9)
+    today_fill = PatternFill(start_color='E8F4FD', end_color='E8F4FD', fill_type='solid')
+    weekend_fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
     center_align = Alignment(horizontal='center', vertical='top', wrap_text=True)
     top_align = Alignment(vertical='top', wrap_text=True)
+    today = date.today()
 
-    # 1행: 제목 (5열 병합)
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=5)
+    # 1행: 제목 (7열 병합)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=7)
     title_text = f'스케줄: {start_date} ~ {end_date}'
     if version_name:
         title_text = f'[{version_name}] {title_text}'
@@ -108,49 +212,73 @@ def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
     title_cell.font = Font(bold=True, size=14)
     title_cell.alignment = Alignment(horizontal='center')
 
-    # 열 너비 설정 (5일 = 5열)
-    for c in range(1, 6):
-        ws.column_dimensions[get_column_letter(c)].width = 26
+    # 열 너비 설정 (7일 = 7열)
+    for c in range(1, 8):
+        ws.column_dimensions[get_column_letter(c)].width = 22
 
-    # 2행: 요일 헤더 (월~금)
-    row = 2
-    for i in range(5):
-        cell = ws.cell(row=row, column=i + 1, value=day_names[i])
-        cell.font = header_font_white
-        cell.fill = header_fill
-        cell.alignment = center_align
-        cell.border = thin_border
-    row += 1
-
-    # 주간 반복: 날짜 행 + 내용 행 (월~금만)
+    # 주간 반복: 요일 행 + 날짜 행 + 블록 행 (월~일)
+    row = 3
     current = week_start
     while current <= week_end:
+        # 요일 헤더 행
+        for i in range(7):
+            cell = ws.cell(row=row, column=i + 1, value=day_names[i])
+            cell.font = header_font_white
+            cell.fill = header_fill
+            cell.alignment = center_align
+            cell.border = thin_border
+        row += 1
+
         # 날짜 행
-        for i in range(5):
+        for i in range(7):
             day = current + timedelta(days=i)
             label = day.strftime('%m/%d') if d_start <= day <= d_end else ''
             cell = ws.cell(row=row, column=i + 1, value=label)
             cell.font = date_font
             cell.alignment = center_align
             cell.border = thin_border
+            if day == today:
+                cell.fill = today_fill
+            elif day.weekday() >= 5:
+                cell.fill = weekend_fill
         row += 1
 
-        # 내용 행 (분리 블록 표시 포함)
-        max_lines = 1
-        for i in range(5):
+        max_blocks = 0
+        for i in range(7):
             day = current + timedelta(days=i)
-            day_blocks = blocks_by_date.get(day.isoformat(), [])
-            sections = [_block_label(b) for b in day_blocks if _block_label(b)]
+            max_blocks = max(max_blocks, len(blocks_by_date.get(day.isoformat(), [])))
+        content_rows = max(max_blocks, 1)
 
-            cell = ws.cell(row=row, column=i + 1, value='\n'.join(sections) if sections else '')
-            cell.font = block_font
-            cell.alignment = top_align
-            cell.border = thin_border
+        for r_offset in range(content_rows):
+            for i in range(7):
+                day = current + timedelta(days=i)
+                day_blocks = blocks_by_date.get(day.isoformat(), [])
 
-            if len(sections) > max_lines:
-                max_lines = len(sections)
+                cell = ws.cell(row=row + r_offset, column=i + 1)
+                cell.border = thin_border
+                cell.alignment = top_align
 
-        ws.row_dimensions[row].height = max(30, max_lines * 15)
+                if day.weekday() >= 5:
+                    cell.fill = weekend_fill
+                if day == today:
+                    cell.fill = today_fill
+
+                if r_offset < len(day_blocks):
+                    block = day_blocks[r_offset]
+                    cell.value = _block_label(block)
+                    cell.font = block_font
+                    color_hex = (block.get('color') or '#FFFFFF').lstrip('#')
+                    if len(color_hex) == 6:
+                        r_c = int(int(color_hex[0:2], 16) * 0.3 + 255 * 0.7)
+                        g_c = int(int(color_hex[2:4], 16) * 0.3 + 255 * 0.7)
+                        b_c = int(int(color_hex[4:6], 16) * 0.3 + 255 * 0.7)
+                        light = f'{r_c:02X}{g_c:02X}{b_c:02X}'
+                        cell.fill = PatternFill(start_color=light, end_color=light, fill_type='solid')
+
+        for r_offset in range(content_rows):
+            ws.row_dimensions[row + r_offset].height = 60
+
+        row += content_rows
         row += 1
 
         # 다음 주로 이동
