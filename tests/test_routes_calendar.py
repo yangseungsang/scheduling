@@ -388,6 +388,12 @@ class TestExportAPI:
             assert '문서명' in data_sheet
             assert '시스템' in data_sheet
 
+            schedule_sheet = z.read('xl/worksheets/sheet1.xml').decode('utf-8')
+            styles = z.read('xl/styles.xml').decode('utf-8')
+            assert '<mergeCell ref="A1:G1"/>' in schedule_sheet
+            assert 'width="34"' in schedule_sheet
+            assert 'EAF3F8' in styles
+
     def test_export_empty_range(self, client):
         r = client.get(
             '/schedule/api/export?start_date=2026-01-01&end_date=2026-01-07&format=csv'
