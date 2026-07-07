@@ -162,6 +162,34 @@ class TestExecutionAPI:
         data = r.get_json()
         assert data['status'] == 'in_progress'
 
+    def test_start_allows_when_other_performer_is_in_progress(self, exec_app, exec_client):
+        with exec_app.app_context():
+            from app.features.execution.models.execution import ExecutionRepository
+
+            ex = ExecutionRepository.start('TC-OTHER', 't_other', total_count=0)
+            ExecutionRepository.update_performer(ex['id'], 'alice')
+
+        exec_client.post('/execution/api/login', json={'username': 'bob'})
+        r = exec_client.post('/execution/api/start', json={
+            'identifier_id': 'TC-BOB', 'task_id': 't_bob'
+        })
+        assert r.status_code == 201
+        assert r.get_json()['performer'] == 'bob'
+
+    def test_start_blocks_when_current_user_is_already_in_progress(self, exec_app, exec_client):
+        with exec_app.app_context():
+            from app.features.execution.models.execution import ExecutionRepository
+
+            ex = ExecutionRepository.start('TC-ALICE', 't_alice', total_count=0)
+            ExecutionRepository.update_performer(ex['id'], 'alice')
+
+        exec_client.post('/execution/api/login', json={'username': 'alice'})
+        r = exec_client.post('/execution/api/start', json={
+            'identifier_id': 'TC-NEW', 'task_id': 't_new'
+        })
+        assert r.status_code == 409
+        assert r.get_json()['code'] == 'user_busy'
+
     def test_pause(self, exec_client):
         r = exec_client.post('/execution/api/start', json={
             'identifier_id': 'TC-001', 'task_id': 't_001'

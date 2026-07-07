@@ -300,7 +300,7 @@ def start():
 
     중복 진행 방지 로직:
         세션 사용자가 현재 다른 식별자를 진행 중이면 409를 반환한다.
-        수행자가 지정된 다른 실행이 있어도 409를 반환한다.
+        다른 수행자가 진행 중인 실행은 현재 사용자의 시작을 막지 않는다.
         단, 동일 식별자에 대한 재시작은 항상 허용한다.
 
     시작 후 performer가 비어 있으면 현재 세션 사용자를 자동으로 지정한다.
@@ -323,8 +323,6 @@ def start():
             performer = ex.get('performer', '')
             if performer == current_user:
                 return jsonify({'error': '이미 진행 중인 시험이 있습니다.', 'code': 'user_busy'}), 409
-            if performer:
-                return jsonify({'error': f'"{performer}"님이 시험을 진행 중입니다.', 'code': 'another_user_busy'}), 409
 
     total = _get_total_count(identifier_id, task_id)
     ex = ExecutionRepository.start(identifier_id, task_id, total_count=total)
