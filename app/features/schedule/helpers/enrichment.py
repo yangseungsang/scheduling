@@ -11,21 +11,19 @@ from datetime import date
 from app.features.schedule.helpers.time_utils import (
     generate_time_slots,
     is_break_slot,
-    work_minutes_in_range,
 )
 from app.features.schedule.models import (
     location,
     schedule_block,
-    settings,
     task,
     user,
 )
 
 STATUS_COLORS = {
-    'pending': '#94a3b8',      # Slate 400
+    'pending': '#94a3b8',  # Slate 400
     'in_progress': '#0d6efd',  # Bootstrap Primary / Blue 600
-    'completed': '#198754',    # Bootstrap Success / Green 600
-    'cancelled': '#dc3545',    # Bootstrap Danger / Red 600
+    'completed': '#198754',  # Bootstrap Success / Green 600
+    'cancelled': '#dc3545',  # Bootstrap Danger / Red 600
 }
 
 
@@ -97,6 +95,7 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
 
     # execution 데이터 로드
     from app.features.execution.models.execution import ExecutionRepository
+
     all_executions = ExecutionRepository.get_all()
     exec_by_task_identifier = {
         (ex['identifier_id'], ex.get('task_id', '')): ex for ex in all_executions
@@ -132,16 +131,26 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
             block['doc_id'] = ''
         else:
             # 일반 블록: 문서명 우선, 없으면 문서 ID, 태스크 삭제 시 '(삭제됨)'
-            block['task_title'] = t.get('doc_name') or str(t.get('doc_id', '(삭제됨)')) if t else '(삭제됨)'
+            block['task_title'] = (
+                t.get('doc_name') or str(t.get('doc_id', '(삭제됨)'))
+                if t
+                else '(삭제됨)'
+            )
         exam_no = t.get('exam_no') if t else None
         block['exam_no'] = exam_no
         if is_simple:
             block['display_name'] = b.get('title', '(블록)')
         else:
             base = t.get('doc_name', '') if t else ''
-            block['display_name'] = f'{base} ({exam_no}차)' if exam_no is not None and exam_no != 1 else base
+            block['display_name'] = (
+                f'{base} ({exam_no}차)'
+                if exam_no is not None and exam_no != 1
+                else base
+            )
         block['assignee_names'] = assignee_name_list
-        block['assignee_name'] = ', '.join(assignee_name_list) if assignee_name_list else '(미배정)'
+        block['assignee_name'] = (
+            ', '.join(assignee_name_list) if assignee_name_list else '(미배정)'
+        )
         # 첫 번째 담당자의 색상을 대표 색상으로 사용
         block['assignee_color'] = assignee_colors[0] if assignee_colors else '#6c757d'
         block['location_name'] = loc['name'] if loc else ''
@@ -154,22 +163,26 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
             # 이 블록에 해당하는 식별자들 (없으면 전체)
             b_iids = b.get('identifier_ids')
             if b_iids is None:
-                b_iids = [idf['id'] if isinstance(idf, dict) else idf 
-                         for idf in t.get('identifiers', [])]
-            
+                b_iids = [
+                    idf['id'] if isinstance(idf, dict) else idf
+                    for idf in t.get('identifiers', [])
+                ]
+
             # 각 식별자의 execution 상태 수집
             statuses = []
             for iid in b_iids:
                 ex = exec_by_task_identifier.get((iid, t['id']))
                 statuses.append(ex.get('status', 'pending') if ex else 'pending')
-            
+
             if all(s == 'completed' for s in statuses):
                 derived_status = 'completed'
-            elif any(s in ('in_progress', 'paused') for s in statuses) or any(s == 'completed' for s in statuses):
+            elif any(s in ('in_progress', 'paused') for s in statuses) or any(
+                s == 'completed' for s in statuses
+            ):
                 derived_status = 'in_progress'
             else:
                 derived_status = 'pending'
-            
+
             # 수동 상태가 'cancelled'인 경우 보존
             if b.get('block_status') == 'cancelled':
                 block['block_status'] = 'cancelled'
@@ -180,13 +193,16 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
 
         # color_by 설정에 따라 블록 표시 색상 결정
         if color_by == 'status':
-            block['color'] = STATUS_COLORS.get(block['block_status'], STATUS_COLORS['pending'])
+            block['color'] = STATUS_COLORS.get(
+                block['block_status'], STATUS_COLORS['pending']
+            )
         elif color_by == 'location':
             block['color'] = block['location_color']
         else:
             block['color'] = block['assignee_color']
 
         block['memo'] = t.get('memo', '') if t else b.get('memo', '')
+        block['identifiers'] = t.get('identifiers', []) if t else []
         block['identifier_ids'] = b.get('identifier_ids')
         block['is_simple'] = b.get('is_simple', False)
         block['title'] = b.get('title', '')
@@ -198,17 +214,21 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         block['total_identifier_count'] = total_ids
         block['block_identifier_count'] = len(block_ids) if block_ids else total_ids
         # 블록이 분할(split)되었는지 판단: identifier_ids가 명시적이고 전체보다 적을 때
-        block['is_split'] = block_ids is not None and total_ids > 0 and len(block_ids) < total_ids
+        block['is_split'] = (
+            block_ids is not None and total_ids > 0 and len(block_ids) < total_ids
+        )
 
         # 분할 상태 결정: 나머지 식별자가 다른 블록에 배치되었는지 확인
         if block['is_split'] and t:
             # 태스크의 전체 식별자 ID 집합
-            all_task_ids = set(item['id'] if isinstance(item, dict) else item
-                              for item in t.get('identifiers', []))
+            all_task_ids = set(
+                item['id'] if isinstance(item, dict) else item
+                for item in t.get('identifiers', [])
+            )
             # 이 태스크의 모든 블록에서 배치된 식별자 ID 수집
             placed_ids = set()
             for tb in all_blocks_by_task.get(b.get('task_id'), []):
-                for iid in (tb.get('identifier_ids') or all_task_ids):
+                for iid in tb.get('identifier_ids') or all_task_ids:
                     placed_ids.add(iid)
             unplaced = all_task_ids - placed_ids
             # 미배치 식별자가 있으면 'partial', 모두 배치되면 'split'
@@ -249,7 +269,6 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
     """
     tasks = task.get_all()
     all_blocks = schedule_block.get_all()
-    sttngs = settings.get()
 
     # 태스크별 배치된 블록 목록 구성
     task_blocks = {}  # tid → list of blocks
@@ -260,6 +279,7 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
         task_blocks.setdefault(tid, []).append(b)
 
     from app.features.execution.models.execution import ExecutionRepository
+
     all_executions = ExecutionRepository.get_all()
     # (identifier_id, task_id) 조합을 키로 사용해 재시험 레코드가 섞이지 않게 한다.
     exec_by_task_identifier = {
@@ -311,8 +331,10 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
         # 일부 식별자만 블록에 배치된 경우(분할 블록),
         # 아직 배치되지 않은 식별자들의 예상 시간을 remaining으로 계산한다.
         # -------------------------------------------------------------------------
-        all_ids = [item['id'] if isinstance(item, dict) else item
-                   for item in t.get('identifiers', [])]
+        all_ids = [
+            item['id'] if isinstance(item, dict) else item
+            for item in t.get('identifiers', [])
+        ]
 
         if not all_ids:
             # 식별자가 없는 태스크(예: 단순 블록 연결용): 블록이 하나라도 있으면 배치 완료로 간주
@@ -351,7 +373,11 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
         exam_no = t.get('exam_no')
         task_item['exam_no'] = exam_no
         doc_nm = t.get('doc_name', '')
-        task_item['display_name'] = f'{doc_nm} ({exam_no}차)' if exam_no is not None and exam_no != 1 else doc_nm
+        task_item['display_name'] = (
+            f'{doc_nm} ({exam_no}차)'
+            if exam_no is not None and exam_no != 1
+            else doc_nm
+        )
 
         # 담당자 이름/색상 추가 (값 자체가 이름)
         raw_assignee_names = t.get('assignee_names', [])
@@ -366,8 +392,12 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
                 resolved_names.append(name)
                 resolved_colors.append('#6c757d')
 
-        task_item['assignee_name'] = ', '.join(resolved_names) if resolved_names else '(미배정)'
-        task_item['assignee_color'] = resolved_colors[0] if resolved_colors else '#6c757d'
+        task_item['assignee_name'] = (
+            ', '.join(resolved_names) if resolved_names else '(미배정)'
+        )
+        task_item['assignee_color'] = (
+            resolved_colors[0] if resolved_colors else '#6c757d'
+        )
 
         # 장소 정보 추가
         loc = locations_map.get(t.get('location_id'))
@@ -377,8 +407,12 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
         queue.append(task_item)
 
     # 문서명 → 문서ID → 차수 순으로 정렬
-    queue.sort(key=lambda t: (t.get('doc_name', '') or str(t.get('doc_id', '')),
-                               t.get('exam_no') or 0))
+    queue.sort(
+        key=lambda t: (
+            t.get('doc_name', '') or str(t.get('doc_id', '')),
+            t.get('exam_no') or 0,
+        )
+    )
     return queue
 
 
@@ -458,11 +492,13 @@ def build_month_weeks(year, month, blocks_by_date):
                 week_data.append(None)
             else:
                 d = date(year, month, day_num)
-                week_data.append({
-                    'date': d,
-                    'day': day_num,
-                    'blocks': blocks_by_date.get(d.isoformat(), []),
-                })
+                week_data.append(
+                    {
+                        'date': d,
+                        'day': day_num,
+                        'blocks': blocks_by_date.get(d.isoformat(), []),
+                    }
+                )
         weeks.append(week_data)
     return weeks
 
@@ -477,6 +513,7 @@ def parse_date(date_str):
         date: 파싱된 날짜 객체 또는 오늘 날짜.
     """
     from datetime import datetime
+
     if date_str:
         try:
             return datetime.strptime(date_str, '%Y-%m-%d').date()

@@ -14,14 +14,22 @@ from xml.sax.saxutils import escape
 
 # 내보내기 열 헤더 (기존 Excel 양식)
 HEADERS = ['날짜', '문서명']
+PRACTITIONER_HEADERS = ['날짜', '장소', '시작', '종료', '절차서', '시험 식별자']
 CALENDAR_COLUMN_WIDTH = 34
 DATE_FILL_COLOR = 'EAF3F8'
+
 
 def _block_to_row(b):
     """블록 딕셔너리를 내보내기용 행(row) 데이터로 변환한다."""
     name = b.get('display_name') or b.get('doc_name', '') or b.get('task_title', '')
     if b.get('is_split'):
-        name += ' (' + str(b.get('block_identifier_count', '?')) + '/' + str(b.get('total_identifier_count', '?')) + ')'
+        name += (
+            ' ('
+            + str(b.get('block_identifier_count', '?'))
+            + '/'
+            + str(b.get('total_identifier_count', '?'))
+            + ')'
+        )
     return [b.get('date', ''), name]
 
 
@@ -29,8 +37,71 @@ def _block_label(b):
     """블록의 표시 라벨을 생성한다 (달력 시트용)."""
     name = b.get('display_name') or b.get('doc_name', '') or b.get('task_title', '')
     if b.get('is_split'):
-        name += ' (' + str(b.get('block_identifier_count', '?')) + '/' + str(b.get('total_identifier_count', '?')) + ')'
+        name += (
+            ' ('
+            + str(b.get('block_identifier_count', '?'))
+            + '/'
+            + str(b.get('total_identifier_count', '?'))
+            + ')'
+        )
     return name
+
+
+def _identifier_label(identifier):
+    if isinstance(identifier, dict):
+        identifier_id = identifier.get('id', '')
+        identifier_name = identifier.get('name', '')
+        if identifier_id and identifier_name:
+            return f'{identifier_id} - {identifier_name}'
+        return identifier_id or identifier_name
+    return str(identifier) if identifier is not None else ''
+
+
+def _block_identifiers(b):
+    identifiers = b.get('identifiers') or []
+    selected_ids = b.get('identifier_ids')
+    if selected_ids is None:
+        return identifiers
+
+    selected_id_set = set(selected_ids)
+    return [
+        identifier
+        for identifier in identifiers
+        if (
+            identifier.get('id') if isinstance(identifier, dict) else identifier
+        )
+        in selected_id_set
+    ]
+
+
+def _practitioner_rows(enriched_blocks):
+    rows = [PRACTITIONER_HEADERS]
+    sorted_blocks = sorted(
+        enriched_blocks,
+        key=lambda b: (
+            b.get('date', ''),
+            b.get('location_name', ''),
+            b.get('start_time', ''),
+            b.get('end_time', ''),
+            _block_label(b),
+        ),
+    )
+    for b in sorted_blocks:
+        identifiers = _block_identifiers(b)
+        if not identifiers:
+            identifiers = ['']
+        for identifier in identifiers:
+            rows.append(
+                [
+                    b.get('date', ''),
+                    b.get('location_name', ''),
+                    b.get('start_time', ''),
+                    b.get('end_time', ''),
+                    _block_label(b),
+                    _identifier_label(identifier),
+                ]
+            )
+    return rows
 
 
 def _sheet_xml(rows, styled_rows=None, col_width=None, merged_ranges=None):
@@ -52,7 +123,9 @@ def _sheet_xml(rows, styled_rows=None, col_width=None, merged_ranges=None):
             ref = f'{col_name(c_idx)}{r_idx}'
             text = escape(str(value) if value is not None else '')
             style_attr = f' s="{style}"' if style else ''
-            cells.append(f'<c r="{ref}" t="inlineStr"{style_attr}><is><t>{text}</t></is></c>')
+            cells.append(
+                f'<c r="{ref}" t="inlineStr"{style_attr}><is><t>{text}</t></is></c>'
+            )
         xml_rows.append(f'<row r="{r_idx}">{"".join(cells)}</row>')
     cols_xml = ''
     if col_width:
@@ -72,12 +145,12 @@ def _sheet_xml(rows, styled_rows=None, col_width=None, merged_ranges=None):
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
         '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
-        + cols_xml +
-        '<sheetData>'
-        + ''.join(xml_rows) +
-        '</sheetData>'
-        + merge_xml +
-        '</worksheet>'
+        + cols_xml
+        + '<sheetData>'
+        + ''.join(xml_rows)
+        + '</sheetData>'
+        + merge_xml
+        + '</worksheet>'
     )
 
 
@@ -89,7 +162,12 @@ def _export_xlsx_stdlib(enriched_blocks, start_date, end_date, version_name=''):
     for b in enriched_blocks:
         blocks_by_date.setdefault(b.get('date', ''), []).append(b)
 
-    calendar_rows = [[f'스케줄: {start_date} ~ {end_date}' + (f' / {version_name}' if version_name else '')]]
+    calendar_rows = [
+        [
+            f'스케줄: {start_date} ~ {end_date}'
+            + (f' / {version_name}' if version_name else '')
+        ]
+    ]
     day_names = ['월', '화', '수', '목', '금', '토', '일']
     calendar_rows.append(day_names)
     date_row_indexes = []
@@ -97,54 +175,73 @@ def _export_xlsx_stdlib(enriched_blocks, start_date, end_date, version_name=''):
     while current <= d_end:
         week_days = [current + timedelta(days=i) for i in range(7)]
         date_row_indexes.append(len(calendar_rows) + 1)
-        calendar_rows.append([
-            day.strftime('%m/%d') if d_start <= day <= d_end else ''
-            for day in week_days
-        ])
+        calendar_rows.append(
+            [
+                day.strftime('%m/%d') if d_start <= day <= d_end else ''
+                for day in week_days
+            ]
+        )
         max_blocks = max(
             [len(blocks_by_date.get(day.isoformat(), [])) for day in week_days] + [1]
         )
         for block_idx in range(max_blocks):
-            calendar_rows.append([
-                _block_label(blocks_by_date.get(day.isoformat(), [])[block_idx])
-                if block_idx < len(blocks_by_date.get(day.isoformat(), []))
-                else ''
-                for day in week_days
-            ])
+            calendar_rows.append(
+                [
+                    _block_label(blocks_by_date.get(day.isoformat(), [])[block_idx])
+                    if block_idx < len(blocks_by_date.get(day.isoformat(), []))
+                    else ''
+                    for day in week_days
+                ]
+            )
         calendar_rows.append([''] * 7)
         current += timedelta(days=7)
 
     data_rows = [HEADERS] + [_block_to_row(b) for b in enriched_blocks]
+    practitioner_rows = _practitioner_rows(enriched_blocks)
     calendar_styles = {1: 1, 2: 1}
     calendar_styles.update({row_idx: 2 for row_idx in date_row_indexes})
     data_styles = {1: 1}
+    practitioner_styles = {1: 1}
 
-    styles_xml = '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    styles_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
   <fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts>
   <fills count="4"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF4472C4"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFEAF3F8"/><bgColor indexed="64"/></patternFill></fill></fills>
   <borders count="2"><border/><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/></border></borders>
   <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
   <cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf></cellXfs>
-</styleSheet>'''
+</styleSheet>"""
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as z:
-        z.writestr('[Content_Types].xml', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+        z.writestr(
+            '[Content_Types].xml',
+            """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
   <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
   <Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  <Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
   <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
-</Types>''')
-        z.writestr('_rels/.rels', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>''')
-        z.writestr('xl/workbook.xml', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="스케줄" sheetId="1" r:id="rId1"/><sheet name="데이터" sheetId="2" r:id="rId2"/></sheets></workbook>''')
-        z.writestr('xl/_rels/workbook.xml.rels', '''<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>''')
+</Types>""",
+        )
+        z.writestr(
+            '_rels/.rels',
+            """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>""",
+        )
+        z.writestr(
+            'xl/workbook.xml',
+            """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="스케줄" sheetId="1" r:id="rId1"/><sheet name="데이터" sheetId="2" r:id="rId2"/><sheet name="실무자용" sheetId="3" r:id="rId3"/></sheets></workbook>""",
+        )
+        z.writestr(
+            'xl/_rels/workbook.xml.rels',
+            """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>""",
+        )
         z.writestr('xl/styles.xml', styles_xml)
         z.writestr(
             'xl/worksheets/sheet1.xml',
@@ -156,6 +253,10 @@ def _export_xlsx_stdlib(enriched_blocks, start_date, end_date, version_name=''):
             ),
         )
         z.writestr('xl/worksheets/sheet2.xml', _sheet_xml(data_rows, data_styles))
+        z.writestr(
+            'xl/worksheets/sheet3.xml',
+            _sheet_xml(practitioner_rows, practitioner_styles),
+        )
     return buf.getvalue()
 
 
@@ -221,18 +322,26 @@ def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
 
     # 엑셀 스타일 정의
     thin_border = Border(
-        left=Side(style='thin'), right=Side(style='thin'),
-        top=Side(style='thin'), bottom=Side(style='thin'),
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin'),
     )
-    header_fill = PatternFill(start_color='4472C4', end_color='4472C4', fill_type='solid')
+    header_fill = PatternFill(
+        start_color='4472C4', end_color='4472C4', fill_type='solid'
+    )
     header_font_white = Font(bold=True, size=11, color='FFFFFF')
     date_font = Font(bold=True, size=10)
     block_font = Font(size=9)
     date_fill = PatternFill(
         start_color=DATE_FILL_COLOR, end_color=DATE_FILL_COLOR, fill_type='solid'
     )
-    today_fill = PatternFill(start_color='E8F4FD', end_color='E8F4FD', fill_type='solid')
-    weekend_fill = PatternFill(start_color='F5F5F5', end_color='F5F5F5', fill_type='solid')
+    today_fill = PatternFill(
+        start_color='E8F4FD', end_color='E8F4FD', fill_type='solid'
+    )
+    weekend_fill = PatternFill(
+        start_color='F5F5F5', end_color='F5F5F5', fill_type='solid'
+    )
     center_align = Alignment(horizontal='center', vertical='top', wrap_text=True)
     top_align = Alignment(vertical='top', wrap_text=True)
     today = date.today()
@@ -306,7 +415,9 @@ def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
                         g_c = int(int(color_hex[2:4], 16) * 0.3 + 255 * 0.7)
                         b_c = int(int(color_hex[4:6], 16) * 0.3 + 255 * 0.7)
                         light = f'{r_c:02X}{g_c:02X}{b_c:02X}'
-                        cell.fill = PatternFill(start_color=light, end_color=light, fill_type='solid')
+                        cell.fill = PatternFill(
+                            start_color=light, end_color=light, fill_type='solid'
+                        )
 
         for r_offset in range(content_rows):
             ws.row_dimensions[row + r_offset].height = 60
@@ -329,6 +440,27 @@ def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
             val = str(cell.value) if cell.value else ''
             max_len = max(max_len, len(val))
         ws2.column_dimensions[col[0].column_letter].width = max_len + 4
+
+    # 세 번째 시트: 실무자용 날짜/장소/식별자 목록
+    ws3 = wb.create_sheet(title='실무자용')
+    for row_values in _practitioner_rows(enriched_blocks):
+        ws3.append(row_values)
+    for cell in ws3[1]:
+        cell.font = header_font_white
+        cell.fill = header_fill
+        cell.alignment = center_align
+        cell.border = thin_border
+    for row_cells in ws3.iter_rows(min_row=2):
+        for cell in row_cells:
+            cell.alignment = top_align
+            cell.border = thin_border
+    ws3.freeze_panes = 'A2'
+    for col in ws3.columns:
+        max_len = 0
+        for cell in col:
+            val = str(cell.value) if cell.value else ''
+            max_len = max(max_len, len(val))
+        ws3.column_dimensions[col[0].column_letter].width = min(max_len + 4, 60)
 
     # 워크북을 바이트 버퍼에 저장하여 반환
     buf = io.BytesIO()
