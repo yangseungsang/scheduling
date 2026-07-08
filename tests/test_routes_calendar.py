@@ -1,9 +1,13 @@
 """Tests for calendar/schedule routes."""
+
 import zipfile
 from io import BytesIO
 
 from tests.conftest import (
-    _create_user, _create_location, _create_task, _create_version, _create_block,
+    _create_user,
+    _create_location,
+    _create_task,
+    _create_block,
 )
 
 
@@ -66,21 +70,28 @@ class TestScheduleBlockAPI:
         """If no assignee_names, use the task's assignee_names."""
         uid = _create_user(client)
         tid = _create_task(client, uid)
-        r = client.post('/schedule/api/blocks', json={
-            'task_id': tid, 'date': '2026-03-10',
-            'start_time': '09:00', 'end_time': '10:00',
-        })
+        r = client.post(
+            '/schedule/api/blocks',
+            json={
+                'task_id': tid,
+                'date': '2026-03-10',
+                'start_time': '09:00',
+                'end_time': '10:00',
+            },
+        )
         assert r.status_code == 201
         assert uid in r.get_json()['assignee_names']
 
     def test_create_block_overlap_rejected(self, client):
         uid = _create_user(client)
         tid = _create_task(client, uid)
-        _create_block(client, tid, uid, start='09:00', end='10:00',
-                      location_id='loc_test')
+        _create_block(
+            client, tid, uid, start='09:00', end='10:00', location_id='loc_test'
+        )
         # Overlapping block at same location
-        _, status = _create_block(client, tid, uid, start='09:30', end='10:30',
-                                  location_id='loc_test')
+        _, status = _create_block(
+            client, tid, uid, start='09:30', end='10:30', location_id='loc_test'
+        )
         assert status == 409
 
     def test_create_block_adjacent_allowed(self, client):
@@ -97,7 +108,11 @@ class TestScheduleBlockAPI:
         uid = _create_user(client)
         tid = _create_task(client, uid)
         data, status = _create_block(
-            client, tid, uid, start='11:00', end='14:00',
+            client,
+            tid,
+            uid,
+            start='11:00',
+            end='14:00',
         )
         assert status == 201
         # 3h work: 11:00-12:00 (1h) + skip lunch + 13:00-15:00 (2h) = end at 15:00
@@ -107,9 +122,13 @@ class TestScheduleBlockAPI:
         uid = _create_user(client)
         tid = _create_task(client, uid)
         block, _ = _create_block(client, tid, uid)
-        r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
-            'start_time': '10:00', 'end_time': '11:00',
-        })
+        r = client.put(
+            f'/schedule/api/blocks/{block["id"]}',
+            json={
+                'start_time': '10:00',
+                'end_time': '11:00',
+            },
+        )
         assert r.status_code == 200
         assert r.get_json()['start_time'] == '10:00'
 
@@ -117,9 +136,12 @@ class TestScheduleBlockAPI:
         uid = _create_user(client)
         tid = _create_task(client, uid)
         block, _ = _create_block(client, tid, uid, date_str='2026-03-10')
-        r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
-            'date': '2026-03-11',
-        })
+        r = client.put(
+            f'/schedule/api/blocks/{block["id"]}',
+            json={
+                'date': '2026-03-11',
+            },
+        )
         assert r.status_code == 200
         assert r.get_json()['date'] == '2026-03-11'
 
@@ -130,9 +152,13 @@ class TestScheduleBlockAPI:
         # Create 1h block at 09:00-10:00
         block, _ = _create_block(client, tid, uid, start='09:00', end='10:00')
         # Move to 11:00 -- should still be 1h of work
-        r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
-            'start_time': '11:00', 'end_time': '12:00',
-        })
+        r = client.put(
+            f'/schedule/api/blocks/{block["id"]}',
+            json={
+                'start_time': '11:00',
+                'end_time': '12:00',
+            },
+        )
         data = r.get_json()
         assert data['start_time'] == '11:00'
         assert data['end_time'] == '12:00'
@@ -142,9 +168,13 @@ class TestScheduleBlockAPI:
         uid = _create_user(client)
         tid = _create_task(client, uid)
         block, _ = _create_block(client, tid, uid, start='09:00', end='10:00')
-        r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
-            'start_time': '11:30', 'end_time': '12:30',
-        })
+        r = client.put(
+            f'/schedule/api/blocks/{block["id"]}',
+            json={
+                'start_time': '11:30',
+                'end_time': '12:30',
+            },
+        )
         data = r.get_json()
         assert data['start_time'] == '11:30'
         # 1h work: 11:30-12:00 (30min) + skip lunch + 13:00-13:30 (30min) = 13:30
@@ -155,10 +185,14 @@ class TestScheduleBlockAPI:
         uid = _create_user(client)
         tid = _create_task(client, uid)
         block, _ = _create_block(client, tid, uid, start='09:00', end='10:00')
-        r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
-            'start_time': '09:00', 'end_time': '09:30',
-            'resize': True,
-        })
+        r = client.put(
+            f'/schedule/api/blocks/{block["id"]}',
+            json={
+                'start_time': '09:00',
+                'end_time': '09:30',
+                'resize': True,
+            },
+        )
         assert r.get_json()['end_time'] == '09:30'
 
     def test_update_block_resize_syncs_remaining(self, client):
@@ -169,10 +203,14 @@ class TestScheduleBlockAPI:
         t_before = client.get(f'/tasks/api/{tid}').get_json()['task']
         rem_before = t_before['remaining_minutes']
         # Resize to 1h — remaining should increase
-        r = client.put(f'/schedule/api/blocks/{block["id"]}', json={
-            'start_time': '09:00', 'end_time': '10:00',
-            'resize': True,
-        })
+        r = client.put(
+            f'/schedule/api/blocks/{block["id"]}',
+            json={
+                'start_time': '09:00',
+                'end_time': '10:00',
+                'resize': True,
+            },
+        )
         assert 'split_block' not in r.get_json()
         t = client.get(f'/tasks/api/{tid}').get_json()['task']
         assert t['estimated_minutes'] == 240
@@ -180,21 +218,37 @@ class TestScheduleBlockAPI:
 
     def test_update_block_overlap_rejected(self, client):
         # Create two simple blocks (different tasks) at same location
-        r1 = client.post('/schedule/api/blocks', json={
-            'is_simple': True, 'date': '2026-03-10',
-            'start_time': '10:00', 'end_time': '11:00',
-            'location_id': 'loc_test', 'title': 'A',
-        })
-        r2 = client.post('/schedule/api/blocks', json={
-            'is_simple': True, 'date': '2026-03-10',
-            'start_time': '11:00', 'end_time': '11:30',
-            'location_id': 'loc_test', 'title': 'B',
-        })
+        client.post(
+            '/schedule/api/blocks',
+            json={
+                'is_simple': True,
+                'date': '2026-03-10',
+                'start_time': '10:00',
+                'end_time': '11:00',
+                'location_id': 'loc_test',
+                'title': 'A',
+            },
+        )
+        r2 = client.post(
+            '/schedule/api/blocks',
+            json={
+                'is_simple': True,
+                'date': '2026-03-10',
+                'start_time': '11:00',
+                'end_time': '11:30',
+                'location_id': 'loc_test',
+                'title': 'B',
+            },
+        )
         b2_id = r2.get_json()['id']
         # Try to move b2 to overlap with b1
-        r = client.put(f'/schedule/api/blocks/{b2_id}', json={
-            'start_time': '10:00', 'end_time': '10:30',
-        })
+        r = client.put(
+            f'/schedule/api/blocks/{b2_id}',
+            json={
+                'start_time': '10:00',
+                'end_time': '10:30',
+            },
+        )
         assert r.status_code == 409
 
     def test_update_nonexistent_block(self, client):
@@ -317,6 +371,7 @@ class TestScheduleViewAPIs:
         tid = _create_task(client, uid, hours='2')
 
         from app.features.execution.models.execution import ExecutionRepository
+
         with app.app_context():
             ex1 = ExecutionRepository.start('TC-001', tid)
             ExecutionRepository.complete(ex1['id'], fail_count=0)
@@ -335,10 +390,12 @@ class TestOverlapLayout:
         uid2 = _create_user(client, name='김철수', color='#FF0000')
         tid2 = _create_task(client, uid2, doc_id=771)
         # Two blocks at same time, different assignees
-        _create_block(client, tid1, uid, date_str='2026-03-10',
-                      start='09:00', end='10:00')
-        _create_block(client, tid2, uid2, date_str='2026-03-10',
-                      start='09:00', end='10:00')
+        _create_block(
+            client, tid1, uid, date_str='2026-03-10', start='09:00', end='10:00'
+        )
+        _create_block(
+            client, tid2, uid2, date_str='2026-03-10', start='09:00', end='10:00'
+        )
         r = client.get('/schedule/api/day?date=2026-03-10')
         # API doesn't compute overlap layout, but template view does
         r = client.get('/schedule/?date=2026-03-10')
@@ -351,7 +408,6 @@ class TestOverlapLayout:
         _create_block(client, tid, uid, start='10:00', end='11:00')
         r = client.get('/schedule/?date=2026-03-10')
         assert r.status_code == 200
-
 
 
 class TestExportAPI:
@@ -370,8 +426,26 @@ class TestExportAPI:
 
     def test_export_xlsx(self, client):
         uid = _create_user(client)
-        tid = _create_task(client, uid)
-        _create_block(client, tid, uid, date_str='2026-03-10')
+        loc_id = _create_location(client, name='A 시험실')
+        tid = _create_task(client, uid, loc_id=loc_id)
+        _create_block(
+            client,
+            tid,
+            uid,
+            date_str='2026-03-10',
+            location_id=loc_id,
+            identifier_ids=['TC-001'],
+        )
+        _create_block(
+            client,
+            tid,
+            uid,
+            date_str='2026-03-11',
+            start='10:00',
+            end='11:00',
+            location_id=loc_id,
+            identifier_ids=['TC-002'],
+        )
         r = client.get(
             '/schedule/api/export?start_date=2026-03-10&end_date=2026-03-16&format=xlsx'
         )
@@ -382,11 +456,22 @@ class TestExportAPI:
             names = set(z.namelist())
             assert 'xl/worksheets/sheet1.xml' in names
             assert 'xl/worksheets/sheet2.xml' in names
+            assert 'xl/worksheets/sheet3.xml' in names
             assert 'xl/styles.xml' in names
+            workbook = z.read('xl/workbook.xml').decode('utf-8')
+            assert '실무자용' in workbook
             data_sheet = z.read('xl/worksheets/sheet2.xml').decode('utf-8')
             assert '날짜' in data_sheet
             assert '문서명' in data_sheet
             assert '시스템' in data_sheet
+            practitioner_sheet = z.read('xl/worksheets/sheet3.xml').decode('utf-8')
+            assert '장소' in practitioner_sheet
+            assert '절차서' in practitioner_sheet
+            assert '시험 식별자' in practitioner_sheet
+            assert 'A 시험실' in practitioner_sheet
+            assert 'TC-001' in practitioner_sheet
+            assert 'TC-002' in practitioner_sheet
+            assert practitioner_sheet.count('시스템') == 2
 
     def test_export_empty_range(self, client):
         r = client.get(
@@ -399,9 +484,7 @@ class TestExportAPI:
         assert r.status_code == 400
 
     def test_export_invalid_date(self, client):
-        r = client.get(
-            '/schedule/api/export?start_date=bad&end_date=2026-03-10'
-        )
+        r = client.get('/schedule/api/export?start_date=bad&end_date=2026-03-10')
         assert r.status_code == 400
 
     def test_export_csv_has_headers(self, client):
