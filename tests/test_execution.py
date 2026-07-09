@@ -293,6 +293,74 @@ class TestExecutionAPI:
         assert r.status_code == 200
         assert r.get_json()['total_count'] == 7
 
+    def test_total_count_accepts_external_aliases(self, exec_app, exec_client):
+        with exec_app.app_context():
+            from app.features.schedule.models import task as task_repo
+
+            task_repo.create(
+                doc_id=6,
+                assignee_names=[],
+                location_id='',
+                doc_name='별칭 카운트 문서',
+                identifiers=[
+                    {'id': 'TC-ALIAS', 'name': '별칭 시험', 'estimated_minutes': 10, 'total_tests': 11},
+                ],
+                estimated_minutes=10,
+            )
+
+        r = exec_client.get('/execution/api/total-count/TC-ALIAS')
+        assert r.status_code == 200
+        assert r.get_json()['total_count'] == 11
+
+    def test_item_uses_identifier_total_count_when_execution_has_zero(self, exec_app, exec_client):
+        with exec_app.app_context():
+            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.schedule.models import task as task_repo
+
+            task = task_repo.create(
+                doc_id=7,
+                assignee_names=[],
+                location_id='',
+                doc_name='총 건수 보정 문서',
+                identifiers=[
+                    {'id': 'TC-FALLBACK', 'name': '보정 시험', 'estimated_minutes': 10, 'total_count': 6},
+                ],
+                estimated_minutes=10,
+            )
+            ExecutionRepository.start('TC-FALLBACK', task['id'], total_count=0)
+
+        r = exec_client.get('/execution/api/item/TC-FALLBACK?task_id=' + task['id'])
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['total_count'] == 6
+        assert data['execution']['total_count'] == 6
+
+    def test_complete_rehydrates_total_count_before_pass_calculation(self, exec_app, exec_client):
+        with exec_app.app_context():
+            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.schedule.models import task as task_repo
+
+            task = task_repo.create(
+                doc_id=8,
+                assignee_names=[],
+                location_id='',
+                doc_name='완료 계산 문서',
+                identifiers=[
+                    {'id': 'TC-REHYDRATE', 'name': '완료 계산 시험', 'estimated_minutes': 10, 'total_count': 9},
+                ],
+                estimated_minutes=10,
+            )
+            ex = ExecutionRepository.start('TC-REHYDRATE', task['id'], total_count=0)
+
+        r = exec_client.post('/execution/api/complete', json={
+            'execution_id': ex['id'], 'fail_count': 2, 'block_count': 3
+        })
+
+        assert r.status_code == 200
+        data = r.get_json()
+        assert data['total_count'] == 9
+        assert data['pass_count'] == 4
+
     def test_complete_result_counts_and_completed_date_are_listed(self, exec_app, exec_client):
         with exec_app.app_context():
             from app.features.schedule.models import task as task_repo
