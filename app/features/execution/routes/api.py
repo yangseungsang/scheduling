@@ -65,20 +65,38 @@ def _notify_timing(identifier_id: str, task_id: str, elapsed_seconds: int):
     threading.Thread(target=_send, daemon=True).start()
 
 
+TOTAL_COUNT_KEYS = (
+    'total_count',
+    'test_count',
+    'case_count',
+    'count',
+    'total_tests',
+    'total_cases',
+    'test_case_count',
+    'testcase_count',
+    'tc_count',
+)
+
+
+def _coerce_count(value) -> int | None:
+    if value in (None, ''):
+        return None
+    try:
+        return max(0, int(value))
+    except (TypeError, ValueError):
+        return None
+
+
 def _identifier_total_count(identifier: dict) -> int:
     """식별자 데이터에 저장된 전체 시험 건수를 반환한다.
 
     외부 API 연동 전까지 10을 고정 반환하던 값이 결과를 오염시키지 않도록,
     동기화 데이터에 명시된 카운트 필드를 우선 사용하고 없으면 0으로 둔다.
     """
-    for key in ('total_count', 'test_count', 'case_count', 'count'):
-        value = identifier.get(key)
-        if value in (None, ''):
-            continue
-        try:
-            return max(0, int(value))
-        except (TypeError, ValueError):
-            continue
+    for key in TOTAL_COUNT_KEYS:
+        value = _coerce_count(identifier.get(key))
+        if value is not None:
+            return value
     return 0
 
 
@@ -94,7 +112,7 @@ def _get_total_count(identifier_id: str, task_id: str = '') -> int:
     return 0
 
 
-def _execution_response(ex):
+def _execution_response(ex, fallback_total_count=0):
     """실행 레코드를 API 응답용 딕셔너리로 변환한다.
 
     elapsed_seconds는 저장된 스냅샷 값 대신 segments로부터 실시간 재계산하여
@@ -105,12 +123,15 @@ def _execution_response(ex):
     """
     if ex is None:
         return None
+    total_count = _coerce_count(ex.get('total_count')) or 0
+    if total_count == 0 and fallback_total_count:
+        total_count = fallback_total_count
     return {
         'id': ex['id'],
         'status': ex['status'],
         # segments 기반 실시간 계산 — 저장된 elapsed_seconds 필드는 스냅샷용
         'elapsed_seconds': ExecutionRepository.compute_elapsed_seconds(ex.get('segments', [])),
-        'total_count': ex.get('total_count', 0),
+        'total_count': total_count,
         'fail_count': ex.get('fail_count', 0),
         'block_count': ex.get('block_count', 0),
         'pass_count': ex.get('pass_count', 0),
@@ -188,6 +209,7 @@ def _build_item_dict(task, identifier, locations, scheduled_date, block_loc_id='
     # 블록 장소가 있으면 우선, 없으면 태스크 장소로 폴백
     loc_id = block_loc_id or task.get('location_id', '')
     loc_name = locations.get(loc_id, {}).get('name', '') if loc_id else ''
+    total_count = _identifier_total_count(identifier)
     execution = ExecutionRepository.get_by_identifier_and_task(iid, task['id'])
     completed_at = execution.get('completed_at') if execution else None
     exam_no = task.get('exam_no')
@@ -206,9 +228,9 @@ def _build_item_dict(task, identifier, locations, scheduled_date, block_loc_id='
         'location_name': loc_name,
         'scheduled_date': scheduled_date,
         'display_date': completed_at or scheduled_date,
-        'total_count': _identifier_total_count(identifier),
+        'total_count': total_count,
         # 실행 레코드가 없으면 None (미시작 상태를 프론트에서 pending으로 표시)
-        'execution': _execution_response(execution),
+        'execution': _execution_response(execution, total_count),
     }
 
 
@@ -373,6 +395,13 @@ def complete():
     block_count = body.get('block_count', 0)
     if not execution_id:
         return jsonify({'error': 'execution_id required'}), 400
+    current = ExecutionRepository.get_by_id(execution_id)
+    if current and (_coerce_count(current.get('total_count')) or 0) == 0:
+        total_count = _get_total_count(
+            current.get('identifier_id', ''), current.get('task_id', '')
+        )
+        if total_count:
+            ExecutionRepository._patch(execution_id, total_count=total_count)
     ex = ExecutionRepository.complete(execution_id, fail_count, block_count)
     if ex is None:
         return jsonify({'error': 'not found or invalid state'}), 404
