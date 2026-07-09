@@ -337,9 +337,9 @@ function renderPage() {
     const dis    = !started ? 'disabled' : '';
     const failV  = started ? ex.fail_count      : 0;
     const blockV = started ? (ex.block_count ?? 0) : 0;
-    const total  = started ? ex.total_count     : 0;
+    const total  = started ? (Number(ex.total_count) || 0) : 0;
     const passV  = started ? Math.max(0, total - failV - blockV) : 0;
-    const maxA   = started ? `max="${total}"`   : '';
+    const maxA   = total > 0 ? `max="${total}"` : '';
     failPassHtml = `
     <div class="exec-counts-bar mb-3">
       <div class="exec-count-cell" style="background:#fef2f2">
@@ -582,7 +582,7 @@ async function doSaveComment() {
  */
 function updatePass() {
   if (!_item?.execution) return;
-  const total = _item.execution.total_count;
+  const total = Number(_item.execution.total_count) || 0;
   const fail  = parseInt(document.getElementById('fail-input')?.value  || 0) || 0;
   const block = parseInt(document.getElementById('block-input')?.value || 0) || 0;
   document.getElementById('pass-display').textContent = Math.max(0, total - fail - block);

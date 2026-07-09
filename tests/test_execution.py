@@ -222,6 +222,36 @@ class TestExecutionAPI:
         assert data['status'] == 'completed'
         assert data['fail_count'] == 3
 
+    def test_complete_accepts_result_counts_when_total_count_unknown(self, exec_app, exec_client):
+        with exec_app.app_context():
+            from app.features.schedule.models import task as task_repo
+
+            task = task_repo.create(
+                doc_id=5,
+                assignee_names=[],
+                location_id='',
+                doc_name='카운트 미정 문서',
+                identifiers=[
+                    {'id': 'TC-UNKNOWN', 'name': '카운트 미정 시험', 'estimated_minutes': 10},
+                ],
+                estimated_minutes=10,
+            )
+
+        r = exec_client.post('/execution/api/start', json={
+            'identifier_id': 'TC-UNKNOWN', 'task_id': task['id']
+        })
+        ex_id = r.get_json()['id']
+        r2 = exec_client.post('/execution/api/complete', json={
+            'execution_id': ex_id, 'fail_count': 2, 'block_count': 1
+        })
+
+        assert r2.status_code == 200
+        data = r2.get_json()
+        assert data['total_count'] == 0
+        assert data['fail_count'] == 2
+        assert data['block_count'] == 1
+        assert data['pass_count'] == 0
+
     def test_reset(self, exec_client):
         r = exec_client.post('/execution/api/start', json={
             'identifier_id': 'TC-001', 'task_id': 't_001'
@@ -342,3 +372,18 @@ class TestExecutionAPI:
     def test_execution_page(self, exec_client):
         r = exec_client.get('/execution/')
         assert r.status_code == 200
+
+    def test_detail_count_inputs_only_cap_when_total_count_is_known(self):
+        js_path = os.path.join(
+            os.path.dirname(__file__),
+            '..',
+            'app',
+            'static',
+            'execution',
+            'js',
+            'execution-detail.js',
+        )
+        with open(js_path) as f:
+            detail_js = f.read()
+
+        assert 'const maxA   = total > 0 ? `max="${total}"` : \'\';' in detail_js
