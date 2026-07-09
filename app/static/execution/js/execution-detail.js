@@ -239,7 +239,6 @@ function renderPage() {
   const cfg    = STATUS_CFG[status] || STATUS_CFG.pending;
 
   const assignee = (item.assignee_names || []).join(', ') || '-';
-  const totalCount = Number(ex?.total_count) || Number(item.total_count) || 0;
 
   const leftPanel = `
   <div class="exec-detail-sidebar">
@@ -276,9 +275,9 @@ function renderPage() {
           <div class="sidebar-field-label">예상시간</div>
           <div class="sidebar-field-value">${formatMinutes(item.estimated_minutes)}</div>
         </div>
-        ${totalCount ? `<div class="sidebar-field">
+        ${ex ? `<div class="sidebar-field">
           <div class="sidebar-field-label">총 건수</div>
-          <div class="sidebar-field-value">${totalCount}건</div>
+          <div class="sidebar-field-value">${ex.total_count}건</div>
         </div>` : ''}
       </div>
     </div>
@@ -330,7 +329,7 @@ function renderPage() {
       </div>
       <div class="exec-count-cell" style="background:#f8fafc">
         <div class="exec-count-label text-muted">총 건수</div>
-        <div class="exec-count-value text-secondary">${totalCount}</div>
+        <div class="exec-count-value text-secondary">${ex.total_count}</div>
       </div>
     </div>`;
   } else {
@@ -338,7 +337,7 @@ function renderPage() {
     const dis    = !started ? 'disabled' : '';
     const failV  = started ? ex.fail_count      : 0;
     const blockV = started ? (ex.block_count ?? 0) : 0;
-    const total  = started ? totalCount : Number(item.total_count) || 0;
+    const total  = started ? (Number(ex.total_count) || 0) : 0;
     const passV  = started ? Math.max(0, total - failV - blockV) : 0;
     const maxA   = total > 0 ? `max="${total}"` : '';
     failPassHtml = `
@@ -583,7 +582,7 @@ async function doSaveComment() {
  */
 function updatePass() {
   if (!_item?.execution) return;
-  const total = Number(_item.execution.total_count) || Number(_item.total_count) || 0;
+  const total = Number(_item.execution.total_count) || 0;
   const fail  = parseInt(document.getElementById('fail-input')?.value  || 0) || 0;
   const block = parseInt(document.getElementById('block-input')?.value || 0) || 0;
   document.getElementById('pass-display').textContent = Math.max(0, total - fail - block);

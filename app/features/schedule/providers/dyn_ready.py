@@ -14,17 +14,6 @@ from app.features.schedule.providers.base import BaseProvider, NoChangesError
 
 _ENDPOINT = '/dyn_ready/std-list/grouped'
 _META_FILE = 'dyn_ready_meta.json'
-_TOTAL_COUNT_KEYS = (
-    'total_count',
-    'test_count',
-    'case_count',
-    'count',
-    'total_tests',
-    'total_cases',
-    'test_case_count',
-    'testcase_count',
-    'tc_count',
-)
 
 
 def _meta_path():
@@ -58,18 +47,6 @@ def _data_hash(payload):
         separators=(',', ':'),
     )
     return hashlib.sha256(serialized.encode('utf-8')).hexdigest()
-
-
-def _first_count(ident):
-    for key in _TOTAL_COUNT_KEYS:
-        value = ident.get(key)
-        if value in (None, ''):
-            continue
-        try:
-            return max(0, int(value))
-        except (TypeError, ValueError):
-            continue
-    return None
 
 
 class DynReadyProvider(BaseProvider):
@@ -132,9 +109,6 @@ def _transform(payload):
                 'estimated_minutes': ident.get('estimated_minutes', 0),
                 'owners': [ident['owner']] if ident.get('owner') else [],
             }
-            total_count = _first_count(ident)
-            if total_count is not None:
-                normalized['total_count'] = total_count
             by_exam.setdefault(exam_no, []).append(normalized)
 
         for exam_no, idents in by_exam.items():
