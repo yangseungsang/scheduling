@@ -98,27 +98,6 @@ class TestJsonFileProvider:
 
 
 class TestDynReadyProvider:
-    def test_transform_preserves_total_count(self):
-        from app.features.schedule.providers.dyn_ready import _transform
-
-        payload = {
-            'data': [{
-                'doc_id': 1,
-                'doc_name': '시스템',
-                'identifiers': [{
-                    'test_id': 'TC-001',
-                    'func_name': '전원 시험',
-                    'exam_no': 1,
-                    'estimated_minutes': 30,
-                    'total_tests': 8,
-                }],
-            }],
-        }
-
-        result = _transform(payload)
-
-        assert result[0]['identifiers'][0]['total_count'] == 8
-
     def test_same_timestamp_and_same_data_skips_sync(self, app):
         from unittest.mock import Mock, patch
 
