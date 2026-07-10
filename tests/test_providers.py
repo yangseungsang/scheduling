@@ -98,6 +98,41 @@ class TestJsonFileProvider:
 
 
 class TestDynReadyProvider:
+    def test_dyn_ready_maps_pf_num_to_total_count(self, app):
+        from unittest.mock import Mock, patch
+
+        from app.features.schedule.providers.dyn_ready import DynReadyProvider
+
+        payload = {
+            'updated_at': '2026-07-10T09:00:00',
+            'data': [
+                {
+                    'doc_id': 1,
+                    'doc_name': '시스템',
+                    'identifiers': [
+                        {
+                            'test_id': 'TC-001',
+                            'func_name': '로그인',
+                            'exam_no': 1,
+                            'estimated_minutes': 30,
+                            'pf_num': 17,
+                        }
+                    ],
+                }
+            ],
+        }
+        response = Mock()
+        response.json.return_value = payload
+        response.raise_for_status.return_value = None
+
+        with app.app_context(), patch(
+            'app.features.schedule.providers.dyn_ready.requests.get',
+            return_value=response,
+        ):
+            data = DynReadyProvider().get_test_data_all()
+
+        assert data[0]['identifiers'][0]['total_count'] == 17
+
     def test_same_timestamp_and_same_data_skips_sync(self, app):
         from unittest.mock import Mock, patch
 

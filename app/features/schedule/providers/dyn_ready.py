@@ -107,6 +107,7 @@ def _transform(payload):
                 'id': ident.get('test_id', ''),
                 'name': ident.get('func_name', ''),
                 'estimated_minutes': ident.get('estimated_minutes', 0),
+                'total_count': ident.get('pf_num', 0),
                 'owners': [ident['owner']] if ident.get('owner') else [],
             }
             by_exam.setdefault(exam_no, []).append(normalized)

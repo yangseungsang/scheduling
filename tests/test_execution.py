@@ -293,6 +293,41 @@ class TestExecutionAPI:
         assert r.status_code == 200
         assert r.get_json()['total_count'] == 7
 
+    def test_pending_item_uses_pf_num_as_total_count(self, exec_app, exec_client):
+        with exec_app.app_context():
+            from app.features.schedule.models import task as task_repo
+
+            task = task_repo.create(
+                doc_id=1,
+                assignee_names=[],
+                location_id='',
+                doc_name='PF 문서',
+                identifiers=[
+                    {
+                        'id': 'TC-PF',
+                        'name': 'PF 시험',
+                        'estimated_minutes': 10,
+                        'pf_num': 12,
+                    },
+                ],
+                estimated_minutes=10,
+            )
+
+        list_response = exec_client.get('/execution/api/list')
+        item = next(i for i in list_response.get_json() if i['identifier_id'] == 'TC-PF')
+        assert item['execution'] is None
+        assert item['total_count'] == 12
+
+        detail_response = exec_client.get(f'/execution/api/item/TC-PF?task_id={task["id"]}')
+        assert detail_response.status_code == 200
+        assert detail_response.get_json()['total_count'] == 12
+
+        total_response = exec_client.get(
+            f'/execution/api/total-count/TC-PF?task_id={task["id"]}'
+        )
+        assert total_response.status_code == 200
+        assert total_response.get_json()['total_count'] == 12
+
     def test_complete_result_counts_and_completed_date_are_listed(self, exec_app, exec_client):
         with exec_app.app_context():
             from app.features.schedule.models import task as task_repo

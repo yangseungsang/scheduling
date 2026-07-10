@@ -336,16 +336,15 @@ function renderCommentIcon(item) {
 /**
  * 결과 셀(F/B/P/총)을 반환한다.
  *
- * pending 상태이거나 execution이 없으면 '-'를 반환한다.
- * 그 외에는 "F:N B:N P:N / N" 형식으로 색상 구분해 표시한다.
+ * execution이 없어도 항목의 total_count는 고정값이므로 표시한다.
+ * 미완료 상태의 F/B/P는 저장된 값이 없으면 0으로 보여준다.
  */
 function renderResultCell(item) {
   const ex = item.execution;
-  if (!ex || ex.status === 'pending') return '<td>-</td>';
-  const f = ex.fail_count ?? 0;
-  const b = ex.block_count ?? 0;
-  const p = ex.pass_count ?? 0;
-  const t = ex.total_count ?? 0;
+  const f = ex?.fail_count ?? 0;
+  const b = ex?.block_count ?? 0;
+  const p = ex?.pass_count ?? 0;
+  const t = ex?.total_count ?? item.total_count ?? 0;
   return `<td><span class="text-danger">F:${f}</span> <span class="text-warning">B:${b}</span> <span class="text-success">P:${p}</span> <span class="text-muted">/ ${t}</span></td>`;
 }
 
