@@ -269,6 +269,34 @@ class TestExecutionAPI:
         assert r.status_code == 200
         assert isinstance(r.get_json(), list)
 
+    def test_list_includes_identifier_owners_for_author_column(
+        self, exec_app, exec_client
+    ):
+        with exec_app.app_context():
+            from app.features.schedule.models import task as task_repo
+
+            task_repo.create(
+                doc_id=1,
+                assignee_names=['테스트 담당자'],
+                location_id='',
+                doc_name='작성자 문서',
+                identifiers=[
+                    {
+                        'id': 'TC-OWNER',
+                        'name': '작성자 시험',
+                        'estimated_minutes': 10,
+                        'owners': ['Alice', 'Bob'],
+                    },
+                ],
+                estimated_minutes=10,
+            )
+
+        r = exec_client.get('/execution/api/list')
+        assert r.status_code == 200
+        item = next(i for i in r.get_json() if i['identifier_id'] == 'TC-OWNER')
+        assert item['owners'] == ['Alice', 'Bob']
+        assert item['assignee_names'] == ['테스트 담당자']
+
     def test_total_count(self, exec_client):
         r = exec_client.get('/execution/api/total-count/TC-001')
         assert r.status_code == 200

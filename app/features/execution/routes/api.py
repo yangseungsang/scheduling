@@ -201,6 +201,7 @@ def _build_item_dict(task, identifier, locations, scheduled_date, block_loc_id='
         'doc_name': doc_name,
         'display_name': display_name,
         'assignee_names': task.get('assignee_names', []),
+        'owners': identifier.get('owners', []),
         'estimated_minutes': identifier.get('estimated_minutes', 0),
         'location_id': loc_id,
         'location_name': loc_name,

@@ -227,7 +227,7 @@ function _totalCount(item, ex) {
  *
  * 레이아웃 구조:
  *   .exec-detail-layout
- *     └ 왼쪽 사이드바 (.exec-detail-sidebar): 식별자 정보 + 담당자·날짜·장소 요약
+ *     └ 왼쪽 사이드바 (.exec-detail-sidebar): 식별자 정보 + 작성자·날짜·장소 요약
  *     └ 오른쪽 메인 (.exec-detail-main):
  *         - 타이머 카드 (상태별 배경색, 액션 버튼)
  *         - FAIL/BLOCK/PASS 입력 또는 완료 결과 표시
@@ -243,7 +243,7 @@ function renderPage() {
   const status = ex?.status ?? 'pending';
   const cfg    = STATUS_CFG[status] || STATUS_CFG.pending;
 
-  const assignee = (item.assignee_names || []).join(', ') || '-';
+  const owners = (item.owners || []).join(', ') || '-';
 
   const leftPanel = `
   <div class="exec-detail-sidebar">
@@ -260,8 +260,8 @@ function renderPage() {
         <div class="sidebar-field-value">${escHtml(item.display_name || item.doc_name || '-')}</div>
       </div>
       <div class="sidebar-field">
-        <div class="sidebar-field-label">담당자</div>
-        <div class="sidebar-field-value">${escHtml(assignee)}</div>
+        <div class="sidebar-field-label">작성자</div>
+        <div class="sidebar-field-value">${escHtml(owners)}</div>
       </div>
     </div>
     <div class="sidebar-section">
