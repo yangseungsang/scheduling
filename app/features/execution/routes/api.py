@@ -71,7 +71,7 @@ def _identifier_total_count(identifier: dict) -> int:
     외부 API 연동 전까지 10을 고정 반환하던 값이 결과를 오염시키지 않도록,
     동기화 데이터에 명시된 카운트 필드를 우선 사용하고 없으면 0으로 둔다.
     """
-    for key in ('total_count', 'test_count', 'case_count', 'count'):
+    for key in ('total_count', 'pf_num', 'test_count', 'case_count', 'count'):
         value = identifier.get(key)
         if value in (None, ''):
             continue
