@@ -35,7 +35,7 @@ let _sortCol = null;
 /** 정렬 방향. 'asc' 또는 'desc'. */
 let _sortDir = 'asc';
 
-/** 실시간 텍스트 검색어. identifier_id·identifier_name·assignee_names 대상. */
+/** 실시간 텍스트 검색어. identifier_id·identifier_name·owners 대상. */
 let _searchText = '';
 
 /**
@@ -72,7 +72,7 @@ const COL_DEFS = [
   { key: 'doc',        label: '문서' },
   { key: 'identifier', label: '식별자' },
   { key: 'name',       label: '시험항목' },
-  { key: 'assignee',   label: '담당자' },
+  { key: 'assignee',   label: '작성자' },
   { key: 'location',   label: '장소' },
   { key: 'date',       label: '날짜' },
   { key: 'estimated',  label: '예상시간' },
@@ -179,7 +179,7 @@ function buildTableHeader() {
   if (colVisible('doc'))        cols.push('<th style="width:250px">문서</th>');
   if (colVisible('identifier')) cols.push('<th style="width:180px">식별자</th>');
   if (colVisible('name'))       cols.push('<th>시험항목</th>');
-  if (colVisible('assignee'))   cols.push('<th style="width:100px">담당자</th>');
+  if (colVisible('assignee'))   cols.push('<th style="width:100px">작성자</th>');
   if (colVisible('location'))   cols.push('<th class="sortable" data-sort="location" style="width:90px">장소 <i class="bi bi-arrow-down-up ms-1 text-muted"></i></th>');
   if (colVisible('date'))       cols.push('<th class="sortable" data-sort="date" style="width:95px">날짜 <i class="bi bi-arrow-down-up ms-1 text-muted"></i></th>');
   if (colVisible('estimated'))  cols.push('<th style="width:75px">예상</th>');
@@ -275,7 +275,7 @@ function setSort(col) {
  * _allItems에 텍스트 검색과 정렬을 적용한 뒤 renderTable()을 호출한다.
  *
  * 필터:
- *   - 텍스트 검색(_searchText): identifier_id·identifier_name·assignee_names 포함 검색
+ *   - 텍스트 검색(_searchText): identifier_id·identifier_name·owners 포함 검색
  *   - 날짜·장소 필터는 loadList() 단계에서 서버에 파라미터로 전달하므로 여기서는 처리 안 함
  *
  * 정렬:
@@ -289,7 +289,7 @@ function applyAndRender() {
   if (q) items = items.filter(i =>
     i.identifier_id.toLowerCase().includes(q) ||
     i.identifier_name.toLowerCase().includes(q) ||
-    (i.assignee_names || []).some(a => a.toLowerCase().includes(q)));
+    (i.owners || []).some(a => a.toLowerCase().includes(q)));
   if (_sortCol) {
     items.sort((a, b) => {
       let va, vb;
@@ -382,13 +382,13 @@ function renderStatusSummary() {
  * 'name' 열에는 renderCommentIcon()으로 코멘트 아이콘을 추가한다.
  */
 function buildRow(item) {
-  const assignee = (item.assignee_names || []).join(', ') || '-';
+  const owners = (item.owners || []).join(', ') || '-';
   const status = item.execution?.status || 'pending';
   const cells = [];
   if (colVisible('doc'))        cells.push(`<td class="td-doc">${escHtml(item.display_name || item.doc_name || '-')}</td>`);
   if (colVisible('identifier')) cells.push(`<td class="td-id">${escHtml(item.identifier_id)}</td>`);
   if (colVisible('name'))       cells.push(`<td class="td-name">${escHtml(item.identifier_name)}${renderCommentIcon(item)}</td>`);
-  if (colVisible('assignee'))   cells.push(`<td class="td-meta">${escHtml(assignee)}</td>`);
+  if (colVisible('assignee'))   cells.push(`<td class="td-meta">${escHtml(owners)}</td>`);
   if (colVisible('location'))   cells.push(`<td class="td-meta">${escHtml(item.location_name || '-')}</td>`);
   if (colVisible('date'))       cells.push(`<td class="td-meta">${escHtml(item.display_date || item.scheduled_date || '-')}</td>`);
   if (colVisible('estimated'))  cells.push(`<td class="td-meta">${formatMinutes(item.estimated_minutes)}</td>`);
