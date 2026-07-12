@@ -40,20 +40,14 @@ let _searchText = '';
 
 /**
  * 상태 정렬 순서 정의.
- * STATUS_ORDER를 숫자로 매핑해 sort() 비교에 사용한다.
- * pending(0) → in_progress(1) → paused(2) → completed(3) 순으로 정렬된다.
- */
-const STATUS_ORDER = { pending: 0, in_progress: 1, paused: 2, completed: 3 };
-
-/**
- * 상태(status) → 배경색·테두리·배지 클래스·한글 레이블 매핑.
- * statusBadge()와 renderTable() 행 스타일에 사용한다.
+ * 상태(status) → 한글 레이블 매핑.
+ * 정렬 순서는 서버가 내려주는 status_order를 사용한다.
  */
 const STATUS_CFG = {
-  pending:     { bg: '#f8fafc', border: '#cbd5e1', badge: 'bg-secondary',        label: '대기' },
-  in_progress: { bg: '#eff6ff', border: '#3b82f6', badge: 'bg-primary',          label: '진행 중' },
-  paused:      { bg: '#fffbeb', border: '#f59e0b', badge: 'bg-warning text-dark', label: '일시정지' },
-  completed:   { bg: '#f0fdf4', border: '#22c55e', badge: 'bg-success',           label: '완료' },
+  pending: '대기',
+  in_progress: '진행 중',
+  paused: '일시정지',
+  completed: '완료',
 };
 
 // ── 열 정의 및 가시성 ─────────────────────────────────────────────────────────
@@ -281,7 +275,7 @@ function setSort(col) {
  * 정렬:
  *   - 'date': display_date 문자열 비교 (완료 시각 우선, 없으면 배치 날짜)
  *   - 'location': location_name 문자열 비교
- *   - 'status': STATUS_ORDER 숫자 비교
+ *   - 'status': 서버가 내려준 status_order 숫자 비교
  */
 function applyAndRender() {
   let items = [..._allItems];
@@ -296,9 +290,8 @@ function applyAndRender() {
       if (_sortCol === 'date')     { va = a.display_date || a.scheduled_date || ''; vb = b.display_date || b.scheduled_date || ''; }
       else if (_sortCol === 'location') { va = a.location_name || ''; vb = b.location_name || ''; }
       else if (_sortCol === 'status')   {
-        // 상태는 문자열이 아닌 미리 정의된 숫자 순서로 비교한다.
-        va = STATUS_ORDER[a.execution?.status ?? 'pending'] ?? 0;
-        vb = STATUS_ORDER[b.execution?.status ?? 'pending'] ?? 0;
+        va = a.status_order ?? 0;
+        vb = b.status_order ?? 0;
       }
       return (va < vb ? -1 : va > vb ? 1 : 0) * (_sortDir === 'asc' ? 1 : -1);
     });
@@ -314,9 +307,8 @@ function applyAndRender() {
  * execution이 없는 항목은 pending으로 간주한다.
  */
 function statusBadge(item) {
-  const s = item.execution?.status || 'pending';
-  const labels = { pending: '대기', in_progress: '진행 중', paused: '일시정지', completed: '완료' };
-  return `<span class="exec-badge exec-badge-${s}"><span class="exec-badge-dot"></span>${labels[s] || '-'}</span>`;
+  const s = item.execution_status || 'pending';
+  return `<span class="exec-badge exec-badge-${s}"><span class="exec-badge-dot"></span>${STATUS_CFG[s] || '-'}</span>`;
 }
 
 /**
@@ -327,7 +319,7 @@ function statusBadge(item) {
  * (Bootstrap tooltip은 기본적으로 HTML을 허용하지 않으므로 개행 문자 사용)
  */
 function renderCommentIcon(item) {
-  const comment = item.execution?.comment;
+  const comment = item.execution_comment || '';
   if (!comment) return '';
   const escaped = escHtml(comment).replace(/\n/g, '&#10;');
   return ` <span data-bs-toggle="tooltip" data-bs-placement="top" title="${escaped}" style="cursor:default">💬</span>`;
@@ -340,11 +332,11 @@ function renderCommentIcon(item) {
  * 미완료 상태의 F/B/P는 저장된 값이 없으면 0으로 보여준다.
  */
 function renderResultCell(item) {
-  const ex = item.execution;
-  const f = ex?.fail_count ?? 0;
-  const b = ex?.block_count ?? 0;
-  const p = ex?.pass_count ?? 0;
-  const t = ex?.total_count ?? item.total_count ?? 0;
+  const result = item.result_counts || {};
+  const f = result.fail_count ?? 0;
+  const b = result.block_count ?? 0;
+  const p = result.pass_count ?? 0;
+  const t = result.total_count ?? item.total_count ?? 0;
   return `<td><span class="text-danger">F:${f}</span> <span class="text-warning">B:${b}</span> <span class="text-success">P:${p}</span> <span class="text-muted">/ ${t}</span></td>`;
 }
 
@@ -360,7 +352,7 @@ function renderStatusSummary() {
   if (!el) return;
   const counts = { pending: 0, in_progress: 0, paused: 0, completed: 0 };
   _allItems.forEach(item => {
-    const s = item.execution?.status || 'pending';
+    const s = item.execution_status || 'pending';
     if (counts.hasOwnProperty(s)) counts[s]++;
   });
   const total = _allItems.length;
@@ -383,7 +375,7 @@ function renderStatusSummary() {
  */
 function buildRow(item) {
   const owners = (item.owners || []).join(', ') || '-';
-  const status = item.execution?.status || 'pending';
+  const status = item.execution_status || 'pending';
   const cells = [];
   if (colVisible('doc'))        cells.push(`<td class="td-doc">${escHtml(item.display_name || item.doc_name || '-')}</td>`);
   if (colVisible('identifier')) cells.push(`<td class="td-id">${escHtml(item.identifier_id)}</td>`);
@@ -392,7 +384,7 @@ function buildRow(item) {
   if (colVisible('location'))   cells.push(`<td class="td-meta">${escHtml(item.location_name || '-')}</td>`);
   if (colVisible('date'))       cells.push(`<td class="td-meta">${escHtml(item.display_date || item.scheduled_date || '-')}</td>`);
   if (colVisible('estimated'))  cells.push(`<td class="td-meta">${formatMinutes(item.estimated_minutes)}</td>`);
-  if (colVisible('performer'))  cells.push(`<td>${escHtml(item.execution?.performer || '-')}</td>`);
+  if (colVisible('performer'))  cells.push(`<td>${escHtml(item.performer_name || '-')}</td>`);
   if (colVisible('result'))     cells.push(renderResultCell(item));
   if (colVisible('status'))     cells.push(`<td>${statusBadge(item)}</td>`);
   return `<tr data-id="${escHtml(item.identifier_id)}" data-status="${escHtml(status)}"

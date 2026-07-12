@@ -7,8 +7,8 @@
 1. 외부 시스템 또는 로컬 JSON에서 시험 절차를 가져온다.
 2. 절차는 `tasks.json`의 task와 `identifiers[]`로 저장된다.
 3. 사용자는 task를 큐에서 캘린더로 드래그해 `schedule_blocks.json` 블록을 만든다.
-4. 실행 화면은 배치된 식별자를 읽어 타이머와 결과를 `executions.json`에 저장한다.
-5. task의 일반 진행 상태는 저장하지 않고 execution 상태에서 계산한다.
+4. 실행 화면은 task 식별자 전체를 읽고, 날짜/장소 필터가 있을 때 배치 정보를 기준으로 좁힌 뒤 타이머와 결과를 `executions.json`에 저장한다.
+5. task와 block의 일반 진행 상태는 execution 상태에서 계산한다. `cancelled` 블록만 수동 상태로 보존한다.
 
 ```text
 Provider -> SyncService -> tasks.json -> Calendar blocks -> executions.json
@@ -22,9 +22,9 @@ Provider -> SyncService -> tasks.json -> Calendar blocks -> executions.json
 | 프론트엔드 | Bootstrap 5, Bootstrap Icons, Vanilla JavaScript |
 | 저장소 | JSON 파일 |
 | 동시성 보호 | portalocker 파일 잠금 |
-| 외부 연동 | requests, PyMySQL |
+| 외부 연동 | requests 기반 HTTP provider/완료 알림, PyMySQL 기반 `std_list` 캐시 |
 | 내보내기 | openpyxl, CSV |
-| 테스트/포맷 | pytest, ruff |
+| 테스트 | pytest |
 | 개발 서버 | `python3 run.py`, port `5001` |
 
 ## 3. 디렉터리 구조
@@ -33,7 +33,6 @@ Provider -> SyncService -> tasks.json -> Calendar blocks -> executions.json
 scheduling/
 ├── run.py
 ├── requirements.txt
-├── pyproject.toml
 ├── app/
 │   ├── __init__.py
 │   ├── config.py
@@ -106,7 +105,7 @@ graph TD
 | Schedule | 시험 절차, 큐, 캘린더 블록, 설정, 기준정보, 동기화 | `app/features/schedule` |
 | Execution | 식별자별 실행, 타이머, 수행자, 결과 카운트, 완료 알림 | `app/features/execution` |
 
-Execution은 Schedule 데이터를 읽어 화면 컨텍스트를 만들지만, 실행 결과를 Schedule 데이터에 다시 쓰지 않는다.
+Execution은 Schedule 데이터를 읽어 화면 컨텍스트를 만들지만, 실행 결과를 Schedule 데이터에 다시 쓰지 않는다. 단, `/execution/api/timing/<identifier_id>`는 외부/수동 소요시간을 반영하기 위해 해당 식별자의 `estimated_minutes`와 task 합계를 갱신한다.
 
 ## 6. 핵심 데이터 구조
 
@@ -136,7 +135,7 @@ Task는 문서/절차 단위다.
 1. 같은 `exam_no` 안에서만 식별자 중복을 막는다.
 2. `exam_no`가 다르면 같은 식별자 ID도 별도 재시험으로 허용한다.
 3. `estimated_minutes`는 식별자 예상 시간 합이다.
-4. 일반 상태는 task에 저장하지 않는다.
+4. 일반 상태는 task에 저장하지 않는다. 실행 상태에서 동적으로 계산한다.
 
 ### 6.2 ScheduleBlock
 
@@ -156,7 +155,7 @@ Block은 캘린더에 배치된 일정 단위다.
 }
 ```
 
-`identifier_ids=null`이면 해당 task의 모든 식별자가 이 블록에 포함된 것으로 본다.
+`identifier_ids=null`이면 해당 task의 모든 식별자가 이 블록에 포함된 것으로 본다. `block_status`는 화면 보강 시 execution 상태로 다시 계산되며, 저장된 `cancelled` 값만 우선 보존된다.
 
 ### 6.3 Execution
 
@@ -177,7 +176,7 @@ Execution은 식별자 실행 레코드다.
 }
 ```
 
-실행 레코드는 `(identifier_id, task_id)` 조합으로 식별한다.
+실행 레코드는 `(identifier_id, task_id)` 조합으로 식별한다. 시작 전 코멘트를 저장하거나 초기화하면 `pending` 상태 레코드가 저장될 수 있고, 레코드가 전혀 없는 경우도 UI에서는 pending으로 표시한다.
 
 ## 7. 데이터 흐름
 
@@ -195,9 +194,9 @@ Execution은 식별자 실행 레코드다.
 
 | `PROVIDER_TYPE` | 설명 |
 | --- | --- |
-| `json_file` | `procedures.json`, `versions.json` 사용 |
+| `json_file` | `procedures.json`, `versions.json` 사용. `test_list` 키는 `identifiers`로 하위 호환 처리 |
 | `rest_api` | `API_BASE_URL`의 `/versions`, `/procedures` 사용. URL 없으면 `json_file`로 폴백 |
-| `dyn_ready` | `DYN_READY_URL/dyn_ready/std-list/grouped` 사용 |
+| `dyn_ready` | `DYN_READY_URL/dyn_ready/std-list/grouped` 사용. `updated_at`과 응답 해시가 같으면 동기화 스킵 |
 
 ### 7.2 스케줄링
 
@@ -210,9 +209,9 @@ Execution은 식별자 실행 레코드다.
 
 ### 7.3 실행
 
-1. `/execution/`이 배치된 식별자 목록을 보여준다.
-2. `/execution/api/list`는 task, block, location, execution을 조합한다.
-3. 실행 레코드가 없는 식별자는 pending으로 표시한다.
+1. `/execution/`이 task 식별자 목록을 보여준다.
+2. `/execution/api/list`는 task, block, location, execution을 조합한다. 날짜/장소 필터가 있으면 배치된 block 기준으로 좁힌다.
+3. 실행 레코드가 없거나 pending 레코드만 있는 식별자는 pending으로 표시한다.
 4. 시작 시 `/execution/api/start`가 execution 레코드를 만들거나 기존 레코드를 초기화한다.
 5. 일시정지/재개는 `segments[]`를 닫고 새로 연다.
 6. 완료 시 실패/블록/통과 건수와 완료 시각을 저장한다.
@@ -227,8 +226,8 @@ Execution은 식별자 실행 레코드다.
 | 스케줄 API | `/schedule/api/day`, `/schedule/api/week`, `/schedule/api/month`, `/schedule/api/blocks*` |
 | Task | `/tasks/`, `/tasks/new`, `/tasks/<id>`, `/tasks/api/*` |
 | Admin | `/admin/settings`, `/admin/users`, `/admin/locations`, `/admin/api/*` |
-| Sync | `/api/sync/versions`, `/api/sync/test-data`, `/api/sync/std-list`, `/api/sync/status` |
-| Execution | `/execution/`, `/execution/<identifier_id>`, `/execution/api/*` |
+| Sync | `/api/sync/versions`, `/api/sync/test-data`, `/api/sync/reset-and-sync`, `/api/sync/std-list`, `/api/sync/status` |
+| Execution | `/execution/`, `/execution/<identifier_id>?task_id=<task_id>`, `/execution/api/*` |
 
 상세 API 표는 `docs/BACKEND.md`를 기준 문서로 삼는다.
 
@@ -276,8 +275,9 @@ python3 run.py
 
 ```bash
 pytest
-ruff format --check .
 ```
+
+현재 저장소에는 `pyproject.toml` 또는 ruff 설정이 없다. 포맷터를 도입할 경우 별도 설정 파일을 먼저 추가한다.
 
 ## 12. 관련 문서
 
@@ -286,4 +286,5 @@ ruff format --check .
 | `docs/BACKEND.md` | 백엔드 라우트, 저장소, 서비스 상세 |
 | `docs/FRONTEND.md` | 템플릿, JS 모듈, UI 흐름 |
 | `docs/data-files.md` | JSON 파일별 스키마 |
+| `docs/data-architecture-redesign.md` | 현재 기능 정리와 데이터 구조 재설계안 |
 | `docs/PRD.md` | 제품 요구사항과 사용자 기능 |

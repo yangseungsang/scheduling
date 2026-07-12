@@ -8,7 +8,7 @@
 import calendar
 from datetime import date, timedelta
 
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, current_app, request, jsonify, render_template
 
 from app.features.schedule.helpers.enrichment import (
     build_maps,
@@ -24,9 +24,39 @@ from app.features.schedule.helpers.overlap import compute_overlap_layout
 from app.features.schedule.helpers.time_utils import generate_time_slots, is_break_slot
 from app.features.schedule.models import location, schedule_block, settings, version
 from app.features.schedule.routes.calendar_helpers import DAY_NAMES
+from app.db.repository import CompactSnapshotOrmRepository
+from app.features.schedule.services.compact_read import (
+    build_compact_day_payload,
+    build_compact_queue_tasks,
+    build_compact_ui_blocks,
+    compact_schedule_settings,
+)
 
 # 스케줄 관련 모든 캘린더 뷰가 등록되는 블루프린트
 schedule_bp = Blueprint('schedule', __name__, url_prefix='/schedule')
+
+
+def _use_compact_orm_schedule():
+    return current_app.config.get('SCHEDULE_STORAGE') == 'compact_orm'
+
+
+def _compact_snapshot():
+    return CompactSnapshotOrmRepository(current_app.config['DATABASE_URL']).load_snapshot()
+
+
+def _prepare_compact_view_context(snapshot=None):
+    """Build view context from the compact ORM snapshot contract."""
+    snapshot = snapshot or _compact_snapshot()
+    sttngs = compact_schedule_settings(snapshot.get('settings', {}))
+    return {
+        'snapshot': snapshot,
+        'sttngs': sttngs,
+        'locations_list': snapshot.get('resources', {}).get('locations', []),
+        'time_slots': generate_time_slots(sttngs),
+        'break_slots': get_break_slots(sttngs),
+        'queue_tasks': build_compact_queue_tasks(snapshot),
+        'versions': snapshot.get('resources', {}).get('versions', []),
+    }
 
 
 def _prepare_view_context():
@@ -90,6 +120,42 @@ def day_view():
         렌더링된 일간 뷰 HTML
     """
     current_date = parse_date(request.args.get('date'))
+    if _use_compact_orm_schedule():
+        ctx = _prepare_compact_view_context()
+        enriched = build_compact_ui_blocks(
+            ctx['snapshot'],
+            current_date.isoformat(),
+            current_date.isoformat(),
+            ctx['sttngs'],
+        )
+
+        blocks_by_location = {}
+        for loc in ctx['locations_list']:
+            loc_blocks = [b for b in enriched if b.get('location_id') == loc['id']]
+            blocks_by_location[loc['id']] = compute_overlap_layout(loc_blocks)
+        no_loc_blocks = [b for b in enriched if not b.get('location_id')]
+        if no_loc_blocks:
+            blocks_by_location[''] = compute_overlap_layout(no_loc_blocks)
+
+        day_sttngs = dict(ctx['sttngs'])
+        day_sttngs['grid_interval_minutes'] = 5
+        day_time_slots = generate_time_slots(day_sttngs)
+
+        return render_template(
+            'schedule/views/day.html',
+            current_date=current_date,
+            prev_date=current_date - timedelta(days=1),
+            next_date=current_date + timedelta(days=1),
+            blocks=enriched,
+            blocks_by_location=blocks_by_location,
+            locations=ctx['locations_list'],
+            time_slots=day_time_slots,
+            break_slots=[s for s in day_time_slots if is_break_slot(s, ctx['sttngs'])],
+            settings=ctx['sttngs'],
+            queue_tasks=ctx['queue_tasks'],
+            versions=ctx['versions'],
+        )
+
     ctx = _prepare_view_context()
 
     blocks = schedule_block.get_by_date(current_date.isoformat())
@@ -138,11 +204,38 @@ def week_view():
         렌더링된 주간 뷰 HTML
     """
     current_date = parse_date(request.args.get('date'))
-    ctx = _prepare_view_context()
-
     # 해당 주의 월요일(시작)과 일요일(끝) 계산
     week_start = current_date - timedelta(days=current_date.weekday())
     week_end = week_start + timedelta(days=6)
+    if _use_compact_orm_schedule():
+        ctx = _prepare_compact_view_context()
+        enriched = build_compact_ui_blocks(
+            ctx['snapshot'],
+            week_start.isoformat(),
+            week_end.isoformat(),
+            ctx['sttngs'],
+        )
+        blocks_by_date = group_blocks_by_date(enriched)
+        return render_template(
+            'schedule/views/week.html',
+            current_date=current_date,
+            week_start=week_start,
+            week_end=week_end,
+            week_days=[week_start + timedelta(days=i) for i in range(5)],
+            day_names=DAY_NAMES,
+            prev_date=current_date - timedelta(weeks=1),
+            next_date=current_date + timedelta(weeks=1),
+            blocks_by_date=blocks_by_date,
+            time_slots=ctx['time_slots'],
+            break_slots=ctx['break_slots'],
+            settings=ctx['sttngs'],
+            today=date.today(),
+            locations=ctx['locations_list'],
+            queue_tasks=ctx['queue_tasks'],
+            versions=ctx['versions'],
+        )
+
+    ctx = _prepare_view_context()
 
     blocks = schedule_block.get_by_date_range(
         week_start.isoformat(), week_end.isoformat(),
@@ -183,12 +276,37 @@ def month_view():
         렌더링된 월간 뷰 HTML
     """
     current_date = parse_date(request.args.get('date'))
-    ctx = _prepare_view_context()
-
     year, month = current_date.year, current_date.month
     first_day = date(year, month, 1)
     # monthrange는 (요일, 마지막 날짜) 튜플을 반환
     last_day = date(year, month, calendar.monthrange(year, month)[1])
+    if _use_compact_orm_schedule():
+        ctx = _prepare_compact_view_context()
+        enriched = build_compact_ui_blocks(
+            ctx['snapshot'],
+            first_day.isoformat(),
+            last_day.isoformat(),
+            ctx['sttngs'],
+        )
+        blocks_by_date = group_blocks_by_date(enriched)
+        prev_date, next_date = build_month_nav(year, month)
+        return render_template(
+            'schedule/views/month.html',
+            current_date=current_date,
+            year=year,
+            month=month,
+            weeks=build_month_weeks(year, month, blocks_by_date),
+            day_names=DAY_NAMES,
+            prev_date=prev_date,
+            next_date=next_date,
+            today=date.today(),
+            settings=ctx['sttngs'],
+            locations=ctx['locations_list'],
+            queue_tasks=ctx['queue_tasks'],
+            versions=ctx['versions'],
+        )
+
+    ctx = _prepare_view_context()
 
     blocks = schedule_block.get_by_date_range(
         first_day.isoformat(), last_day.isoformat(),
@@ -229,6 +347,22 @@ def api_day_data():
         JSON: 블록 목록, 시간 슬롯, 설정, 큐 태스크 등을 포함하는 응답
     """
     current_date = parse_date(request.args.get('date'))
+    if _use_compact_orm_schedule():
+        ctx = _prepare_compact_view_context()
+        payload = build_compact_day_payload(
+            ctx['snapshot'],
+            current_date.isoformat(),
+            ctx['sttngs'],
+            ctx['time_slots'],
+            [slot for slot in ctx['time_slots'] if is_break_slot(slot, ctx['sttngs'])],
+        )
+        payload.update({
+            'current_date': current_date.isoformat(),
+            'prev_date': (current_date - timedelta(days=1)).isoformat(),
+            'next_date': (current_date + timedelta(days=1)).isoformat(),
+        })
+        return jsonify(payload)
+
     ctx = _prepare_view_context()
     sttngs = ctx['sttngs']
 
@@ -259,12 +393,36 @@ def api_week_data():
         JSON: 날짜별 블록, 주간 날짜 배열, 시간 슬롯, 설정 등
     """
     current_date = parse_date(request.args.get('date'))
-    ctx = _prepare_view_context()
-    sttngs = ctx['sttngs']
 
     # 해당 주의 월요일~일요일 범위 계산
     week_start = current_date - timedelta(days=current_date.weekday())
     week_end = week_start + timedelta(days=6)
+    if _use_compact_orm_schedule():
+        ctx = _prepare_compact_view_context()
+        enriched = build_compact_ui_blocks(
+            ctx['snapshot'],
+            week_start.isoformat(),
+            week_end.isoformat(),
+            ctx['sttngs'],
+        )
+        return jsonify({
+            'current_date': current_date.isoformat(),
+            'week_start': week_start.isoformat(),
+            'week_end': week_end.isoformat(),
+            'week_days': [(week_start + timedelta(days=i)).isoformat() for i in range(5)],
+            'day_names': DAY_NAMES,
+            'prev_date': (current_date - timedelta(weeks=1)).isoformat(),
+            'next_date': (current_date + timedelta(weeks=1)).isoformat(),
+            'blocks_by_date': group_blocks_by_date(enriched),
+            'time_slots': ctx['time_slots'],
+            'break_slots': [s for s in ctx['time_slots'] if is_break_slot(s, ctx['sttngs'])],
+            'settings': ctx['sttngs'],
+            'today': date.today().isoformat(),
+            'queue_tasks': ctx['queue_tasks'],
+        })
+
+    ctx = _prepare_view_context()
+    sttngs = ctx['sttngs']
 
     blocks = schedule_block.get_by_date_range(week_start.isoformat(), week_end.isoformat())
     enriched = _enrich(blocks, ctx)
@@ -298,11 +456,48 @@ def api_month_data():
         JSON: 주 단위로 구성된 블록 데이터, 네비게이션 날짜, 설정 등
     """
     current_date = parse_date(request.args.get('date'))
-    ctx = _prepare_view_context()
-
     year, month = current_date.year, current_date.month
     first_day = date(year, month, 1)
     last_day = date(year, month, calendar.monthrange(year, month)[1])
+    if _use_compact_orm_schedule():
+        ctx = _prepare_compact_view_context()
+        enriched = build_compact_ui_blocks(
+            ctx['snapshot'],
+            first_day.isoformat(),
+            last_day.isoformat(),
+            ctx['sttngs'],
+        )
+        blocks_by_date = group_blocks_by_date(enriched)
+        prev_date, next_date = build_month_nav(year, month)
+        weeks = []
+        cal = calendar.Calendar(firstweekday=0)
+        for week in cal.monthdayscalendar(year, month):
+            week_data = []
+            for day_num in week:
+                if day_num == 0:
+                    week_data.append(None)
+                else:
+                    d = date(year, month, day_num)
+                    week_data.append({
+                        'date': d.isoformat(),
+                        'day': day_num,
+                        'blocks': blocks_by_date.get(d.isoformat(), []),
+                    })
+            weeks.append(week_data)
+        return jsonify({
+            'current_date': current_date.isoformat(),
+            'year': year,
+            'month': month,
+            'weeks': weeks,
+            'day_names': DAY_NAMES,
+            'prev_date': prev_date.isoformat(),
+            'next_date': next_date.isoformat(),
+            'today': date.today().isoformat(),
+            'settings': ctx['sttngs'],
+            'queue_tasks': ctx['queue_tasks'],
+        })
+
+    ctx = _prepare_view_context()
 
     blocks = schedule_block.get_by_date_range(first_day.isoformat(), last_day.isoformat())
     enriched = _enrich(blocks, ctx)

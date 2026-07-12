@@ -1,8 +1,8 @@
 """
 시험실행(Execution) 핵심 데이터 레포지토리.
 
-각 식별자(identifier)에 대한 시험 실행 상태를 JSON 파일로 관리한다.
-DB 없이 store.py의 read_json/write_json을 통해 영속성을 유지한다.
+각 식별자(identifier)에 대한 시험 실행 상태를 storage adapter로 관리한다.
+현재 기본 구현은 JSON 파일이며, ExecutionRepository는 직접 파일 구조를 알지 않는다.
 
 상태 흐름:
     pending → in_progress → paused ↔ in_progress → completed
@@ -23,9 +23,10 @@ DB 없이 store.py의 read_json/write_json을 통해 영속성을 유지한다.
 import math
 from datetime import datetime
 
-from app.features.execution.store import read_json, write_json, generate_id
+from flask import current_app
 
-FILENAME = 'executions.json'
+from app.features.execution.repositories import execution_storage_from_config
+
 ID_PREFIX = 'ex_'
 
 
@@ -33,14 +34,18 @@ class ExecutionRepository:
     """시험실행 레코드에 대한 CRUD 및 상태 전이 메서드를 제공하는 클래스 레포지토리."""
 
     @classmethod
+    def _storage(cls):
+        return execution_storage_from_config(current_app.config)
+
+    @classmethod
     def get_all(cls):
         """전체 실행 레코드 목록을 반환한다."""
-        return read_json(FILENAME)
+        return cls._storage().get_all()
 
     @classmethod
     def get_by_id(cls, execution_id):
         """execution_id로 단일 실행 레코드를 조회한다. 없으면 None."""
-        for item in read_json(FILENAME):
+        for item in cls.get_all():
             if item['id'] == execution_id:
                 return item
         return None
@@ -52,7 +57,7 @@ class ExecutionRepository:
         식별자(identifier)와 실행 레코드는 1:1 관계이므로 최대 1개만 존재한다.
         없으면 None을 반환한다.
         """
-        for item in read_json(FILENAME):
+        for item in cls.get_all():
             if item['identifier_id'] == identifier_id:
                 return item
         return None
@@ -60,7 +65,7 @@ class ExecutionRepository:
     @classmethod
     def get_by_identifier_and_task(cls, identifier_id: str, task_id: str):
         """(identifier_id, task_id) 조합으로 실행 레코드를 조회한다."""
-        for item in read_json(FILENAME):
+        for item in cls.get_all():
             if (item['identifier_id'] == identifier_id
                     and item.get('task_id') == task_id):
                 return item
@@ -89,14 +94,15 @@ class ExecutionRepository:
     def _patch(cls, execution_id, **kwargs):
         """특정 실행 레코드의 필드를 부분 갱신하고 저장한다.
 
-        전체 파일을 읽어 해당 레코드만 업데이트한 뒤 다시 쓰는 방식으로 동작한다.
-        파일 I/O가 한 번 발생하므로 여러 필드를 한 번에 변경할 때 사용한다.
+        storage에서 전체 레코드를 읽어 해당 레코드만 업데이트한 뒤 다시 저장한다.
+        여러 필드를 한 번에 변경할 때 사용한다.
         """
-        items = read_json(FILENAME)
+        storage = cls._storage()
+        items = storage.get_all()
         for item in items:
             if item['id'] == execution_id:
                 item.update(kwargs)
-                write_json(FILENAME, items)
+                storage.save_all(items)
                 return item
         return None
 
@@ -118,9 +124,7 @@ class ExecutionRepository:
             total_count: 전체 시험 케이스 수
         """
         now = datetime.now().isoformat(timespec='seconds')
-        from app.features.schedule.models import task as task_repo
-        task = task_repo.get_by_id(task_id)
-        exam_no = task.get('exam_no') if task else None
+        exam_no = cls._exam_no_for(identifier_id, task_id)
 
         existing = cls.get_by_identifier_and_task(identifier_id, task_id)
         if existing:
@@ -138,7 +142,7 @@ class ExecutionRepository:
                 elapsed_mins=0,
             )
         data = {
-            'id': generate_id(ID_PREFIX),
+            'id': cls._storage().generate_id(ID_PREFIX),
             'identifier_id': identifier_id,
             'task_id': task_id,
             'exam_no': exam_no,
@@ -155,9 +159,10 @@ class ExecutionRepository:
             'elapsed_seconds': 0,
             'elapsed_mins': 0,
         }
-        items = read_json(FILENAME)
+        storage = cls._storage()
+        items = storage.get_all()
         items.append(data)
-        write_json(FILENAME, items)
+        storage.save_all(items)
         return data
 
     @classmethod
@@ -269,11 +274,9 @@ class ExecutionRepository:
                 return cls._patch(existing['id'], comment=comment)
             return existing  # 이미 진행 중 — 덮어쓰지 않음
         now = datetime.now().isoformat(timespec='seconds')
-        from app.features.schedule.models import task as task_repo
-        task = task_repo.get_by_id(task_id)
-        exam_no = task.get('exam_no') if task else None
+        exam_no = cls._exam_no_for(identifier_id, task_id)
         data = {
-            'id': generate_id(ID_PREFIX),
+            'id': cls._storage().generate_id(ID_PREFIX),
             'identifier_id': identifier_id,
             'task_id': task_id,
             'exam_no': exam_no,
@@ -290,9 +293,10 @@ class ExecutionRepository:
             'elapsed_seconds': 0,
             'elapsed_mins': 0,
         }
-        items = read_json(FILENAME)
+        storage = cls._storage()
+        items = storage.get_all()
         items.append(data)
-        write_json(FILENAME, items)
+        storage.save_all(items)
         return data
 
     @classmethod
@@ -325,3 +329,24 @@ class ExecutionRepository:
             elapsed_seconds=0,
             elapsed_mins=0,
         )
+
+    @classmethod
+    def _exam_no_for(cls, identifier_id, task_id):
+        """Resolve exam_no from the configured schedule source."""
+        if current_app.config.get('SCHEDULE_STORAGE') == 'compact_orm':
+            from app.db.repository import CompactSnapshotOrmRepository
+
+            snapshot = CompactSnapshotOrmRepository(current_app.config['DATABASE_URL']).load_snapshot()
+            test_items = {
+                item['id']: item
+                for item in snapshot.get('catalog', {}).get('test_items', [])
+            }
+            for attempt in snapshot.get('catalog', {}).get('exam_attempts', []):
+                test_item = test_items.get(attempt.get('test_item_id'), {})
+                if attempt.get('legacy_task_id') == task_id and test_item.get('external_test_id') == identifier_id:
+                    return attempt.get('exam_no')
+            return None
+
+        from app.features.schedule.models import task as task_repo
+        task = task_repo.get_by_id(task_id)
+        return task.get('exam_no') if task else None

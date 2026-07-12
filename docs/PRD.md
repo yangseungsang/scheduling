@@ -32,14 +32,14 @@
 
 | provider | 요구사항 |
 | --- | --- |
-| `json_file` | 로컬 `procedures.json`, `versions.json`에서 데이터를 읽는다 |
-| `rest_api` | 외부 `/versions`, `/procedures` API에서 데이터를 읽는다 |
-| `dyn_ready` | `/dyn_ready/std-list/grouped` 응답을 읽고 변경이 없으면 스킵한다 |
+| `json_file` | 로컬 `procedures.json`, `versions.json`에서 데이터를 읽는다. `test_list`는 `identifiers`로 하위 호환 처리한다 |
+| `rest_api` | 외부 `/versions`, `/procedures` API에서 데이터를 읽는다. `API_BASE_URL`이 없으면 `json_file`로 폴백한다 |
+| `dyn_ready` | `/dyn_ready/std-list/grouped` 응답을 읽고 `updated_at`과 데이터 해시가 모두 같으면 스킵한다 |
 
 동기화 규칙:
 
 1. `doc_id`와 `exam_no` 조합으로 task를 생성/갱신한다.
-2. provider 데이터에 `exam_no`가 없으면 `std_list_cache.json`의 `test_info -> exam_no` 매핑을 사용한다.
+2. provider 데이터에 `exam_no`가 있으면 우선 사용하고, 없으면 `std_list_cache.json`의 `test_info -> exam_no` 매핑을 사용한다.
 3. 같은 `exam_no` 안에서는 식별자 ID가 중복되면 안 된다.
 4. 다른 `exam_no`에서는 같은 식별자 ID를 허용한다.
 5. 이미 배치된 식별자가 외부 데이터에서 빠져도 즉시 삭제하지 않고 경고한다.
@@ -87,7 +87,7 @@ Task는 문서/절차 단위이며 다음 정보를 가진다.
 3. 기존 블록을 같은 날 또는 다른 날로 이동한다.
 4. 기존 블록을 큐로 되돌린다.
 5. 블록을 리사이즈한다.
-6. 여러 블록 또는 큐 항목을 선택해 순차 배치/이동한다.
+6. 특정 날짜 이후의 블록을 하루 단위로 일괄 이동한다.
 7. 업무 종료 시간을 넘으면 다음 근무일로 자동 넘긴다.
 
 리사이즈는 계획 시간이 아니라 실제 배정 시간 변경으로 처리하며, 단순히 큐 잔여 시간을 복원하지 않는다.
@@ -109,11 +109,11 @@ Task는 문서/절차 단위이며 다음 정보를 가진다.
 
 시험 외 일정(준비, 회의 등)을 생성할 수 있어야 한다.
 
-단순 블록은 task 없이 제목과 시간 중심으로 관리되며, `is_simple=true`와 `title`을 사용한다.
+단순 일정은 제목과 시간 중심으로 관리되며, 큐에 올릴 때는 `is_simple=true` task로 만들고 캘린더에 직접 만들 때는 `is_simple=true`, `title`, `task_id=null` 블록을 사용한다.
 
 ### 4.7 실행 관리
 
-실행 화면은 배치된 식별자별 실행 상태를 제공해야 한다.
+실행 화면은 task 식별자별 실행 상태를 제공해야 하며, 날짜/장소 필터를 선택하면 배치된 block 기준으로 좁혀 보여준다.
 
 상태:
 
@@ -123,7 +123,7 @@ pending -> in_progress -> paused -> in_progress -> completed
 
 요구사항:
 
-1. 실행 레코드가 없으면 pending으로 표시한다.
+1. 실행 레코드가 없거나 pending 레코드만 있으면 pending으로 표시한다.
 2. 시작 시 `(identifier_id, task_id)` 조합으로 실행 레코드를 만든다.
 3. 재시작하면 기존 레코드를 초기화한다.
 4. 일시정지/재개는 실제 동작 구간인 `segments[]`로 기록한다.
@@ -176,9 +176,11 @@ CSV/XLSX 내보내기를 지원해야 한다.
   "breaks": [{"start": "10:00", "end": "10:15"}],
   "grid_interval_minutes": 15,
   "max_schedule_days": 21,
-  "block_color_by": "location"
+  "block_color_by": "status"
 }
 ```
+
+`block_color_by`는 `assignee`, `location`, `status`를 지원한다.
 
 ## 7. 비기능 요구사항
 
@@ -189,7 +191,7 @@ CSV/XLSX 내보내기를 지원해야 한다.
 | 저장 안정성 | JSON 쓰기 전 `.bak` 백업 생성 |
 | 동시 접근 | `portalocker`로 파일 잠금 |
 | 테스트 | pytest 기반 회귀 테스트 유지 |
-| 포맷 | ruff 설정 준수 |
+| 포맷 | 현재 저장소에는 별도 포맷터 설정이 없다. 도입 시 설정 파일을 추가한다 |
 | 운영 보안 | 운영 환경에서는 `SECRET_KEY`와 외부 API 키를 환경 변수로 설정 |
 
 ## 8. 성공 기준
@@ -209,3 +211,4 @@ CSV/XLSX 내보내기를 지원해야 한다.
 | `docs/BACKEND.md` | 백엔드 라우트, 모델, 서비스 상세 |
 | `docs/FRONTEND.md` | 템플릿과 JS 모듈 구조 |
 | `docs/data-files.md` | JSON 파일별 스키마 |
+| `docs/data-architecture-redesign.md` | 현재 기능 정리와 데이터 구조 재설계안 |

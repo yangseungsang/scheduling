@@ -6,13 +6,12 @@
 """
 
 from app.features.schedule.models.base import BaseRepository
-from app.features.schedule.store import read_json, write_json
 
 
 class ScheduleBlockRepository(BaseRepository):
     """스케줄 블록 데이터를 관리하는 레포지토리.
 
-    JSON 파일(schedule_blocks.json)에 블록 정보를 저장하고 관리한다.
+    storage backend에 블록 정보를 저장하고 관리한다.
     블록은 시간표 UI에서 드래그/리사이즈/분리 등의 조작이 가능하다.
 
     Attributes:

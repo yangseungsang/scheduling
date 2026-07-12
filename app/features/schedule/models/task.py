@@ -14,7 +14,7 @@ from app.features.schedule.models.base import BaseRepository
 class TaskRepository(BaseRepository):
     """시험 절차 데이터를 관리하는 레포지토리.
 
-    JSON 파일(tasks.json)에 태스크 정보를 저장하고 관리한다.
+    storage backend에 태스크 정보를 저장하고 관리한다.
 
     Attributes:
         FILENAME: 데이터 파일명 ('tasks.json')
@@ -43,9 +43,8 @@ class TaskRepository(BaseRepository):
         if not new_ids:
             return []
 
-        from app.features.schedule.store import read_json
         existing_ids = set()
-        for t in read_json(cls.FILENAME):
+        for t in cls.get_all():
             if exclude_task_id and t['id'] == exclude_task_id:
                 continue
             # 재시험은 exam_no가 다르면 같은 식별자 ID를 허용

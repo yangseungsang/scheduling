@@ -22,6 +22,14 @@ EXECUTION_DATA_DIR = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     'features', 'execution', 'data'
 )
+DATABASE_URL = os.environ.get(
+    'DATABASE_URL',
+    'sqlite:///' + os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'scheduling.sqlite3'),
+)
+EXTERNAL_DATA_SOURCE = os.environ.get('EXTERNAL_DATA_SOURCE', 'json')
+EXECUTION_STORAGE = os.environ.get('EXECUTION_STORAGE', 'json')
+SCHEDULE_STORAGE = os.environ.get('SCHEDULE_STORAGE', 'json')
+SYNC_COMPACT_ON_ORM_STORAGE_WRITE = os.environ.get('SYNC_COMPACT_ON_ORM_STORAGE_WRITE', '1') != '0'
 
 
 def create_app():
@@ -47,12 +55,22 @@ def create_app():
     app.config['SECRET_KEY'] = SECRET_KEY
     app.config['DATA_DIR'] = DATA_DIR
     app.config['EXECUTION_DATA_DIR'] = EXECUTION_DATA_DIR
+    app.config['DATABASE_URL'] = DATABASE_URL
+    app.config['EXTERNAL_DATA_SOURCE'] = EXTERNAL_DATA_SOURCE
+    app.config['EXECUTION_STORAGE'] = EXECUTION_STORAGE
+    app.config['SCHEDULE_STORAGE'] = SCHEDULE_STORAGE
+    app.config['SYNC_COMPACT_ON_ORM_STORAGE_WRITE'] = SYNC_COMPACT_ON_ORM_STORAGE_WRITE
     # 개발 환경: 정적 파일 캐시 비활성화
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
     # 데이터 디렉토리가 없으면 자동 생성
     os.makedirs(app.config['DATA_DIR'], exist_ok=True)
     os.makedirs(app.config['EXECUTION_DATA_DIR'], exist_ok=True)
+    if app.config['DATABASE_URL'].startswith('sqlite:///'):
+        sqlite_path = app.config['DATABASE_URL'].replace('sqlite:///', '', 1)
+        sqlite_dir = os.path.dirname(sqlite_path)
+        if sqlite_dir:
+            os.makedirs(sqlite_dir, exist_ok=True)
 
     # 템플릿에서 정적 파일 URL에 cache_bust 파라미터로 사용
     app.jinja_env.globals['cache_bust'] = _START_TIME
@@ -81,6 +99,10 @@ def create_app():
     # 시험 실행 블루프린트 등록
     from app.features.execution import register_blueprints as register_execution
     register_execution(app)
+
+    # 외부 데이터 조회 API 등록
+    from app.features.external_data import register_blueprints as register_external_data
+    register_external_data(app)
 
     @app.route('/')
     def index():

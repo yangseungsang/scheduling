@@ -6,7 +6,9 @@
 다른 모델과 달리 BaseRepository를 상속하지 않고 독립적으로 동작한다.
 """
 
-from app.features.schedule.store import read_json, write_json
+from flask import current_app
+
+from app.features.schedule.repositories import schedule_storage_from_config
 
 # 설정 파일명
 FILENAME = 'settings.json'
@@ -29,6 +31,10 @@ DEFAULTS = {
 }
 
 
+def _storage():
+    return schedule_storage_from_config(current_app.config)
+
+
 def get():
     """현재 설정을 조회한다.
 
@@ -38,11 +44,12 @@ def get():
     Returns:
         dict: 설정 데이터
     """
-    settings = read_json(FILENAME)
+    storage = _storage()
+    settings = storage.get_all(FILENAME)
     if not settings:
         # 설정 파일이 없으면 기본값으로 초기화
         settings = DEFAULTS.copy()
-        write_json(FILENAME, settings)
+        storage.save_all(FILENAME, settings)
     return settings
 
 
@@ -60,5 +67,5 @@ def update(data):
     settings = get()
     # 기존 설정에 새 값을 병합 (전달된 키만 덮어씀)
     settings.update(data)
-    write_json(FILENAME, settings)
+    _storage().save_all(FILENAME, settings)
     return settings

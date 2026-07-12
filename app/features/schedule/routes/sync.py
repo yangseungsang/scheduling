@@ -8,9 +8,11 @@
 
 import logging as _logging
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
+from app.db.repository import CompactSnapshotOrmRepository
 from app.features.schedule.providers import get_provider
 from app.features.schedule.services.sync import SyncService
+from app.services.compact_migration import build_compact_snapshot
 
 _logger = _logging.getLogger(__name__)
 
@@ -66,21 +68,35 @@ def reset_and_sync():
     Returns:
         JSON: 버전 및 태스크 동기화 결과
     """
-    from app.features.schedule.store import write_json
-    from app.features.execution.store import write_json as exec_write_json
-    # 1. 모든 로컬 데이터 초기화
-    write_json('schedule_blocks.json', [])
-    write_json('tasks.json', [])
-    write_json('versions.json', [])
-    write_json('dyn_ready_meta.json', {})  # provider 타임스탬프 캐시 초기화
-    # 2. execution 데이터도 초기화
-    exec_write_json('executions.json', [])
+    if current_app.config.get('SCHEDULE_STORAGE') == 'compact_orm':
+        repository = CompactSnapshotOrmRepository(current_app.config['DATABASE_URL'])
+        current = repository.load_snapshot()
+        empty = build_compact_snapshot(
+            tasks=[],
+            schedule_blocks=[],
+            executions=[],
+            users=current.get('resources', {}).get('users', []),
+            locations=current.get('resources', {}).get('locations', []),
+            versions=[],
+            settings=current.get('settings', {}),
+        )
+        repository.replace_snapshot(empty)
+    else:
+        from app.features.schedule.store import write_json
+        from app.features.execution.store import write_json as exec_write_json
+        # 1. 모든 로컬 데이터 초기화
+        write_json('schedule_blocks.json', [])
+        write_json('tasks.json', [])
+        write_json('versions.json', [])
+        write_json('dyn_ready_meta.json', {})  # provider 타임스탬프 캐시 초기화
+        # 2. execution 데이터도 초기화
+        exec_write_json('executions.json', [])
 
-    # 3. 외부 제공자에서 버전 동기화
+    # 외부 제공자에서 버전 동기화
     provider = get_provider()
     ver_result = SyncService.sync_versions(provider)
 
-    # 4. 외부 제공자에서 시험 데이터 동기화
+    # 외부 제공자에서 시험 데이터 동기화
     data = request.get_json() or {}
     version_id = data.get('version_id')
     task_result = SyncService.sync_test_data(provider, version_id=version_id)

@@ -7,7 +7,7 @@
 
 from datetime import date, datetime, timedelta
 
-from flask import request, jsonify, Response
+from flask import current_app, request, jsonify, Response
 
 from app.features.schedule.helpers.enrichment import build_maps, enrich_blocks
 from app.features.schedule.helpers.overlap import check_overlap
@@ -24,6 +24,32 @@ from app.features.schedule.routes.calendar_helpers import (
     sync_task_remaining_minutes,
 )
 from app.features.schedule.routes.calendar_views import schedule_bp
+from app.features.schedule.services.compact_blocks import (
+    CompactBlockApiError,
+    CompactScheduleBlockApiService,
+)
+from app.db.repository import CompactSnapshotOrmRepository
+from app.features.schedule.services.compact_read import (
+    build_compact_export_blocks,
+    compact_schedule_settings,
+)
+
+
+def _use_compact_orm_schedule():
+    return current_app.config.get('SCHEDULE_STORAGE') == 'compact_orm'
+
+
+def _compact_schedule_service():
+    return CompactScheduleBlockApiService(current_app.config['DATABASE_URL'])
+
+
+def _compact_error_response(exc):
+    return jsonify({'error': str(exc)}), exc.status_code
+
+
+def _compact_schedule_settings():
+    snapshot = CompactSnapshotOrmRepository(current_app.config['DATABASE_URL']).load_snapshot()
+    return compact_schedule_settings(snapshot.get('settings', {}))
 
 
 @schedule_bp.route('/api/blocks', methods=['POST'])
@@ -51,6 +77,11 @@ def api_create_block():
     data = request.get_json()
     if not data:
         return jsonify({'error': '요청 데이터가 없습니다.'}), 400
+    if _use_compact_orm_schedule():
+        try:
+            return jsonify(_compact_schedule_service().create(data)), 201
+        except CompactBlockApiError as exc:
+            return _compact_error_response(exc)
 
     is_simple = data.get('is_simple', False)
 
@@ -220,6 +251,12 @@ def api_update_block(block_id):
     Returns:
         JSON: 수정된 블록 데이터 또는 에러 (404/409)
     """
+    if _use_compact_orm_schedule():
+        try:
+            return jsonify(_compact_schedule_service().update(block_id, request.get_json()))
+        except CompactBlockApiError as exc:
+            return _compact_error_response(exc)
+
     block = schedule_block.get_by_id(block_id)
     if not block:
         return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
@@ -353,6 +390,12 @@ def api_delete_block(block_id):
     Returns:
         JSON: 성공 여부 또는 에러 (404)
     """
+    if _use_compact_orm_schedule():
+        try:
+            return jsonify(_compact_schedule_service().delete(block_id))
+        except CompactBlockApiError as exc:
+            return _compact_error_response(exc)
+
     block = schedule_block.get_by_id(block_id)
     if not block:
         return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
@@ -380,6 +423,12 @@ def api_toggle_lock(block_id):
     Returns:
         JSON: 수정된 블록 데이터 또는 에러 (404)
     """
+    if _use_compact_orm_schedule():
+        try:
+            return jsonify(_compact_schedule_service().toggle_lock(block_id))
+        except CompactBlockApiError as exc:
+            return _compact_error_response(exc)
+
     block = schedule_block.get_by_id(block_id)
     if not block:
         return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
@@ -402,15 +451,21 @@ def api_update_block_status(block_id):
     Returns:
         JSON: 수정된 블록 데이터 또는 에러 (400/404)
     """
-    block = schedule_block.get_by_id(block_id)
-    if not block:
-        return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
     data = request.get_json()
     if not data or 'block_status' not in data:
         return jsonify({'error': '상태 값이 필요합니다.'}), 400
     status = data['block_status']
     if status not in VALID_BLOCK_STATUSES:
         return jsonify({'error': '유효하지 않은 상태입니다.'}), 400
+    if _use_compact_orm_schedule():
+        try:
+            return jsonify(_compact_schedule_service().set_status(block_id, status))
+        except CompactBlockApiError as exc:
+            return _compact_error_response(exc)
+
+    block = schedule_block.get_by_id(block_id)
+    if not block:
+        return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
     updated = schedule_block.update(block_id, block_status=status)
     return jsonify(updated)
 
@@ -466,6 +521,15 @@ def api_update_block_memo(block_id):
     Returns:
         JSON: 수정된 블록 데이터 또는 에러 (400/404)
     """
+    if _use_compact_orm_schedule():
+        data = request.get_json()
+        if data is None:
+            return jsonify({'error': '요청 데이터가 없습니다.'}), 400
+        try:
+            return jsonify(_compact_schedule_service().set_memo(block_id, data.get('memo', '')))
+        except CompactBlockApiError as exc:
+            return _compact_error_response(exc)
+
     block = schedule_block.get_by_id(block_id)
     if not block:
         return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
@@ -506,23 +570,29 @@ def api_export():
     except ValueError:
         return jsonify({'error': '날짜 형식이 올바르지 않습니다. (YYYY-MM-DD)'}), 400
 
-    from app.features.schedule.models import version as version_model
-    users_map, tasks_map, locations_map = build_maps()
-    sttngs = settings.get()
-    blocks = schedule_block.get_by_date_range(start_date, end_date)
-    enriched = enrich_blocks(
-        blocks, users_map, tasks_map, locations_map,
-        sttngs.get('block_color_by', 'assignee'),
-    )
-    # 날짜 → 시작 시간 순으로 정렬
-    enriched.sort(key=lambda b: (b.get('date', ''), b.get('start_time', '')))
-
-    # 버전 정보
-    versions = version_model.get_all()
-    version_name = versions[0]['name'] if versions else ''
-
     from app.features.schedule.services.export import export_xlsx, export_csv
     from urllib.parse import quote
+
+    if _use_compact_orm_schedule():
+        snapshot = CompactSnapshotOrmRepository(current_app.config['DATABASE_URL']).load_snapshot()
+        enriched = build_compact_export_blocks(snapshot, start_date, end_date)
+        versions = snapshot.get('resources', {}).get('versions', [])
+        version_name = versions[0].get('name', '') if versions else ''
+    else:
+        from app.features.schedule.models import version as version_model
+        users_map, tasks_map, locations_map = build_maps()
+        sttngs = settings.get()
+        blocks = schedule_block.get_by_date_range(start_date, end_date)
+        enriched = enrich_blocks(
+            blocks, users_map, tasks_map, locations_map,
+            sttngs.get('block_color_by', 'assignee'),
+        )
+        # 날짜 → 시작 시간 순으로 정렬
+        enriched.sort(key=lambda b: (b.get('date', ''), b.get('start_time', '')))
+
+        # 버전 정보
+        versions = version_model.get_all()
+        version_name = versions[0]['name'] if versions else ''
 
     safe_ver = version_name.replace('/', '_').replace('\\', '_') if version_name else ''
     filename_base = f'schedule_{safe_ver}_{start_date}_{end_date}' if safe_ver else f'schedule_{start_date}_{end_date}'
@@ -569,6 +639,9 @@ def api_blocks_by_task(task_id):
     Returns:
         JSON: 해당 태스크의 블록 리스트 (identifier_ids 포함)
     """
+    if _use_compact_orm_schedule():
+        return jsonify(_compact_schedule_service().list_by_task(task_id))
+
     blocks = [b for b in schedule_block.get_all() if b.get('task_id') == task_id]
     return jsonify({'blocks': blocks})
 
@@ -595,6 +668,11 @@ def api_shift_blocks():
 
     if not from_date:
         return jsonify({'error': 'from_date는 필수입니다.'}), 400
+    if _use_compact_orm_schedule():
+        try:
+            return jsonify(_compact_schedule_service().shift(from_date, direction))
+        except CompactBlockApiError as exc:
+            return _compact_error_response(exc)
 
     all_blocks = schedule_block.get_all()
     shifted = 0
@@ -638,6 +716,17 @@ def api_split_block(block_id):
     Returns:
         JSON: 성공 여부 및 새로 생성된 블록 데이터 또는 에러 (400/404/409)
     """
+    if _use_compact_orm_schedule():
+        data = request.get_json() or {}
+        try:
+            return jsonify(_compact_schedule_service().split(
+                block_id,
+                data.get('keep_identifier_ids', []),
+                _compact_schedule_settings(),
+            ))
+        except CompactBlockApiError as exc:
+            return _compact_error_response(exc)
+
     block = schedule_block.get_by_id(block_id)
     if not block:
         return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
@@ -752,6 +841,19 @@ def api_return_identifiers_to_queue(block_id):
     Returns:
         JSON: 성공 여부
     """
+    if _use_compact_orm_schedule():
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': '요청 데이터가 없습니다.'}), 400
+        try:
+            return jsonify(_compact_schedule_service().return_identifiers(
+                block_id,
+                data.get('keep_identifier_ids', []),
+                _compact_schedule_settings(),
+            ))
+        except CompactBlockApiError as exc:
+            return _compact_error_response(exc)
+
     block = schedule_block.get_by_id(block_id)
     if not block:
         return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404

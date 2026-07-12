@@ -1,6 +1,22 @@
 # 데이터 파일 기술 문서
 
-이 프로젝트는 DB 없이 JSON 파일을 영속 저장소로 사용한다. 스케줄 데이터와 실행 데이터는 서로 다른 디렉터리에 저장된다.
+현재 운영 쓰기 경로는 JSON 파일을 영속 저장소로 사용한다. 스케줄 데이터와 실행 데이터는 서로 다른 디렉터리에 저장된다. 구조 개편 브랜치에는 compact snapshot을 SQLAlchemy ORM DB로 적재하고 외부 API에서 읽는 보조 경로도 추가되어 있다.
+
+스케줄/실행 모델은 저장 함수에 직접 의존하지 않고 storage adapter를 통과한다. `SCHEDULE_STORAGE=orm`, `EXECUTION_STORAGE=orm`을 사용하면 기존 파일 모양 payload가 `storage_payloads` ORM 테이블에 저장된다.
+
+이 ORM storage는 전환용이다. 기존 화면을 DB 위에서 검증할 수 있게 하며, 장기적으로는 compact ORM 테이블로 쓰기 경로를 옮기는 것이 목표다.
+
+`SYNC_COMPACT_ON_ORM_STORAGE_WRITE=1`이 기본값이다. 이 설정에서는 ORM storage 저장 후 `storage_payloads`를 compact snapshot으로 변환해 compact ORM 테이블도 갱신한다. 외부 API를 `EXTERNAL_DATA_SOURCE=orm`으로 실행하면 이 compact ORM 테이블을 읽는다.
+
+ORM storage와 compact ORM 테이블이 같은 데이터를 나타내는지는 `scripts/check_compact_consistency.py`로 확인한다.
+
+compact ORM 테이블에 직접 schedule block을 쓰는 command는 `scripts/compact_schedule_block.py`다. 이 경로는 기존 파일 모양 payload를 갱신하지 않는다.
+
+화면에서도 `SCHEDULE_STORAGE=compact_orm`을 설정하면 일/주/月 schedule 뷰와 schedule block 생성, 수정, 삭제, 잠금, 상태, 메모 저장, task별 조회, 일괄 이동, 식별자 분리/복귀가 compact ORM 테이블을 직접 사용한다. `/schedule/api/day`, `/schedule/api/week`, `/schedule/api/month`, `/schedule/api/export`도 compact snapshot 기반 read adapter를 사용한다.
+
+admin 기준정보와 settings는 compact ORM resource/settings 테이블에 직접 쓸 수 있다. task 목록/상세는 compact catalog에서 legacy 화면 형태로 읽고, task 생성/수정/삭제와 sync test-data 쓰기는 compact catalog command가 `source_documents`, `test_items`, `exam_attempts`를 직접 갱신한다.
+
+장기 구조 개편안은 `docs/data-architecture-redesign.md`를 기준으로 한다. 이 문서는 현재 JSON 파일 구조를 설명하고, 개편안 문서는 다음 구조와 마이그레이션 방향을 설명한다.
 
 ## 1. 읽는 순서
 
@@ -45,7 +61,7 @@
 | ID 접두사 | task `t_`, block `sb_`, user `u_`, location `loc_`, version `v_`, execution `ex_` |
 | 담당자 참조 | user id가 아니라 `users.json[].name` 문자열을 저장 |
 | 장소 참조 | `locations.json[].id`를 저장 |
-| 일반 진행 상태 | task가 아니라 execution 레코드에서 계산 |
+| 일반 진행 상태 | task/block 저장값이 아니라 execution 레코드에서 계산. 단, `cancelled` 블록 상태는 수동 상태로 보존 |
 
 ## 5. `tasks.json`
 
@@ -101,11 +117,12 @@
 | `owners` | string[] | 작성자/개발자 이름 |
 | `estimated_minutes` | number | 식별자 예상 소요 시간 |
 | `total_count` | number | 전체 시험 케이스 수 후보 |
+| `pf_num` | number | dyn_ready 원본의 전체 건수 후보. provider 변환 후에는 보통 `total_count`로 저장 |
 | `test_count` | number | 전체 건수 후보 |
 | `case_count` | number | 전체 건수 후보 |
 | `count` | number | 전체 건수 후보 |
 
-Execution API는 전체 건수를 `total_count -> test_count -> case_count -> count` 순서로 읽고, 없으면 0으로 둔다.
+Execution API는 전체 건수를 `total_count -> pf_num -> test_count -> case_count -> count` 순서로 읽고, 없으면 0으로 둔다.
 
 ## 6. `schedule_blocks.json`
 
@@ -140,7 +157,7 @@ Execution API는 전체 건수를 `total_count -> test_count -> case_count -> co
 | `start_time` | string | 시작 시각 |
 | `end_time` | string | 종료 시각 |
 | `is_locked` | boolean | 이동/리사이즈 제한 여부 |
-| `block_status` | string | `pending`, `in_progress`, `completed`, `cancelled` |
+| `block_status` | string | `pending`, `in_progress`, `completed`, `cancelled`. 일반 블록은 화면 표시 시 execution 상태로 재계산되고, `cancelled`만 저장값을 우선한다 |
 | `memo` | string | 블록 메모 |
 | `identifier_ids` | string[]/null | 포함 식별자. `null`이면 task 전체 식별자 포함 |
 | `title` | string | 단순 블록 제목 |
@@ -194,7 +211,7 @@ Execution API는 전체 건수를 `total_count -> test_count -> case_count -> co
 | `breaks` | object[] | 추가 휴식 시간 목록 |
 | `grid_interval_minutes` | number | 시간표 격자 간격 |
 | `max_schedule_days` | number | 자동 배치에서 고려할 최대 일수 |
-| `block_color_by` | string | 블록 색상 기준 |
+| `block_color_by` | string | 블록 색상 기준. `assignee`, `location`, `status` 지원 |
 
 `breaks[]` 항목은 `{ "start": "10:00", "end": "10:15" }` 형식이다.
 
@@ -213,6 +230,8 @@ Execution API는 전체 건수를 `total_count -> test_count -> case_count -> co
 | `exam_no` | number/null | 선택. 있으면 차수별 task 생성에 직접 사용 |
 | `identifiers` | object[] | 시험 식별자 목록 |
 | `test_list` | object[] | 하위 호환 키. `identifiers`가 없을 때 사용 |
+
+현재 `JsonFileProvider`는 `procedures.json`을 읽을 때 `exam_no`를 전달하지 않는다. 재시험 차수 분리는 `std_list_cache.json` 매핑 또는 `dyn_ready` provider의 `exam_no` 필드로 처리한다.
 
 ### `std_list_cache.json`
 
@@ -269,7 +288,7 @@ Execution API는 전체 건수를 `total_count -> test_count -> case_count -> co
 | `identifier_id` | string | 시험 식별자 ID |
 | `task_id` | string | 상위 task ID |
 | `exam_no` | number/null | task의 시험 차수 |
-| `status` | string | `in_progress`, `paused`, `completed`. 레코드가 없으면 UI에서 pending |
+| `status` | string | `pending`, `in_progress`, `paused`, `completed`. 레코드가 없으면 UI에서 pending |
 | `segments` | object[] | 타이머가 실제로 동작한 구간 |
 | `total_count` | number | 전체 시험 건수 |
 | `fail_count` | number | 실패 건수 |
@@ -292,6 +311,8 @@ Execution API는 전체 건수를 `total_count -> test_count -> case_count -> co
 | `end` | string/null | 구간 종료 시각. 진행 중이면 `null` |
 
 응답 시 경과 시간은 저장된 `elapsed_seconds`보다 `segments` 기반 재계산 값을 우선 사용한다.
+
+`pending` 레코드는 시작 전 코멘트 저장 또는 초기화로 생길 수 있다. 이 경우 `segments=[]`이고 카운트와 경과 시간은 0으로 저장된다.
 
 ## 11. 데이터 수정 시 확인할 것
 

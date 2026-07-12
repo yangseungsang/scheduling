@@ -38,6 +38,28 @@ def exec_client(exec_app):
 
 
 class TestExecutionRepository:
+    def test_uses_configured_json_storage(self, exec_app):
+        with exec_app.app_context():
+            from app.features.execution.repositories import execution_storage_from_config
+
+            storage = execution_storage_from_config(exec_app.config)
+            assert storage.get_all() == []
+            assert storage.generate_id('ex_').startswith('ex_')
+
+    def test_can_use_orm_storage(self, exec_app, tmp_path):
+        exec_app.config['DATABASE_URL'] = f'sqlite:///{tmp_path / "execution-storage.db"}'
+        exec_app.config['EXECUTION_STORAGE'] = 'orm'
+        with exec_app.app_context():
+            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repositories import execution_storage_from_config
+
+            ex = ExecutionRepository.start('TC-ORM', 't_orm', total_count=4)
+            assert ex['status'] == 'in_progress'
+            ExecutionRepository.pause(ex['id'])
+            stored = execution_storage_from_config(exec_app.config).get_all()
+            assert stored[0]['identifier_id'] == 'TC-ORM'
+            assert stored[0]['status'] == 'paused'
+
     def test_start_creates_record(self, exec_app):
         with exec_app.app_context():
             from app.features.execution.models.execution import ExecutionRepository
@@ -296,6 +318,13 @@ class TestExecutionAPI:
         item = next(i for i in r.get_json() if i['identifier_id'] == 'TC-OWNER')
         assert item['owners'] == ['Alice', 'Bob']
         assert item['assignee_names'] == ['테스트 담당자']
+        assert item['execution_status'] == 'pending'
+        assert item['result_counts'] == {
+            'fail_count': 0,
+            'block_count': 0,
+            'pass_count': 0,
+            'total_count': 0,
+        }
 
     def test_total_count(self, exec_client):
         r = exec_client.get('/execution/api/total-count/TC-001')
@@ -381,6 +410,15 @@ class TestExecutionAPI:
         assert item['execution']['pass_count'] == 4
         assert item['execution']['total_count'] == 9
         assert item['execution']['completed_at'] == done['completed_at']
+        assert item['execution_status'] == 'completed'
+        assert item['performer_name'] == ''
+        assert item['result_counts'] == {
+            'fail_count': 2,
+            'block_count': 3,
+            'pass_count': 4,
+            'total_count': 9,
+        }
+        assert item['status_order'] == 3
         assert item['display_date'] == done['completed_at']
 
     def test_list_uses_scheduled_block_location_per_task_identifier(self, exec_app, exec_client):

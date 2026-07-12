@@ -1,0 +1,1 @@
+"""Storage-independent domain helpers."""

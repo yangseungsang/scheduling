@@ -6,8 +6,11 @@ exam_no 기반 태스크 분리: std_list_cache.json의 데이터를 참조하�
 (doc_id, exam_no) 조합별로 독립 태스크를 생성한다.
 """
 
+from flask import current_app
+
 from app.features.schedule.models import version, task, schedule_block
 from app.features.schedule.providers.base import NoChangesError
+from app.features.schedule.services.compact_tasks import CompactTaskCommandService
 from app.config import OfpidSettings
 
 
@@ -119,6 +122,8 @@ class SyncService:
                 external = provider.get_test_data_all()
         except NoChangesError as exc:
             return {'skipped': True, 'reason': 'no_change', 'updated_at': str(exc)}
+        if current_app.config.get('SCHEDULE_STORAGE') == 'compact_orm':
+            return _sync_test_data_compact(external)
 
         # exam_no 맵 구성: test_info → {exam_no, ...}
         # 항목에 이미 'exam_no' 키가 있으면(dyn_ready 형식) 이 맵은 사용하지 않는다.
@@ -225,3 +230,113 @@ class SyncService:
         return {'added': added, 'updated': updated,
                 'deleted': deleted, 'cancelled': deleted,
                 'warnings': warnings}
+
+
+def _sync_test_data_compact(external):
+    exam_no_map = {}
+    for row in load_std_list_cache():
+        ti = row.get('test_info', '')
+        en = row.get('exam_no')
+        if ti and en is not None:
+            exam_no_map.setdefault(ti, set()).add(en)
+
+    service = CompactTaskCommandService(current_app.config['DATABASE_URL'])
+    synced_combos = set()
+    added = updated = deleted = 0
+    warnings = []
+
+    for item in external:
+        try:
+            doc_id = int(item.get('doc_id'))
+        except (TypeError, ValueError):
+            warnings.append(f"잘못된 doc_id, 건너뜀: {item}")
+            continue
+
+        doc_name = item.get('doc_name') or item.get('section_name', '')
+        identifiers = item.get('identifiers', [])
+        ver = (
+            item.get('version_id')
+            or OfpidSettings.get_current_ofp_id()
+            or ''
+        )
+
+        if 'exam_no' in item:
+            combos_to_sync = [(item['exam_no'], identifiers)]
+        else:
+            doc_exam_nos = set()
+            for ident in identifiers:
+                ident_id = ident.get('id', '') if isinstance(ident, dict) else ident
+                doc_exam_nos.update(exam_no_map.get(ident_id, set()))
+
+            if not doc_exam_nos:
+                combos_to_sync = [(None, identifiers)]
+            else:
+                combos_to_sync = []
+                for exam_no in sorted(doc_exam_nos):
+                    filtered = [
+                        i for i in identifiers
+                        if isinstance(i, dict)
+                        and exam_no in exam_no_map.get(i.get('id', ''), set())
+                    ]
+                    combos_to_sync.append((exam_no, filtered))
+
+        for exam_no, idents in combos_to_sync:
+            synced_combos.add((doc_id, exam_no))
+            existing = task.get_by_doc_and_exam(doc_id, exam_no)
+            if existing:
+                idents = _merge_preserving_scheduled_removed(
+                    existing, idents, warnings,
+                )
+                service.update_task(existing['id'], {
+                    **existing,
+                    'doc_id': doc_id,
+                    'exam_no': exam_no,
+                    'version_id': ver,
+                    'doc_name': doc_name,
+                    'identifiers': idents,
+                    'estimated_minutes': sum(
+                        i.get('estimated_minutes', 0)
+                        for i in idents
+                        if isinstance(i, dict)
+                    ),
+                })
+                updated += 1
+            else:
+                service.create_task({
+                    'doc_id': doc_id,
+                    'exam_no': exam_no,
+                    'version_id': ver,
+                    'assignee_names': [],
+                    'location_id': '',
+                    'doc_name': doc_name,
+                    'identifiers': idents,
+                    'estimated_minutes': sum(
+                        i.get('estimated_minutes', 0)
+                        for i in idents
+                        if isinstance(i, dict)
+                    ),
+                })
+                added += 1
+
+    for t in task.get_all():
+        did = t.get('doc_id')
+        if did is None:
+            continue
+        try:
+            did = int(did)
+        except (TypeError, ValueError):
+            pass
+        combo = (did, t.get('exam_no'))
+        if combo not in synced_combos:
+            if _task_blocks(t['id']):
+                warnings.append(
+                    f"{t.get('doc_name', '')}: 이미 스케줄 블록에 배치되어 "
+                    "동기화 삭제를 건너뜀"
+                )
+                continue
+            service.delete_task(t['id'])
+            deleted += 1
+
+    return {'added': added, 'updated': updated,
+            'deleted': deleted, 'cancelled': deleted,
+            'warnings': warnings}

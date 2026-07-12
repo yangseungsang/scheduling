@@ -31,6 +31,40 @@ def app(tmp_path):
 # ===========================================================================
 
 class TestLocationModel:
+    def test_uses_configured_json_storage(self, app):
+        with app.app_context():
+            from app.features.schedule.repositories import schedule_storage_from_config
+
+            storage = schedule_storage_from_config(app.config)
+            assert storage.get_all('locations.json') == []
+            assert storage.generate_id('loc_').startswith('loc_')
+
+    def test_can_use_orm_storage(self, app, tmp_path):
+        app.config['DATABASE_URL'] = f'sqlite:///{tmp_path / "schedule-storage.db"}'
+        app.config['SCHEDULE_STORAGE'] = 'orm'
+        app.config['EXTERNAL_DATA_SOURCE'] = 'orm'
+        app.config['SYNC_COMPACT_ON_ORM_STORAGE_WRITE'] = True
+        with app.app_context():
+            from app.features.schedule.models import location, settings
+            from app.features.schedule.repositories import schedule_storage_from_config
+            from app.db.repository import CompactSnapshotOrmRepository
+
+            loc = location.create(name='A', color='#28a745', description='1층')
+            assert loc['id'].startswith('loc_')
+            assert location.get_all()[0]['name'] == 'A'
+            patched = location.update(loc['id'], name='B', color='#111111')
+            assert patched['name'] == 'B'
+
+            settings.update({'work_start': '07:30'})
+            assert settings.get()['work_start'] == '07:30'
+
+            storage = schedule_storage_from_config(app.config)
+            assert storage.get_all('locations.json')[0]['name'] == 'B'
+
+            snapshot = CompactSnapshotOrmRepository(app.config['DATABASE_URL']).load_snapshot()
+            assert snapshot['resources']['locations'][0]['name'] == 'B'
+            assert snapshot['settings']['work_start'] == '07:30'
+
     def test_create_location(self, app):
         with app.app_context():
             from app.features.schedule.models import location

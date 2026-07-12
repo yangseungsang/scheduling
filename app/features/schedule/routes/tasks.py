@@ -8,13 +8,52 @@ REST API 엔드포인트를 제공한다. 태스크는 문서 ID, 담당자,
 
 import json
 
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, abort
+from flask import Blueprint, current_app, request, jsonify, render_template, redirect, url_for, flash, abort
 
 from app.features.schedule.models import task, user, location, version, schedule_block
 from app.features.execution.models.execution import ExecutionRepository
+from app.features.schedule.services.compact_tasks import (
+    CompactTaskCommandService,
+    CompactTaskError,
+)
 
 # 태스크 관련 라우트가 등록되는 블루프린트
 tasks_bp = Blueprint('tasks', __name__, url_prefix='/tasks')
+
+
+def _use_compact_orm_schedule():
+    return current_app.config.get('SCHEDULE_STORAGE') == 'compact_orm'
+
+
+def _compact_task_service():
+    return CompactTaskCommandService(current_app.config['DATABASE_URL'])
+
+
+def _compact_task_error_response(exc):
+    return jsonify({'error': str(exc)}), exc.status_code
+
+
+def _task_payload_from_form(existing=None):
+    identifiers = _parse_identifiers_from_form()
+    estimated_minutes = (
+        _compute_estimated_minutes(identifiers)
+        if identifiers
+        else int(request.form.get('estimated_minutes', 0) or 0)
+    )
+    payload = {
+        'doc_id': _parse_doc_id(request.form.get('doc_id')),
+        'version_id': request.form.get('version_id', '').strip(),
+        'assignee_names': request.form.getlist('assignee_names'),
+        'location_id': request.form.get('location_id', ''),
+        'doc_name': request.form.get('doc_name', '').strip(),
+        'identifiers': identifiers,
+        'estimated_minutes': estimated_minutes,
+        'remaining_minutes': int(request.form.get('remaining_minutes', estimated_minutes) or 0),
+        'memo': request.form.get('memo', '').strip(),
+    }
+    if existing and existing.get('exam_no') is not None:
+        payload['exam_no'] = existing.get('exam_no')
+    return payload
 
 
 def _parse_identifiers_from_form():
@@ -263,6 +302,19 @@ def task_new():
         POST: 성공 시 목록 페이지로 리다이렉트, 실패 시 폼 페이지로 리다이렉트
     """
     if request.method == 'POST':
+        if _use_compact_orm_schedule():
+            payload = _task_payload_from_form()
+            if payload['doc_id'] is None:
+                flash('문서 ID를 입력해주세요.', 'danger')
+                return redirect(url_for('tasks.task_new'))
+            try:
+                _compact_task_service().create_task(payload)
+            except CompactTaskError as exc:
+                flash(str(exc), 'danger')
+                return redirect(url_for('tasks.task_new'))
+            flash('시험 항목이 생성되었습니다.', 'success')
+            return redirect(url_for('tasks.task_list'))
+
         doc_id = _parse_doc_id(request.form.get('doc_id'))
         if doc_id is None:
             flash('문서 ID를 입력해주세요.', 'danger')
@@ -369,6 +421,19 @@ def task_edit(task_id):
     if not t:
         abort(404)
     if request.method == 'POST':
+        if _use_compact_orm_schedule():
+            payload = _task_payload_from_form(t)
+            if payload['doc_id'] is None:
+                flash('문서 ID를 입력해주세요.', 'danger')
+                return redirect(url_for('tasks.task_edit', task_id=task_id))
+            try:
+                _compact_task_service().update_task(task_id, payload)
+            except CompactTaskError as exc:
+                flash(str(exc), 'danger')
+                return redirect(url_for('tasks.task_edit', task_id=task_id))
+            flash('시험 항목이 수정되었습니다.', 'success')
+            return redirect(url_for('tasks.task_detail', task_id=task_id))
+
         doc_id = _parse_doc_id(request.form.get('doc_id'))
         if doc_id is None:
             flash('문서 ID를 입력해주세요.', 'danger')
@@ -418,6 +483,14 @@ def task_delete(task_id):
     t = task.get_by_id(task_id)
     if not t:
         abort(404)
+    if _use_compact_orm_schedule():
+        try:
+            _compact_task_service().delete_task(task_id)
+        except CompactTaskError:
+            abort(404)
+        flash('시험 항목이 삭제되었습니다.', 'success')
+        return redirect(url_for('tasks.task_list'))
+
     task.delete(task_id)
     flash('시험 항목이 삭제되었습니다.', 'success')
     return redirect(url_for('tasks.task_list'))
@@ -506,6 +579,17 @@ def api_task_create():
         return jsonify({'error': '문서 ID를 입력해주세요.'}), 400
     identifiers = data.get('identifiers') or data.get('test_list') or []
     estimated_minutes = _compute_estimated_minutes(identifiers) if identifiers else int(data.get('estimated_minutes', 0) or 0)
+    if _use_compact_orm_schedule():
+        try:
+            created = _compact_task_service().create_task({
+                **data,
+                'doc_id': doc_id,
+                'identifiers': identifiers,
+                'estimated_minutes': estimated_minutes,
+            })
+        except CompactTaskError as exc:
+            return _compact_task_error_response(exc)
+        return jsonify(created), 201
 
     # 식별자 중복 검사 (같은 exam_no 내에서만)
     exam_no = data.get('exam_no')
@@ -549,6 +633,18 @@ def api_task_update(task_id):
         return jsonify({'error': '문서 ID를 입력해주세요.'}), 400
     identifiers = data.get('identifiers') or data.get('test_list') or t.get('identifiers', [])
     estimated_minutes = _compute_estimated_minutes(identifiers) if identifiers else int(data.get('estimated_minutes', 0) or 0)
+    if _use_compact_orm_schedule():
+        try:
+            updated = _compact_task_service().update_task(task_id, {
+                **data,
+                'doc_id': doc_id,
+                'identifiers': identifiers,
+                'estimated_minutes': estimated_minutes,
+                'remaining_minutes': int(data.get('remaining_minutes', t.get('remaining_minutes', 0)) or 0),
+            })
+        except CompactTaskError as exc:
+            return _compact_task_error_response(exc)
+        return jsonify(updated)
 
     # 식별자 중복 검사 (자기 자신은 제외, 같은 exam_no 내에서만)
     dupes = task.validate_unique_identifiers(identifiers, exclude_task_id=task_id, exam_no=t.get('exam_no'))
@@ -583,6 +679,13 @@ def api_task_delete(task_id):
     t = task.get_by_id(task_id)
     if not t:
         return jsonify({'error': '시험 항목을 찾을 수 없습니다.'}), 404
+    if _use_compact_orm_schedule():
+        try:
+            _compact_task_service().delete_task(task_id)
+        except CompactTaskError as exc:
+            return _compact_task_error_response(exc)
+        return jsonify({'success': True})
+
     task.delete(task_id)
     return jsonify({'success': True})
 
