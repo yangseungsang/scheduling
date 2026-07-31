@@ -55,6 +55,27 @@ def test_schedule_store_reads_and_writes_utf8(tmp_path, monkeypatch):
     assert [call['kwargs'].get('encoding') for call in calls] == ['utf-8', 'utf-8']
 
 
+def test_schedule_store_transaction_locks_read_modify_write(tmp_path, monkeypatch):
+    app = _make_app(tmp_path)
+    calls = []
+
+    with app.app_context():
+        from app.features.schedule import store
+
+        monkeypatch.setattr(store.portalocker, 'Lock', _tracking_lock(calls))
+
+        result = store.transact_json(
+            'users.json',
+            lambda users: users.append({'name': '트랜잭션 — 정상'}) or 'ok',
+        )
+
+        assert result == 'ok'
+        assert store.read_json('users.json') == [{'name': '트랜잭션 — 정상'}]
+
+    assert calls[0]['mode'] == 'r+'
+    assert calls[0]['kwargs'].get('encoding') == 'utf-8'
+
+
 def test_execution_store_reads_and_writes_utf8(tmp_path, monkeypatch):
     app = _make_app(tmp_path)
     calls = []

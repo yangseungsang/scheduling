@@ -41,6 +41,18 @@ def _get_path(filename):
     return os.path.join(current_app.config['DATA_DIR'], filename)
 
 
+def _empty_value(filename):
+    """파일 종류에 맞는 빈 JSON 값을 반환한다."""
+    return [] if filename != 'settings.json' else {}
+
+
+def _parse_content(filename, content):
+    """JSON 파일 내용을 파싱하고, 비어 있으면 기본값을 반환한다."""
+    if not content.strip():
+        return _empty_value(filename)
+    return json.loads(content)
+
+
 def read_json(filename):
     """JSON 데이터 파일을 읽어 파싱한다.
 
@@ -58,13 +70,9 @@ def read_json(filename):
     path = _get_path(filename)
     if not os.path.exists(path):
         # settings.json은 단일 객체, 나머지는 배열 형태
-        return [] if filename != 'settings.json' else {}
+        return _empty_value(filename)
     with portalocker.Lock(path, 'r', timeout=5, encoding='utf-8') as f:
-        content = f.read()
-        if not content.strip():
-            # 파일이 비어 있는 경우에도 기본값 반환
-            return [] if filename != 'settings.json' else {}
-        return json.loads(content)
+        return _parse_content(filename, f.read())
 
 
 def write_json(filename, data):
@@ -84,3 +92,26 @@ def write_json(filename, data):
     with portalocker.Lock(path, 'w', timeout=5, encoding='utf-8') as f:
         # ensure_ascii=False: 한글 등 유니코드를 그대로 저장
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def transact_json(filename, callback):
+    """JSON 파일 하나에 대한 read-modify-write를 같은 lock 안에서 수행한다.
+
+    callback은 파싱된 데이터를 받아 필요한 만큼 in-place로 수정하고, 호출자에게
+    돌려줄 값을 반환한다. 파일 쓰기는 callback이 예외 없이 끝난 뒤 한 번만 한다.
+    """
+    path = _get_path(filename)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if not os.path.exists(path):
+        with open(path, 'w', encoding='utf-8'):
+            pass
+    with portalocker.Lock(path, 'r+', timeout=5, encoding='utf-8') as f:
+        f.seek(0)
+        data = _parse_content(filename, f.read())
+        result = callback(data)
+        if os.path.exists(path):
+            shutil.copy2(path, path + '.bak')
+        f.seek(0)
+        f.truncate()
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        return result
