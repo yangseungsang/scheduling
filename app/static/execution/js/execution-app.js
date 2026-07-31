@@ -28,7 +28,7 @@ let _allItems = [];
 
 /**
  * 현재 정렬 중인 열 키. null이면 정렬 없음.
- * 가능한 값: 'location' | 'date' | 'status' (COL_DEFS 중 sortable 열만 해당)
+ * 가능한 값: 'location' | 'date' | 'actual_date' | 'status' (COL_DEFS 중 sortable 열만 해당)
  */
 let _sortCol = null;
 
@@ -66,7 +66,7 @@ const STATUS_CFG = {
  * colVisible(key)가 true인 열만 포함한다.
  *
  * sortable 여부는 buildTableHeader() 내부에서 하드코딩으로 처리하며,
- * 현재 location·date·status 3개 열만 정렬을 지원한다.
+ * 현재 location·date·actual_date·status 열만 정렬을 지원한다.
  */
 const COL_DEFS = [
   { key: 'doc',        label: '문서' },
@@ -74,7 +74,8 @@ const COL_DEFS = [
   { key: 'name',       label: '시험항목' },
   { key: 'assignee',   label: '작성자' },
   { key: 'location',   label: '장소' },
-  { key: 'date',       label: '날짜' },
+  { key: 'date',       label: '계획일' },
+  { key: 'actual_date', label: '수행일' },
   { key: 'estimated',  label: '예상시간' },
   { key: 'performer',  label: '수행자' },
   { key: 'result',     label: '결과' },
@@ -171,7 +172,7 @@ function toggleCol(key, visible) {
 /**
  * 현재 가시 열 기준으로 <th> 문자열을 생성해 반환한다.
  *
- * sortable 열(location·date·status)은 class="sortable"과 data-sort 속성을 포함한다.
+ * sortable 열(location·date·actual_date·status)은 class="sortable"과 data-sort 속성을 포함한다.
  * 정렬 핸들러는 refreshTableHeader()에서 별도로 등록한다.
  */
 function buildTableHeader() {
@@ -181,7 +182,8 @@ function buildTableHeader() {
   if (colVisible('name'))       cols.push('<th>시험항목</th>');
   if (colVisible('assignee'))   cols.push('<th style="width:100px">작성자</th>');
   if (colVisible('location'))   cols.push('<th class="sortable" data-sort="location" style="width:90px">장소 <i class="bi bi-arrow-down-up ms-1 text-muted"></i></th>');
-  if (colVisible('date'))       cols.push('<th class="sortable" data-sort="date" style="width:95px">날짜 <i class="bi bi-arrow-down-up ms-1 text-muted"></i></th>');
+  if (colVisible('date'))       cols.push('<th class="sortable" data-sort="date" style="width:95px">계획일 <i class="bi bi-arrow-down-up ms-1 text-muted"></i></th>');
+  if (colVisible('actual_date')) cols.push('<th class="sortable" data-sort="actual_date" style="width:150px">수행일 <i class="bi bi-arrow-down-up ms-1 text-muted"></i></th>');
   if (colVisible('estimated'))  cols.push('<th style="width:75px">예상</th>');
   if (colVisible('performer'))  cols.push('<th style="width:80px">수행자</th>');
   if (colVisible('result'))     cols.push('<th style="width:130px">결과</th>');
@@ -279,7 +281,8 @@ function setSort(col) {
  *   - 날짜·장소 필터는 loadList() 단계에서 서버에 파라미터로 전달하므로 여기서는 처리 안 함
  *
  * 정렬:
- *   - 'date': display_date 문자열 비교 (완료 시각 우선, 없으면 배치 날짜)
+ *   - 'date': scheduled_date 문자열 비교
+ *   - 'actual_date': completed_at 문자열 비교
  *   - 'location': location_name 문자열 비교
  *   - 'status': STATUS_ORDER 숫자 비교
  */
@@ -293,7 +296,8 @@ function applyAndRender() {
   if (_sortCol) {
     items.sort((a, b) => {
       let va, vb;
-      if (_sortCol === 'date')     { va = a.display_date || a.scheduled_date || ''; vb = b.display_date || b.scheduled_date || ''; }
+      if (_sortCol === 'date')     { va = a.scheduled_date || ''; vb = b.scheduled_date || ''; }
+      else if (_sortCol === 'actual_date') { va = a.execution?.completed_at || ''; vb = b.execution?.completed_at || ''; }
       else if (_sortCol === 'location') { va = a.location_name || ''; vb = b.location_name || ''; }
       else if (_sortCol === 'status')   {
         // 상태는 문자열이 아닌 미리 정의된 숫자 순서로 비교한다.
@@ -390,7 +394,8 @@ function buildRow(item) {
   if (colVisible('name'))       cells.push(`<td class="td-name">${escHtml(item.identifier_name)}${renderCommentIcon(item)}</td>`);
   if (colVisible('assignee'))   cells.push(`<td class="td-meta">${escHtml(owners)}</td>`);
   if (colVisible('location'))   cells.push(`<td class="td-meta">${escHtml(item.location_name || '-')}</td>`);
-  if (colVisible('date'))       cells.push(`<td class="td-meta">${escHtml(item.display_date || item.scheduled_date || '-')}</td>`);
+  if (colVisible('date'))       cells.push(`<td class="td-meta">${escHtml(item.scheduled_date || '-')}</td>`);
+  if (colVisible('actual_date')) cells.push(`<td class="td-meta">${escHtml(item.execution?.completed_at || '-')}</td>`);
   if (colVisible('estimated'))  cells.push(`<td class="td-meta">${formatMinutes(item.estimated_minutes)}</td>`);
   if (colVisible('performer'))  cells.push(`<td>${escHtml(item.execution?.performer || '-')}</td>`);
   if (colVisible('result'))     cells.push(renderResultCell(item));

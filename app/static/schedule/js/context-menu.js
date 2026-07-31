@@ -93,7 +93,7 @@
             .catch(function (err) { showToast(err.message, 'danger'); });
         } else if (btn.dataset.action === 'to-queue') {
           // 블록을 큐로 되돌리기 (잔여시간 복원)
-          api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+          api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=task')
             .then(function () {
               showToast('큐로 되돌렸습니다.', 'success');
               location.reload();

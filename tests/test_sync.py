@@ -1,7 +1,6 @@
 """Tests for SyncService — version and test-data synchronization."""
 import json
 import os
-
 import pytest
 
 from app import create_app
@@ -211,6 +210,62 @@ class TestSyncTestData:
             # assignee_names and location_id should be preserved
             assert t['assignee_names'] == ['홍길동']
             assert t['location_id'] == 'loc_xyz'
+
+    def test_sync_freezes_existing_full_block_before_adding_identifiers(self):
+        class MockProvider(BaseProvider):
+            def get_versions(self):
+                return []
+            def get_test_data(self, version_id):
+                return []
+            def get_test_data_all(self):
+                return [
+                    {
+                        'doc_id': 1,
+                        'doc_name': '시스템',
+                        'version_id': 'VER-001',
+                        'identifiers': [
+                            {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                            {'id': 'TC-002', 'estimated_minutes': 60, 'owners': []},
+                            {'id': 'TC-003', 'estimated_minutes': 30, 'owners': []},
+                        ],
+                    },
+                ]
+
+        with self.app.app_context():
+            existing = task.create(
+                doc_id=1,
+                version_id='VER-001',
+                assignee_names=[],
+                location_id='',
+                doc_name='시스템',
+                identifiers=[
+                    {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                    {'id': 'TC-002', 'estimated_minutes': 60, 'owners': []},
+                ],
+                estimated_minutes=120,
+            )
+            block = schedule_block.create(
+                task_id=existing['id'],
+                assignee_names=[],
+                location_id='',
+                date='2026-03-10',
+                start_time='09:00',
+                end_time='10:00',
+                identifier_ids=None,
+            )
+
+            result = SyncService.sync_test_data(MockProvider())
+
+            assert result['updated'] == 1
+            updated_block = schedule_block.get_by_id(block['id'])
+            assert updated_block['identifier_ids'] == ['TC-001', 'TC-002']
+
+            updated_task = task.get_by_doc_id(1)
+            assert [i['id'] for i in updated_task['identifiers']] == [
+                'TC-001',
+                'TC-002',
+                'TC-003',
+            ]
 
     def test_sync_deletes_removed_unscheduled_task(self):
         class MockProvider(BaseProvider):

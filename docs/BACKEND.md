@@ -114,7 +114,7 @@ pending(레코드 없음) -> in_progress -> paused -> in_progress -> completed
 | --- | --- | --- |
 | `POST` | `/schedule/api/blocks` | 큐 항목을 시간표에 배치 |
 | `PUT` | `/schedule/api/blocks/<block_id>` | 이동/리사이즈/날짜 변경 |
-| `DELETE` | `/schedule/api/blocks/<block_id>` | 블록 삭제. `?restore=1`이면 큐 복귀 |
+| `DELETE` | `/schedule/api/blocks/<block_id>` | 블록 삭제. `?restore=1`이면 단일 블록 큐 복귀, `?restore=task`이면 같은 task의 모든 블록 큐 복귀 |
 | `PUT` | `/schedule/api/blocks/<block_id>/lock` | 잠금 토글 |
 | `PUT` | `/schedule/api/blocks/<block_id>/status` | 상태 변경 |
 | `PUT` | `/schedule/api/blocks/<block_id>/memo` | 메모 저장 |
@@ -205,7 +205,8 @@ pending(레코드 없음) -> in_progress -> paused -> in_progress -> completed
 | 큐에서 블록 생성 | `remaining_minutes` 재계산 |
 | 블록 이동 | 날짜/시간만 변경, 잔여 시간은 연결 상태 기준 재계산 |
 | 블록 리사이즈 | 실제 배정 시간 변경으로 보고 `remaining_minutes`를 직접 늘리지 않는다 |
-| 블록 삭제 + `restore=1` | 해당 식별자/시간을 큐에 다시 노출 |
+| 블록 삭제 + `restore=1` | 해당 블록의 식별자/시간을 큐에 다시 노출 |
+| 블록 삭제 + `restore=task` | 같은 task의 모든 날짜 블록을 회수해 절차서를 큐에 다시 노출 |
 | 식별자 분리 | 남은 식별자만 큐에 표시 |
 | 업무 종료 초과 | 다음 근무일로 초과분을 자동 배치한다 |
 

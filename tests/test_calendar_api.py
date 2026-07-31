@@ -110,6 +110,38 @@ class TestBlockDelete:
         task_data = client.get(f'/tasks/api/{tid}').get_json()['task']
         assert task_data['location_id'] == ''
 
+    def test_restore_task_deletes_all_blocks_for_task(self, client):
+        uid = _create_user(client)
+        tid = _create_task(client, uid, hours='4')
+        first, _ = _create_block(
+            client,
+            tid,
+            uid,
+            date_str='2026-03-10',
+            start='09:00',
+            end='10:00',
+            identifier_ids=['TC-001'],
+        )
+        _create_block(
+            client,
+            tid,
+            uid,
+            date_str='2026-03-11',
+            start='09:00',
+            end='10:00',
+            identifier_ids=['TC-002'],
+        )
+
+        r = client.delete(f'/schedule/api/blocks/{first["id"]}?restore=task')
+        assert r.status_code == 200
+        assert r.get_json()['deleted_count'] == 2
+
+        blocks = client.get(f'/schedule/api/blocks/by-task/{tid}').get_json()['blocks']
+        assert blocks == []
+
+        queue = client.get('/schedule/api/day').get_json()['queue_tasks']
+        assert any(item['id'] == tid for item in queue)
+
 
 class TestBlockSplit:
     def test_split_keeps_selected_identifiers(self, client):

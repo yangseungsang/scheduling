@@ -450,3 +450,21 @@ class TestExecutionAPI:
             detail_js = f.read()
 
         assert 'const maxA   = total > 0 ? `max="${total}"` : \'\';' in detail_js
+
+    def test_execution_list_splits_planned_and_actual_dates(self):
+        js_path = os.path.join(
+            os.path.dirname(__file__),
+            '..',
+            'app',
+            'static',
+            'execution',
+            'js',
+            'execution-app.js',
+        )
+        with open(js_path) as f:
+            list_js = f.read()
+
+        assert "{ key: 'date',       label: '계획일' }" in list_js
+        assert "{ key: 'actual_date', label: '수행일' }" in list_js
+        assert 'item.scheduled_date || \'-\'' in list_js
+        assert "item.execution?.completed_at || '-'" in list_js

@@ -41,6 +41,49 @@ def _scheduled_identifier_ids(task_dict):
     return scheduled
 
 
+def _identifier_ids(task_dict):
+    """태스크에 포함된 식별자 ID 목록을 반환한다."""
+    return [
+        i.get('id') if isinstance(i, dict) else i
+        for i in task_dict.get('identifiers', [])
+        if (i.get('id') if isinstance(i, dict) else i)
+    ]
+
+
+def _block_identifier_ids(task_dict, block, task_blocks):
+    """현재 태스크 상태 기준으로 블록이 실제 커버하는 식별자 ID를 반환한다."""
+    block_ids = block.get('identifier_ids')
+    if block_ids is not None:
+        return list(block_ids)
+
+    explicit_ids = set()
+    for other in task_blocks:
+        if other.get('id') == block.get('id'):
+            continue
+        other_ids = other.get('identifier_ids')
+        if other_ids:
+            explicit_ids.update(other_ids)
+    return [iid for iid in _identifier_ids(task_dict) if iid not in explicit_ids]
+
+
+def _freeze_full_blocks_before_identifier_merge(existing):
+    """동기화 전 전체 블록(None)을 기존 식별자 목록으로 고정한다.
+
+    identifier_ids=None 블록은 "현재 태스크의 모든 식별자"를 뜻한다. 동기화로
+    새 식별자가 추가되면 기존 블록에 새 식별자가 자동 포함되므로, 새 항목이
+    큐로 남지 않는다. 동기화 직전의 실제 커버 범위를 명시 리스트로 저장해
+    기존 일정은 그대로 두고 신규 식별자만 미배치 상태로 남긴다.
+    """
+    blocks = _task_blocks(existing['id'])
+    for block in blocks:
+        if block.get('identifier_ids') is not None:
+            continue
+        schedule_block.update(
+            block['id'],
+            identifier_ids=_block_identifier_ids(existing, block, blocks),
+        )
+
+
 def _merge_preserving_scheduled_removed(existing, incoming, warnings):
     """동기화에서 삭제된 식별자 중 이미 배치된 항목은 보존한다."""
     incoming_ids = {
@@ -178,6 +221,7 @@ class SyncService:
 
                 existing = task.get_by_doc_and_exam(doc_id, exam_no)
                 if existing:
+                    _freeze_full_blocks_before_identifier_merge(existing)
                     idents = _merge_preserving_scheduled_removed(
                         existing, idents, warnings,
                     )

@@ -142,6 +142,35 @@ class TestQueueTasks:
         assert len(match) == 1
         assert match[0]['remaining_unscheduled_minutes'] == 120
 
+    def test_queue_shows_identifier_added_after_full_block_is_frozen(self, app, client):
+        """동기화로 새 식별자가 추가되면 기존 전체 블록에 자동 포함되지 않고 큐에 남아야 한다."""
+        uid = _create_user(client)
+        vid = _create_version(client)
+        tid = _create_task(client, uid, version_id=vid, hours='2')
+        _create_block(client, tid, uid, start='10:00', end='11:00')
+
+        from app.features.schedule.models import task as task_model
+        from app.features.schedule.models import schedule_block
+
+        with app.app_context():
+            task_model.patch(
+                tid,
+                identifiers=[
+                    {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                    {'id': 'TC-002', 'estimated_minutes': 60, 'owners': []},
+                    {'id': 'TC-003', 'estimated_minutes': 30, 'owners': []},
+                ],
+                estimated_minutes=150,
+                remaining_minutes=30,
+            )
+            block = schedule_block.get_all()[0]
+            schedule_block.update(block['id'], identifier_ids=['TC-001', 'TC-002'])
+
+        r = client.get(f'/schedule/api/day?date=2026-03-10&version={vid}')
+        match = [q for q in r.get_json()['queue_tasks'] if q['id'] == tid]
+        assert len(match) == 1
+        assert match[0]['remaining_unscheduled_minutes'] == 30
+
     def test_queue_uses_execution_status_not_task_status(self, app, client):
         """Queue 필터는 task.status 필드가 아닌 execution 상태 기반이어야 한다 (#108)."""
         uid = _create_user(client)
