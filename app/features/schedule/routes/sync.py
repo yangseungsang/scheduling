@@ -11,6 +11,7 @@ import logging as _logging
 from flask import Blueprint, jsonify, request
 from app.features.schedule.providers import get_provider
 from app.features.schedule.services.sync import SyncService
+from app.domains.procedure import service as procedure_service
 
 _logger = _logging.getLogger(__name__)
 
@@ -67,14 +68,13 @@ def reset_and_sync():
         JSON: 버전 및 태스크 동기화 결과
     """
     from app.features.schedule.store import write_json
-    from app.features.execution.store import write_json as exec_write_json
     # 1. 모든 로컬 데이터 초기화
     write_json('schedule_blocks.json', [])
     write_json('tasks.json', [])
     write_json('versions.json', [])
     write_json('dyn_ready_meta.json', {})  # provider 타임스탬프 캐시 초기화
     # 2. execution 데이터도 초기화
-    exec_write_json('executions.json', [])
+    procedure_service.reset_execution_records()
 
     # 3. 외부 제공자에서 버전 동기화
     provider = get_provider()

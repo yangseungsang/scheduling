@@ -1,5 +1,6 @@
 """Feature 간 schedule/execution 데이터 읽기 서비스."""
 
+from app.domains.procedure import service as procedure_service
 from app.features.execution.models.execution import ExecutionRepository
 from app.features.schedule.models import location, schedule_block, task, user, version
 
@@ -27,4 +28,5 @@ def feature_snapshot():
     return {
         'schedule': schedule_snapshot(),
         'execution': execution_snapshot(),
+        'procedure_items': procedure_service.execution_items(),
     }

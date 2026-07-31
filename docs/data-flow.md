@@ -20,6 +20,7 @@
 ```text
 Browser JavaScript
   -> Flask route
+  -> Procedure service 또는 feature service
   -> service/helper
   -> repository
   -> store
@@ -41,6 +42,7 @@ Browser JavaScript
 
 Schedule 데이터는 `app.features.schedule.store`를 통해 읽고 쓴다.
 Execution 데이터는 `app.features.execution.store`를 통해 읽고 쓴다.
+Schedule과 Execution을 함께 조합해야 하는 조회는 `app.domains.procedure.service`를 기준으로 한다.
 
 ## 3. 동기화 데이터 가져오기
 
@@ -263,6 +265,7 @@ tasks.json
 schedule_blocks.json
 locations.json
 executions.json
+  -> app.domains.procedure.service.execution_items()
   -> execution item list
 ```
 
@@ -363,13 +366,31 @@ GET /features/api/execution
 GET /features/api/snapshot
 ```
 
-이 API는 JSON 파일 원본을 그대로 노출하지 않고, 기능 간 공유에 필요한 스냅샷 형태로 정리해서 반환한다.
+이 API는 JSON 파일 원본과 Procedure item 스냅샷을 함께 반환한다.
+기능 간 공유에 필요한 조합 데이터는 `procedure_items`를 우선 사용한다.
 
 사용 기준:
 
 1. 화면 표시나 내부 기능 조합은 기존 schedule/execution API를 사용한다.
 2. 다른 기능이 스케줄과 실행 데이터를 함께 가져가야 하면 `/features/api/snapshot`을 사용한다.
 3. 쓰기는 지원하지 않는다. 데이터 변경은 각 도메인의 전용 API를 통해 한다.
+
+## 9.1 Procedure Service
+
+`app.domains.procedure.service`는 Schedule과 Execution이 공유하는 조회 경계다.
+
+주요 함수:
+
+| 함수 | 용도 |
+| --- | --- |
+| `execution_items(date_filter, location_filter)` | 실행 목록용 task, block, location, execution 조합 |
+| `find_execution_item(identifier_id, task_id)` | 실행 상세 item 조회 |
+| `total_count(identifier_id, task_id)` | 식별자의 전체 시험 건수 조회 |
+| `execution_status_map()` | Schedule 블록/큐 상태 계산용 실행 상태 맵 |
+| `update_identifier_elapsed()` | 외부 timing 입력으로 식별자 예상 시간 갱신 |
+
+이 계층 덕분에 Execution API는 Schedule repository 조합을 직접 알 필요가 없고,
+Schedule enrichment도 Execution repository를 직접 읽지 않는다.
 
 ## 10. 저장소 잠금과 쓰기 규칙
 

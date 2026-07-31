@@ -118,9 +118,8 @@ class ExecutionRepository:
             total_count: 전체 시험 케이스 수
         """
         now = datetime.now().isoformat(timespec='seconds')
-        from app.features.schedule.models import task as task_repo
-        task = task_repo.get_by_id(task_id)
-        exam_no = task.get('exam_no') if task else None
+        from app.domains.procedure import service as procedure_service
+        exam_no = procedure_service.task_exam_round(task_id)
 
         existing = cls.get_by_identifier_and_task(identifier_id, task_id)
         if existing:
@@ -269,9 +268,8 @@ class ExecutionRepository:
                 return cls._patch(existing['id'], comment=comment)
             return existing  # 이미 진행 중 — 덮어쓰지 않음
         now = datetime.now().isoformat(timespec='seconds')
-        from app.features.schedule.models import task as task_repo
-        task = task_repo.get_by_id(task_id)
-        exam_no = task.get('exam_no') if task else None
+        from app.domains.procedure import service as procedure_service
+        exam_no = procedure_service.task_exam_round(task_id)
         data = {
             'id': generate_id(ID_PREFIX),
             'identifier_id': identifier_id,

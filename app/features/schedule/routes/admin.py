@@ -10,6 +10,7 @@ from flask import Blueprint, request, jsonify, render_template, redirect, url_fo
 
 from app.features.schedule.models import user, location, version, settings
 from app.features.schedule.store import write_json
+from app.domains.procedure import service as procedure_service
 
 # 관리자 기능이 등록되는 블루프린트
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -504,8 +505,7 @@ def api_project_reset():
     write_json('schedule_blocks.json', [])
     write_json('versions.json', [])
 
-    from app.features.execution.store import write_json as exec_write
-    exec_write('executions.json', [])
+    procedure_service.reset_execution_records()
 
     data = request.get_json(silent=True) or {}
     new_version = None
