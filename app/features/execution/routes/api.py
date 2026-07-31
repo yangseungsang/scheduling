@@ -300,6 +300,7 @@ def update_timing(identifier_id):
         result = procedure_service.update_identifier_elapsed(
             identifier_id,
             elapsed_seconds,
+            task_id=body.get('task_id', '').strip(),
             doc_name=body.get('doc_name', ''),
             identifier_name=body.get('identifier_name', ''),
         )

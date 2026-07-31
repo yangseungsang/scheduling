@@ -67,6 +67,14 @@ class ExecutionRepository:
         return None
 
     @staticmethod
+    def _find_by_identifier_and_task(items, identifier_id: str, task_id: str):
+        for item in items:
+            if (item['identifier_id'] == identifier_id
+                    and item.get('task_id') == task_id):
+                return item
+        return None
+
+    @staticmethod
     def compute_elapsed_seconds(segments):
         """segments 리스트를 기반으로 실제 경과 시간(초)을 계산한다.
 
@@ -130,40 +138,46 @@ class ExecutionRepository:
         from app.domains.procedure import service as procedure_service
         exam_no = procedure_service.task_exam_round(task_id)
 
-        existing = cls.get_by_identifier_and_task(identifier_id, task_id)
-        if existing:
-            # 이미 레코드가 있으면 새 레코드를 만들지 않고 기존 레코드를 초기화하여 재사용
-            return cls._patch(
-                existing['id'],
-                status='in_progress',
-                segments=[{'start': now, 'end': None}],
-                fail_count=0,
-                pass_count=0,
-                total_count=total_count,
-                completed_at=None,
-                exam_no=exam_no,
-                elapsed_seconds=0,
-                elapsed_mins=0,
-            )
-        data = {
-            'id': generate_id(ID_PREFIX),
-            'identifier_id': identifier_id,
-            'task_id': task_id,
-            'exam_no': exam_no,
-            'status': 'in_progress',
-            'segments': [{'start': now, 'end': None}],  # 첫 번째 구간 시작
-            'total_count': total_count,
-            'fail_count': 0,
-            'block_count': 0,
-            'pass_count': 0,
-            'comment': '',
-            'performer': '',
-            'created_at': now,
-            'completed_at': None,
-            'elapsed_seconds': 0,
-            'elapsed_mins': 0,
-        }
-        return cls._append(data)
+        def _upsert(items):
+            existing = cls._find_by_identifier_and_task(items, identifier_id, task_id)
+            if existing:
+                # 이미 레코드가 있으면 새 레코드를 만들지 않고 기존 레코드를 초기화하여 재사용
+                existing.update(
+                    status='in_progress',
+                    segments=[{'start': now, 'end': None}],
+                    fail_count=0,
+                    block_count=0,
+                    pass_count=0,
+                    total_count=total_count,
+                    completed_at=None,
+                    exam_no=exam_no,
+                    elapsed_seconds=0,
+                    elapsed_mins=0,
+                )
+                return existing
+
+            data = {
+                'id': generate_id(ID_PREFIX),
+                'identifier_id': identifier_id,
+                'task_id': task_id,
+                'exam_no': exam_no,
+                'status': 'in_progress',
+                'segments': [{'start': now, 'end': None}],  # 첫 번째 구간 시작
+                'total_count': total_count,
+                'fail_count': 0,
+                'block_count': 0,
+                'pass_count': 0,
+                'comment': '',
+                'performer': '',
+                'created_at': now,
+                'completed_at': None,
+                'elapsed_seconds': 0,
+                'elapsed_mins': 0,
+            }
+            items.append(data)
+            return data
+
+        return transact_json(FILENAME, _upsert)
 
     @classmethod
     def pause(cls, execution_id):
@@ -274,33 +288,39 @@ class ExecutionRepository:
 
         task_id로 정확히 조회하여 재시험(동일 identifier, 다른 task)과 혼용되지 않게 한다.
         """
-        existing = cls.get_by_identifier_and_task(identifier_id, task_id)
-        if existing:
-            if existing['status'] == 'pending':
-                return cls._patch(existing['id'], comment=comment)
-            return existing  # 이미 진행 중 — 덮어쓰지 않음
         now = datetime.now().isoformat(timespec='seconds')
         from app.domains.procedure import service as procedure_service
         exam_no = procedure_service.task_exam_round(task_id)
-        data = {
-            'id': generate_id(ID_PREFIX),
-            'identifier_id': identifier_id,
-            'task_id': task_id,
-            'exam_no': exam_no,
-            'status': 'pending',
-            'segments': [],          # 아직 시작 전이므로 구간 없음
-            'total_count': 0,
-            'fail_count': 0,
-            'block_count': 0,
-            'pass_count': 0,
-            'comment': comment,
-            'performer': '',
-            'created_at': now,
-            'completed_at': None,
-            'elapsed_seconds': 0,
-            'elapsed_mins': 0,
-        }
-        return cls._append(data)
+
+        def _upsert(items):
+            existing = cls._find_by_identifier_and_task(items, identifier_id, task_id)
+            if existing:
+                if existing['status'] == 'pending':
+                    existing['comment'] = comment
+                return existing  # 이미 진행 중 — 덮어쓰지 않음
+
+            data = {
+                'id': generate_id(ID_PREFIX),
+                'identifier_id': identifier_id,
+                'task_id': task_id,
+                'exam_no': exam_no,
+                'status': 'pending',
+                'segments': [],          # 아직 시작 전이므로 구간 없음
+                'total_count': 0,
+                'fail_count': 0,
+                'block_count': 0,
+                'pass_count': 0,
+                'comment': comment,
+                'performer': '',
+                'created_at': now,
+                'completed_at': None,
+                'elapsed_seconds': 0,
+                'elapsed_mins': 0,
+            }
+            items.append(data)
+            return data
+
+        return transact_json(FILENAME, _upsert)
 
     @classmethod
     def update_action_status(cls, execution_id, action_status):

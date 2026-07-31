@@ -271,32 +271,49 @@ def execution_filter_context():
     }
 
 
-def update_identifier_elapsed(identifier_id, elapsed_seconds, doc_name='', identifier_name=''):
+def update_identifier_elapsed(
+    identifier_id,
+    elapsed_seconds,
+    task_id='',
+    doc_name='',
+    identifier_name='',
+):
     """외부 timing 입력으로 식별자 예상 시간을 갱신한다."""
     task, _, _ = _schedule_repositories()
+    matches = []
     for task_dict in task.get_all():
-        for item in task_dict.get('identifiers', []):
-            if not isinstance(item, dict) or item.get('id') != identifier_id:
-                continue
-            if doc_name and task_dict.get('doc_name') != doc_name:
-                raise ProcedureServiceError('doc_name mismatch')
-            if identifier_name and item.get('name') != identifier_name:
-                raise ProcedureServiceError('identifier_name mismatch')
+        if task_id and task_dict.get('id') != task_id:
+            continue
+        for idx, item in enumerate(task_dict.get('identifiers', [])):
+            if isinstance(item, dict) and item.get('id') == identifier_id:
+                matches.append((task_dict, idx, item))
 
-            new_minutes = ceil(int(elapsed_seconds) / 60)
-            identifiers = list(task_dict['identifiers'])
-            idx = identifiers.index(item)
-            identifiers[idx] = {**item, 'estimated_minutes': new_minutes}
-            total_minutes = sum(
-                i.get('estimated_minutes', 0)
-                for i in identifiers
-                if isinstance(i, dict)
-            )
-            task.patch(
-                task_dict['id'],
-                identifiers=identifiers,
-                estimated_minutes=total_minutes,
-            )
-            return {'identifier_id': identifier_id, 'estimated_minutes': new_minutes}
+    if len(matches) > 1 and not task_id:
+        raise ProcedureServiceError('task_id required for duplicate identifier')
+
+    for task_dict, idx, item in matches:
+        if doc_name and task_dict.get('doc_name') != doc_name:
+            raise ProcedureServiceError('doc_name mismatch')
+        if identifier_name and item.get('name') != identifier_name:
+            raise ProcedureServiceError('identifier_name mismatch')
+
+        new_minutes = ceil(int(elapsed_seconds) / 60)
+        identifiers = list(task_dict['identifiers'])
+        identifiers[idx] = {**item, 'estimated_minutes': new_minutes}
+        total_minutes = sum(
+            i.get('estimated_minutes', 0)
+            for i in identifiers
+            if isinstance(i, dict)
+        )
+        task.patch(
+            task_dict['id'],
+            identifiers=identifiers,
+            estimated_minutes=total_minutes,
+        )
+        return {
+            'identifier_id': identifier_id,
+            'task_id': task_dict['id'],
+            'estimated_minutes': new_minutes,
+        }
 
     raise ProcedureNotFoundError('identifier not found')

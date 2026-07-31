@@ -46,9 +46,58 @@ def test_update_identifier_elapsed_updates_task_minutes(app, client):
         from app.domains.procedure import service as procedure_service
         from app.features.schedule.models import task as task_repo
 
-        result = procedure_service.update_identifier_elapsed('TC-001', 125)
+        result = procedure_service.update_identifier_elapsed('TC-001', 125, task_id=tid)
         updated = task_repo.get_by_id(tid)
 
-    assert result == {'identifier_id': 'TC-001', 'estimated_minutes': 3}
+    assert result == {
+        'identifier_id': 'TC-001',
+        'task_id': tid,
+        'estimated_minutes': 3,
+    }
     assert updated['identifiers'][0]['estimated_minutes'] == 3
     assert updated['estimated_minutes'] == 63
+
+
+def test_update_identifier_elapsed_requires_task_id_for_duplicate_identifier(app, client):
+    with app.app_context():
+        from app.domains.procedure import service as procedure_service
+        from app.domains.procedure.service import ProcedureServiceError
+        from app.features.schedule.models import task as task_repo
+
+        first = task_repo.create(
+            doc_id=1,
+            assignee_names=[],
+            location_id='',
+            doc_name='중복 식별자 문서',
+            identifiers=[{'id': 'TC-DUP', 'estimated_minutes': 60}],
+            estimated_minutes=60,
+            exam_no=1,
+        )
+        second = task_repo.create(
+            doc_id=1,
+            assignee_names=[],
+            location_id='',
+            doc_name='중복 식별자 문서',
+            identifiers=[{'id': 'TC-DUP', 'estimated_minutes': 90}],
+            estimated_minutes=90,
+            exam_no=2,
+        )
+
+        try:
+            procedure_service.update_identifier_elapsed('TC-DUP', 125)
+        except ProcedureServiceError as error:
+            assert error.message == 'task_id required for duplicate identifier'
+        else:
+            raise AssertionError('duplicate identifier should require task_id')
+
+        result = procedure_service.update_identifier_elapsed(
+            'TC-DUP',
+            125,
+            task_id=second['id'],
+        )
+        first = task_repo.get_by_id(first['id'])
+        second = task_repo.get_by_id(second['id'])
+
+    assert result['task_id'] == second['id']
+    assert first['identifiers'][0]['estimated_minutes'] == 60
+    assert second['identifiers'][0]['estimated_minutes'] == 3

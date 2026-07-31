@@ -48,6 +48,36 @@ class TestExecutionRepository:
             assert ex['segments'][0]['end'] is None
             assert ex['total_count'] == 5
 
+    def test_start_reuses_existing_identifier_task_record(self, exec_app):
+        with exec_app.app_context():
+            from app.features.execution.models.execution import ExecutionRepository
+
+            first = ExecutionRepository.start('TC-001', 't_001', total_count=5)
+            second = ExecutionRepository.start('TC-001', 't_001', total_count=7)
+            records = [
+                item for item in ExecutionRepository.get_all()
+                if item['identifier_id'] == 'TC-001' and item.get('task_id') == 't_001'
+            ]
+
+        assert second['id'] == first['id']
+        assert second['total_count'] == 7
+        assert len(records) == 1
+
+    def test_save_pre_comment_reuses_existing_identifier_task_record(self, exec_app):
+        with exec_app.app_context():
+            from app.features.execution.models.execution import ExecutionRepository
+
+            first = ExecutionRepository.save_pre_comment('TC-001', 't_001', 'first')
+            second = ExecutionRepository.save_pre_comment('TC-001', 't_001', 'second')
+            records = [
+                item for item in ExecutionRepository.get_all()
+                if item['identifier_id'] == 'TC-001' and item.get('task_id') == 't_001'
+            ]
+
+        assert second['id'] == first['id']
+        assert second['comment'] == 'second'
+        assert len(records) == 1
+
     def test_pause_closes_segment(self, exec_app):
         with exec_app.app_context():
             from app.features.execution.models.execution import ExecutionRepository
