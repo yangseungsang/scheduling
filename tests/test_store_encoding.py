@@ -91,6 +91,27 @@ def test_execution_store_reads_and_writes_utf8(tmp_path, monkeypatch):
     assert [call['kwargs'].get('encoding') for call in calls] == ['utf-8', 'utf-8']
 
 
+def test_execution_store_transaction_locks_read_modify_write(tmp_path, monkeypatch):
+    app = _make_app(tmp_path)
+    calls = []
+
+    with app.app_context():
+        from app.features.execution import store
+
+        monkeypatch.setattr(store.portalocker, 'Lock', _tracking_lock(calls))
+
+        result = store.transact_json(
+            'executions.json',
+            lambda executions: executions.append({'comment': '실행 — 정상'}) or 'ok',
+        )
+
+        assert result == 'ok'
+        assert store.read_json('executions.json') == [{'comment': '실행 — 정상'}]
+
+    assert calls[0]['mode'] == 'r+'
+    assert calls[0]['kwargs'].get('encoding') == 'utf-8'
+
+
 def test_dyn_ready_meta_uses_utf8(tmp_path):
     app = _make_app(tmp_path)
 
@@ -101,5 +122,6 @@ def test_dyn_ready_meta_uses_utf8(tmp_path):
         dyn_ready._save_meta(meta)
         assert dyn_ready._load_meta() == meta
 
-        with open(os.path.join(app.config['DATA_DIR'], 'dyn_ready_meta.json'), encoding='utf-8') as f:
+        path = os.path.join(app.config['DATA_DIR'], 'dyn_ready_meta.json')
+        with open(path, encoding='utf-8') as f:
             assert json.load(f) == meta

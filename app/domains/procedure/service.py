@@ -92,6 +92,37 @@ def reset_execution_records():
     write_json('executions.json', [])
 
 
+def schedule_snapshot():
+    """기능 간 공유용 schedule 원천 데이터 스냅샷을 반환한다."""
+    from app.features.schedule.models import user, version
+
+    tasks, blocks, locations, _ = _schedule_maps()
+    return {
+        'tasks': tasks,
+        'schedule_blocks': blocks,
+        'users': user.get_all(),
+        'locations': list(locations.values()),
+        'versions': version.get_all(),
+    }
+
+
+def execution_snapshot():
+    """기능 간 공유용 execution 원천 데이터 스냅샷을 반환한다."""
+    execution_repo = _execution_repository()
+    return {
+        'executions': execution_repo.get_all(),
+    }
+
+
+def feature_snapshot():
+    """schedule/execution 원천 데이터와 조합 item을 함께 반환한다."""
+    return {
+        'schedule': schedule_snapshot(),
+        'execution': execution_snapshot(),
+        'procedure_items': execution_items(),
+    }
+
+
 def _schedule_maps():
     task, schedule_block, location = _schedule_repositories()
     tasks = task.get_all()

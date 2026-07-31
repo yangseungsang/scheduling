@@ -2,7 +2,7 @@
 시험실행(Execution) 핵심 데이터 레포지토리.
 
 각 식별자(identifier)에 대한 시험 실행 상태를 JSON 파일로 관리한다.
-DB 없이 store.py의 read_json/write_json을 통해 영속성을 유지한다.
+DB 없이 store.py의 read_json/transact_json을 통해 영속성을 유지한다.
 
 상태 흐름:
     pending → in_progress → paused ↔ in_progress → completed
@@ -23,7 +23,7 @@ DB 없이 store.py의 read_json/write_json을 통해 영속성을 유지한다.
 import math
 from datetime import datetime
 
-from app.features.execution.store import read_json, write_json, generate_id
+from app.features.execution.store import generate_id, read_json, transact_json
 
 FILENAME = 'executions.json'
 ID_PREFIX = 'ex_'
@@ -92,13 +92,22 @@ class ExecutionRepository:
         전체 파일을 읽어 해당 레코드만 업데이트한 뒤 다시 쓰는 방식으로 동작한다.
         파일 I/O가 한 번 발생하므로 여러 필드를 한 번에 변경할 때 사용한다.
         """
-        items = read_json(FILENAME)
-        for item in items:
-            if item['id'] == execution_id:
-                item.update(kwargs)
-                write_json(FILENAME, items)
-                return item
-        return None
+        def _update(items):
+            for item in items:
+                if item['id'] == execution_id:
+                    item.update(kwargs)
+                    return item
+            return None
+
+        return transact_json(FILENAME, _update)
+
+    @classmethod
+    def _append(cls, data):
+        def _insert(items):
+            items.append(data)
+            return data
+
+        return transact_json(FILENAME, _insert)
 
     @classmethod
     def start(cls, identifier_id, task_id, total_count=10):
@@ -154,10 +163,7 @@ class ExecutionRepository:
             'elapsed_seconds': 0,
             'elapsed_mins': 0,
         }
-        items = read_json(FILENAME)
-        items.append(data)
-        write_json(FILENAME, items)
-        return data
+        return cls._append(data)
 
     @classmethod
     def pause(cls, execution_id):
@@ -179,7 +185,13 @@ class ExecutionRepository:
             segments[-1] = {**segments[-1], 'end': now}
         elapsed_seconds = cls.compute_elapsed_seconds(segments)
         elapsed_mins = math.ceil(elapsed_seconds / 60) if elapsed_seconds > 0 else 0
-        return cls._patch(execution_id, status='paused', segments=segments, elapsed_seconds=elapsed_seconds, elapsed_mins=elapsed_mins)
+        return cls._patch(
+            execution_id,
+            status='paused',
+            segments=segments,
+            elapsed_seconds=elapsed_seconds,
+            elapsed_mins=elapsed_mins,
+        )
 
     @classmethod
     def resume(cls, execution_id):
@@ -288,10 +300,7 @@ class ExecutionRepository:
             'elapsed_seconds': 0,
             'elapsed_mins': 0,
         }
-        items = read_json(FILENAME)
-        items.append(data)
-        write_json(FILENAME, items)
-        return data
+        return cls._append(data)
 
     @classmethod
     def update_action_status(cls, execution_id, action_status):

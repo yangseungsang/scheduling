@@ -6,7 +6,6 @@
 """
 
 from app.features.schedule.models.base import BaseRepository
-from app.features.schedule.store import read_json, write_json
 
 
 class ScheduleBlockRepository(BaseRepository):
@@ -146,8 +145,6 @@ class ScheduleBlockRepository(BaseRepository):
             dict 또는 None: 수정된 블록, 해당 ID가 없으면 None
         """
         return cls.patch(block_id, **kwargs)
-
-
 
 # 하위 호환성을 위한 모듈 수준 별칭
 get_all = ScheduleBlockRepository.get_all

@@ -30,6 +30,28 @@ api_bp = Blueprint('execution_api', __name__, url_prefix='/execution/api')
 logger = logging.getLogger(__name__)
 
 
+def _error(message, status_code):
+    return jsonify({'error': message}), status_code
+
+
+def _procedure_error(error):
+    return _error(error.message, error.status_code)
+
+
+def _post_timing(base_url, api_key, identifier_id, ofp_id, elapsed_seconds):
+    headers = {'Authorization': f'Bearer {api_key}'} if api_key else {}
+    return requests.post(
+        f'{base_url}/update_test_time',
+        json={
+            'test_id': identifier_id,
+            'ofp_id': ofp_id,
+            'time_taking': int(elapsed_seconds),
+        },
+        headers=headers,
+        timeout=10,
+    )
+
+
 def _notify_timing(identifier_id: str, task_id: str, elapsed_seconds: int):
     """시험완료 후 외부 서버에 소요시간을 비동기로 전송한다.
 
@@ -47,18 +69,12 @@ def _notify_timing(identifier_id: str, task_id: str, elapsed_seconds: int):
         try:
             # task의 version_id를 외부 API의 ofp_id로 매핑
             ofp_id = procedure_service.task_version_id(task_id)
-
-            api_key = os.environ.get('API_KEY', '')
-            headers = {'Authorization': f'Bearer {api_key}'} if api_key else {}
-            resp = requests.post(
-                f'{base_url}/update_test_time',
-                json={
-                    'test_id': identifier_id,
-                    'ofp_id': ofp_id,
-                    'time_taking': int(elapsed_seconds),
-                },
-                headers=headers,
-                timeout=10,
+            resp = _post_timing(
+                base_url,
+                os.environ.get('API_KEY', ''),
+                identifier_id,
+                ofp_id,
+                elapsed_seconds,
             )
             if not resp.ok:
                 logger.warning('update_test_time 실패: %s %s', resp.status_code, resp.text)
@@ -91,7 +107,7 @@ def get_item(identifier_id):
     item = procedure_service.find_execution_item(identifier_id, task_id_filter)
     if item:
         return jsonify(item)
-    return jsonify({'error': 'not found'}), 404
+    return _error('not found', 404)
 
 
 @api_bp.route('/total-count/<identifier_id>')
@@ -121,7 +137,7 @@ def login():
     body = request.get_json(silent=True) or {}
     username = body.get('username', '').strip()
     if not username:
-        return jsonify({'error': 'username required'}), 400
+        return _error('username required', 400)
     session['username'] = username
     return jsonify({'username': username})
 
@@ -142,7 +158,7 @@ def start():
     identifier_id = body.get('identifier_id', '').strip()
     task_id = body.get('task_id', '').strip()
     if not identifier_id or not task_id:
-        return jsonify({'error': 'identifier_id and task_id required'}), 400
+        return _error('identifier_id and task_id required', 400)
 
     current_user = session.get('username', '')
     if current_user:
@@ -176,10 +192,10 @@ def pause():
     body = request.get_json(silent=True) or {}
     execution_id = body.get('execution_id', '').strip()
     if not execution_id:
-        return jsonify({'error': 'execution_id required'}), 400
+        return _error('execution_id required', 400)
     ex = ExecutionRepository.pause(execution_id)
     if ex is None:
-        return jsonify({'error': 'not found or invalid state'}), 404
+        return _error('not found or invalid state', 404)
     return jsonify(ex)
 
 
@@ -189,10 +205,10 @@ def resume():
     body = request.get_json(silent=True) or {}
     execution_id = body.get('execution_id', '').strip()
     if not execution_id:
-        return jsonify({'error': 'execution_id required'}), 400
+        return _error('execution_id required', 400)
     ex = ExecutionRepository.resume(execution_id)
     if ex is None:
-        return jsonify({'error': 'not found or invalid state'}), 404
+        return _error('not found or invalid state', 404)
     return jsonify(ex)
 
 
@@ -207,10 +223,10 @@ def complete():
     fail_count = body.get('fail_count', 0)
     block_count = body.get('block_count', 0)
     if not execution_id:
-        return jsonify({'error': 'execution_id required'}), 400
+        return _error('execution_id required', 400)
     ex = ExecutionRepository.complete(execution_id, fail_count, block_count)
     if ex is None:
-        return jsonify({'error': 'not found or invalid state'}), 404
+        return _error('not found or invalid state', 404)
 
     # 완료 후 segments로 최종 경과시간을 재계산하여 전송
     elapsed = ExecutionRepository.compute_elapsed_seconds(ex.get('segments', []))
@@ -231,7 +247,7 @@ def pending_comment():
     task_id = body.get('task_id', '').strip()
     comment = body.get('comment', '')
     if not identifier_id or not task_id:
-        return jsonify({'error': 'identifier_id and task_id required'}), 400
+        return _error('identifier_id and task_id required', 400)
     ExecutionRepository.save_pre_comment(identifier_id, task_id, comment)
     return jsonify({'ok': True})
 
@@ -243,10 +259,10 @@ def update_comment():
     execution_id = body.get('execution_id', '').strip()
     comment = body.get('comment', '')
     if not execution_id:
-        return jsonify({'error': 'execution_id required'}), 400
+        return _error('execution_id required', 400)
     ex = ExecutionRepository.update_comment(execution_id, comment)
     if ex is None:
-        return jsonify({'error': 'not found'}), 404
+        return _error('not found', 404)
     return jsonify({'ok': True})
 
 
@@ -257,10 +273,10 @@ def update_performer():
     execution_id = body.get('execution_id', '').strip()
     performer = body.get('performer', '')
     if not execution_id:
-        return jsonify({'error': 'execution_id required'}), 400
+        return _error('execution_id required', 400)
     ex = ExecutionRepository.update_performer(execution_id, performer)
     if ex is None:
-        return jsonify({'error': 'not found'}), 404
+        return _error('not found', 404)
     return jsonify({'ok': True})
 
 
@@ -278,7 +294,7 @@ def update_timing(identifier_id):
     body = request.get_json(silent=True) or {}
     elapsed_seconds = body.get('elapsed_seconds')
     if elapsed_seconds is None:
-        return jsonify({'error': 'elapsed_seconds required'}), 400
+        return _error('elapsed_seconds required', 400)
 
     try:
         result = procedure_service.update_identifier_elapsed(
@@ -288,7 +304,7 @@ def update_timing(identifier_id):
             identifier_name=body.get('identifier_name', ''),
         )
     except ProcedureServiceError as error:
-        return jsonify({'error': error.message}), error.status_code
+        return _procedure_error(error)
 
     return jsonify({'ok': True, **result})
 
@@ -299,8 +315,8 @@ def reset():
     body = request.get_json(silent=True) or {}
     execution_id = body.get('execution_id', '').strip()
     if not execution_id:
-        return jsonify({'error': 'execution_id required'}), 400
+        return _error('execution_id required', 400)
     ex = ExecutionRepository.reset(execution_id)
     if ex is None:
-        return jsonify({'error': 'not found'}), 404
+        return _error('not found', 404)
     return jsonify(ex)
