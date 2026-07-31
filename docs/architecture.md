@@ -11,7 +11,7 @@
 5. task의 일반 진행 상태는 저장하지 않고 execution 상태에서 계산한다.
 
 ```text
-Provider -> SyncService -> tasks.json -> Calendar blocks -> executions.json
+Provider -> SyncService -> tasks.json -> Procedure Service -> Calendar / Execution
 ```
 
 ## 2. 기술 스택
@@ -36,7 +36,10 @@ scheduling/
 ├── pyproject.toml
 ├── app/
 │   ├── __init__.py
-│   ├── config.py
+    │   ├── config.py
+│   ├── domains/
+│   │   └── procedure/
+│   │       └── service.py
 │   ├── features/
 │   │   ├── schedule/
 │   │   │   ├── data/
@@ -72,6 +75,7 @@ graph TD
     Flask["Flask app<br/>create_app()"]
     ScheduleRoutes["Schedule routes<br/>calendar/tasks/admin/sync"]
     ExecutionRoutes["Execution routes<br/>views/api"]
+    ProcedureDomain["Procedure domain<br/>shared query/service boundary"]
     Services["Services<br/>sync/export/procedure"]
     Helpers["Helpers<br/>time/overlap/enrichment"]
     ScheduleModels["Schedule repositories"]
@@ -86,12 +90,16 @@ graph TD
     Browser --> Flask
     Flask --> ScheduleRoutes
     Flask --> ExecutionRoutes
+    ScheduleRoutes --> ProcedureDomain
+    ExecutionRoutes --> ProcedureDomain
     ScheduleRoutes --> Services
     ScheduleRoutes --> Helpers
     ScheduleRoutes --> ScheduleModels
     ExecutionRoutes --> ExecutionModel
     ExecutionRoutes --> ScheduleModels
     Services --> Providers
+    ProcedureDomain --> ScheduleModels
+    ProcedureDomain --> ExecutionModel
     Providers --> External
     ScheduleModels --> ScheduleStore
     ExecutionModel --> ExecutionStore
@@ -105,8 +113,10 @@ graph TD
 | --- | --- | --- |
 | Schedule | 시험 절차, 큐, 캘린더 블록, 설정, 기준정보, 동기화 | `app/features/schedule` |
 | Execution | 식별자별 실행, 타이머, 수행자, 결과 카운트, 완료 알림 | `app/features/execution` |
+| Procedure Domain | Schedule/Execution 데이터를 task+identifier 기준으로 조합하는 공통 경계 | `app/domains/procedure` |
 
-Execution은 Schedule 데이터를 읽어 화면 컨텍스트를 만들지만, 실행 결과를 Schedule 데이터에 다시 쓰지 않는다.
+Schedule과 Execution은 서로의 Repository를 직접 조합하지 않고 Procedure Service를 통해 공유 데이터를 읽는다.
+현재 저장 파일은 기존 호환성을 위해 분리되어 있으며, Procedure Service가 `task_id + identifier_id` 기준으로 조합한다.
 
 ## 6. 핵심 데이터 구조
 
@@ -180,6 +190,8 @@ Execution은 식별자 실행 레코드다.
 실행 레코드는 `(identifier_id, task_id)` 조합으로 식별한다.
 
 ## 7. 데이터 흐름
+
+화면, API, 서비스, 저장 파일 사이의 상세 입출력 흐름은 `docs/data-flow.md`를 기준으로 한다.
 
 ### 7.1 동기화
 

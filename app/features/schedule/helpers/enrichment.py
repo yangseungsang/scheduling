@@ -8,6 +8,7 @@ import calendar as cal_module
 import hashlib
 from datetime import date
 
+from app.domains.procedure import service as procedure_service
 from app.features.schedule.helpers.time_utils import (
     generate_time_slots,
     is_break_slot,
@@ -93,13 +94,7 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         if tid:
             all_blocks_by_task.setdefault(tid, []).append(ab)
 
-    # execution 데이터 로드
-    from app.features.execution.models.execution import ExecutionRepository
-
-    all_executions = ExecutionRepository.get_all()
-    exec_by_task_identifier = {
-        (ex['identifier_id'], ex.get('task_id', '')): ex for ex in all_executions
-    }
+    exec_status_by_task_identifier = procedure_service.execution_status_map()
 
     enriched = []
     for b in blocks:
@@ -171,8 +166,9 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
             # 각 식별자의 execution 상태 수집
             statuses = []
             for iid in b_iids:
-                ex = exec_by_task_identifier.get((iid, t['id']))
-                statuses.append(ex.get('status', 'pending') if ex else 'pending')
+                statuses.append(
+                    exec_status_by_task_identifier.get((iid, t['id']), 'pending')
+                )
 
             if all(s == 'completed' for s in statuses):
                 derived_status = 'completed'
@@ -278,13 +274,8 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
             continue
         task_blocks.setdefault(tid, []).append(b)
 
-    from app.features.execution.models.execution import ExecutionRepository
-
-    all_executions = ExecutionRepository.get_all()
     # (identifier_id, task_id) 조합을 키로 사용해 재시험 레코드가 섞이지 않게 한다.
-    exec_by_task_identifier = {
-        (ex['identifier_id'], ex.get('task_id', '')): ex for ex in all_executions
-    }
+    exec_status_by_task_identifier = procedure_service.execution_status_map()
 
     queue = []
     for t in tasks:
@@ -297,9 +288,10 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
         identifiers = t.get('identifiers', [])
         if identifiers:
             exec_statuses = [
-                exec_by_task_identifier.get(
-                    (idf['id'] if isinstance(idf, dict) else idf, t['id']), {}
-                ).get('status', 'pending')
+                exec_status_by_task_identifier.get(
+                    (idf['id'] if isinstance(idf, dict) else idf, t['id']),
+                    'pending',
+                )
                 for idf in identifiers
             ]
             if all(s == 'completed' for s in exec_statuses):

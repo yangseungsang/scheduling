@@ -41,6 +41,13 @@ def _get_path(filename):
     return os.path.join(current_app.config['EXECUTION_DATA_DIR'], filename)
 
 
+def _parse_content(content):
+    """JSON 파일 내용을 파싱하고, 비어 있으면 빈 리스트를 반환한다."""
+    if not content.strip():
+        return []
+    return json.loads(content)
+
+
 def read_json(filename):
     """JSON 데이터 파일을 읽어 파싱한다.
 
@@ -58,10 +65,7 @@ def read_json(filename):
     if not os.path.exists(path):
         return []
     with portalocker.Lock(path, 'r', timeout=5, encoding='utf-8') as f:
-        content = f.read()
-        if not content.strip():
-            return []
-        return json.loads(content)
+        return _parse_content(f.read())
 
 
 def write_json(filename, data):
@@ -81,3 +85,22 @@ def write_json(filename, data):
     with portalocker.Lock(path, 'w', timeout=5, encoding='utf-8') as f:
         # ensure_ascii=False: 한글 등 유니코드를 그대로 저장
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def transact_json(filename, callback):
+    """JSON 파일 하나에 대한 read-modify-write를 같은 lock 안에서 수행한다."""
+    path = _get_path(filename)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    if not os.path.exists(path):
+        with open(path, 'w', encoding='utf-8'):
+            pass
+    with portalocker.Lock(path, 'r+', timeout=5, encoding='utf-8') as f:
+        f.seek(0)
+        data = _parse_content(f.read())
+        result = callback(data)
+        if os.path.exists(path):
+            shutil.copy2(path, path + '.bak')
+        f.seek(0)
+        f.truncate()
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        return result

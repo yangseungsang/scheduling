@@ -10,8 +10,8 @@ import json
 
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, abort
 
+from app.domains.procedure import service as procedure_service
 from app.features.schedule.models import task, user, location, version, schedule_block
-from app.features.execution.models.execution import ExecutionRepository
 
 # 태스크 관련 라우트가 등록되는 블루프린트
 tasks_bp = Blueprint('tasks', __name__, url_prefix='/tasks')
@@ -163,11 +163,7 @@ def task_list():
     # 동적으로 상태를 계산한다. 이렇게 하면 execution 데이터가 변경될 때
     # task.json을 별도로 갱신할 필요가 없다.
     # -------------------------------------------------------------------------
-    all_executions = ExecutionRepository.get_all()
-    # (identifier_id, task_id) 조합을 키로 사용해 재시험 레코드가 섞이지 않게 한다.
-    exec_by_task_identifier = {
-        (ex['identifier_id'], ex.get('task_id', '')): ex for ex in all_executions
-    }
+    exec_status_by_task_identifier = procedure_service.execution_status_map()
 
     execution_status_map = {}
     execution_minutes_map = {}  # task_id → 완료된 식별자의 예상시간 합계
@@ -184,9 +180,7 @@ def task_list():
         for idf in identifiers:
             iid = idf['id'] if isinstance(idf, dict) else idf
             est = idf.get('estimated_minutes', 0) if isinstance(idf, dict) else 0
-            ex = exec_by_task_identifier.get((iid, tid))
-            # execution 레코드가 없으면 아직 시작 전이므로 'pending'
-            s = ex['status'] if ex else 'pending'
+            s = exec_status_by_task_identifier.get((iid, tid), 'pending')
             statuses.append(s)
             if s == 'completed':
                 # 완료된 식별자의 시간만 실제 진행된 시간으로 합산
@@ -338,8 +332,7 @@ def task_detail(task_id):
                 }
 
     # 식별자별 execution 상태 (이 태스크에 속한 레코드만 사용)
-    from app.features.execution.models.execution import ExecutionRepository
-    all_executions = ExecutionRepository.get_all()
+    all_executions = procedure_service.execution_map().values()
     identifier_execution = {
         ex['identifier_id']: ex for ex in all_executions if ex.get('task_id') == task_id
     }
@@ -461,12 +454,8 @@ def api_task_detail(task_id):
     result['display_name'] = make_display_name(result)
 
     # 각 식별자의 실행 상태 정보 추가 (#108 확장)
-    all_executions = ExecutionRepository.get_all()
     # (identifier_id, task_id) 조합을 키로 사용
-    exec_map = {
-        (ex['identifier_id'], ex.get('task_id', '')): ex['status']
-        for ex in all_executions if ex.get('task_id') == task_id
-    }
+    exec_map = procedure_service.execution_status_map()
     
     # identifiers 리스트를 순회하며 상태 주입
     enriched_identifiers = []

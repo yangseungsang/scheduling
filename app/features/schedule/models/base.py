@@ -5,7 +5,7 @@ JSON 파일 기반 CRUD 연산을 제공하는 BaseRepository 클래스를 정�
 모든 도메인별 레포지토리(Task, User, Location 등)는 이 클래스를 상속받는다.
 """
 
-from app.features.schedule.store import read_json, write_json, generate_id
+from app.features.schedule.store import generate_id, read_json, transact_json
 
 
 class BaseRepository:
@@ -60,13 +60,14 @@ class BaseRepository:
         Returns:
             dict: ID가 포함된 생성된 항목 데이터
         """
-        items = read_json(cls.FILENAME)
-        if 'id' not in data or not data['id']:
-            # ID가 없으면 접두사 기반으로 고유 ID 자동 생성
-            data['id'] = generate_id(cls.ID_PREFIX)
-        items.append(data)
-        write_json(cls.FILENAME, items)
-        return data
+        def _create(items):
+            if 'id' not in data or not data['id']:
+                # ID가 없으면 접두사 기반으로 고유 ID 자동 생성
+                data['id'] = generate_id(cls.ID_PREFIX)
+            items.append(data)
+            return data
+
+        return transact_json(cls.FILENAME, _create)
 
     @classmethod
     def patch(cls, item_id, **kwargs):
@@ -82,16 +83,17 @@ class BaseRepository:
         Returns:
             dict 또는 None: 수정된 항목, 해당 ID가 없으면 None
         """
-        items = read_json(cls.FILENAME)
-        for item in items:
-            if item['id'] == item_id:
-                for key, value in kwargs.items():
-                    # ALLOWED_FIELDS가 None이면 모든 필드 허용, 아니면 허용 목록 검사
-                    if cls.ALLOWED_FIELDS is None or key in cls.ALLOWED_FIELDS:
-                        item[key] = value
-                write_json(cls.FILENAME, items)
-                return item
-        return None
+        def _patch(items):
+            for item in items:
+                if item['id'] == item_id:
+                    for key, value in kwargs.items():
+                        # ALLOWED_FIELDS가 None이면 모든 필드 허용, 아니면 허용 목록 검사
+                        if cls.ALLOWED_FIELDS is None or key in cls.ALLOWED_FIELDS:
+                            item[key] = value
+                    return item
+            return None
+
+        return transact_json(cls.FILENAME, _patch)
 
     @classmethod
     def delete(cls, item_id):
@@ -100,10 +102,11 @@ class BaseRepository:
         Args:
             item_id: 삭제할 항목의 ID
         """
-        items = read_json(cls.FILENAME)
-        # 해당 ID를 제외한 나머지 항목만 유지
-        items = [item for item in items if item['id'] != item_id]
-        write_json(cls.FILENAME, items)
+        def _delete(items):
+            # 해당 ID를 제외한 나머지 항목만 유지
+            items[:] = [item for item in items if item['id'] != item_id]
+
+        transact_json(cls.FILENAME, _delete)
 
     @classmethod
     def filter_by(cls, **kwargs):
