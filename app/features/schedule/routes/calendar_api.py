@@ -357,15 +357,26 @@ def api_delete_block(block_id):
     if not block:
         return jsonify({'error': '블록을 찾을 수 없습니다.'}), 404
     task_id = block.get('task_id')
-    # restore=1이면 큐로 복원하는 동작 (장소 초기화)
-    is_restore = request.args.get('restore') == '1'
-    schedule_block.delete(block_id)
+    # restore=task이면 같은 태스크의 모든 블록을 큐로 복원한다.
+    # 여러 날로 이어진 절차서를 회수할 때 일부 블록만 삭제되어 큐에 보이지 않는
+    # 문제를 막기 위한 전체 회수 동작이다. restore=1은 기존 단일 블록 회수로 유지한다.
+    restore_mode = request.args.get('restore')
+    is_restore = restore_mode in ('1', 'task', 'all')
+    deleted_count = 0
+    if restore_mode in ('task', 'all') and task_id:
+        for candidate in list(schedule_block.get_all()):
+            if candidate.get('task_id') == task_id:
+                schedule_block.delete(candidate['id'])
+                deleted_count += 1
+    else:
+        schedule_block.delete(block_id)
+        deleted_count = 1
     if task_id:
         sync_task_remaining_minutes(task_id)
         if is_restore:
             # 큐로 복원 시 태스크의 장소 정보를 비움
             task.patch(task_id, location_id='')
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'deleted_count': deleted_count})
 
 
 @schedule_bp.route('/api/blocks/<block_id>/lock', methods=['PUT'])

@@ -97,7 +97,7 @@ window.ScheduleApp = window.ScheduleApp || {};
 
 1. 사용자가 `.schedule-block`을 드래그한다.
 2. 잠긴 블록이면 이동하지 않는다.
-3. 드롭 대상이 큐이면 `DELETE /schedule/api/blocks/<id>?restore=1`을 호출한다.
+3. 드롭 대상이 큐이면 `DELETE /schedule/api/blocks/<id>?restore=task`를 호출해 같은 task의 모든 날짜 블록을 함께 회수한다.
 4. 드롭 대상이 시간표이면 `PUT /schedule/api/blocks/<id>`로 날짜/시간/장소를 갱신한다.
 5. 월간 뷰에서는 날짜 변경 중심으로 동작한다.
 

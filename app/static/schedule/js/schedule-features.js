@@ -29,8 +29,8 @@
         e.preventDefault();
         if (isReadonly()) return;
         var blockId = btn.dataset.blockId;
-        // restore=1: 잔여시간 복원과 함께 블록 삭제
-        api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+        // restore=task: 여러 날로 이어진 같은 절차서 블록까지 함께 큐로 회수
+        api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=task')
           .then(function () {
             showToast('큐로 되돌렸습니다.', 'success');
             location.reload();

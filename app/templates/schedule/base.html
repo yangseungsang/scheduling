@@ -96,7 +96,7 @@
   </script>
   <script>
   (function() {
-    var mode = localStorage.getItem('scheduleMode') || 'edit';
+    var mode = localStorage.getItem('scheduleMode') || 'readonly';
     function applyMode() {
       if (mode === 'readonly') {
         document.body.classList.add('readonly-mode');

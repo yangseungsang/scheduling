@@ -318,16 +318,7 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
         blocks = task_blocks.get(t['id'], [])
 
         # -------------------------------------------------------------------------
-        # 3단계: 이미 완전히 배치된 태스크 제외
-        # identifier_ids=None인 블록은 '전체 배치' 블록을 의미한다.
-        # 이런 블록이 하나라도 있으면 해당 태스크는 큐에서 제외한다.
-        # -------------------------------------------------------------------------
-        has_full_block = any(b.get('identifier_ids') is None for b in blocks)
-        if has_full_block:
-            continue
-
-        # -------------------------------------------------------------------------
-        # 4단계: 분할 배치된 경우 — 미배치 식별자만 잔여로 계산
+        # 3단계: 분할 배치된 경우 — 미배치 식별자만 잔여로 계산
         # 일부 식별자만 블록에 배치된 경우(분할 블록),
         # 아직 배치되지 않은 식별자들의 예상 시간을 remaining으로 계산한다.
         # -------------------------------------------------------------------------
@@ -345,8 +336,9 @@ def get_queue_tasks(users_map, locations_map, version_id=None):
             # 각 분할 블록의 identifier_ids를 수집하여 이미 배치된 식별자 목록 구성
             scheduled_ids = set()
             for b in blocks:
-                # identifier_ids가 None이면 앞에서 이미 제외됨 (has_full_block 체크)
-                bids = b.get('identifier_ids') or []
+                bids = b.get('identifier_ids')
+                if bids is None:
+                    bids = all_ids
                 for bid in bids:
                     scheduled_ids.add(bid)
 
