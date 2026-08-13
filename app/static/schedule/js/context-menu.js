@@ -100,47 +100,47 @@
             })
             .catch(function (err) { showToast(err.message, 'danger'); });
         } else if (btn.dataset.action === 'split') {
-          // 블록 분리 — 식별자를 2개 블록으로 나누기
-          var taskId = block.dataset.taskId;
-          if (!taskId) { showToast('분리할 수 없는 블록입니다.', 'danger'); return; }
-          // 태스크 정보와 관련 블록을 병렬 조회
+          // 블록 분리 — 시험 항목를 2개 블록으로 나누기
+          var procedureId = block.dataset.procedureId;
+          if (!procedureId) { showToast('분리할 수 없는 블록입니다.', 'danger'); return; }
+          // 시험 절차서 정보와 관련 블록을 병렬 조회
           Promise.all([
-            api('GET', '/tasks/api/' + taskId),
-            api('GET', '/schedule/api/blocks/by-task/' + taskId).catch(function() { return {blocks: []}; }),
+            api('GET', '/procedures/api/' + procedureId),
+            api('GET', '/schedule/api/blocks/by-procedure/' + procedureId).catch(function() { return {blocks: []}; }),
           ]).then(function (results) {
-            var tsk = results[0].task;
+            var tsk = results[0].procedure;
             var allBlocks = (results[1] && results[1].blocks) || [];
-            if (!tsk || !tsk.identifiers || tsk.identifiers.length < 2) {
-              showToast('식별자가 2개 이상이어야 분리할 수 있습니다.', 'danger');
+            if (!tsk || !tsk.test_items || tsk.test_items.length < 2) {
+              showToast('시험 항목가 2개 이상이어야 분리할 수 있습니다.', 'danger');
               return;
             }
-            // 현재 블록이 담당하는 식별자 ID 목록 파악
+            // 현재 블록이 담당하는 시험 항목 ID 목록 파악
             var blockIdIds = null;
-            try { if (block.dataset.identifierIds) blockIdIds = JSON.parse(block.dataset.identifierIds); } catch(ex) {}
+            try { if (block.dataset.testItemIds) blockIdIds = JSON.parse(block.dataset.testItemIds); } catch(ex) {}
 
             var currentIds;
             if (blockIdIds) {
-              // 이미 분할된 블록: 해당 블록의 식별자만 사용
+              // 이미 분할된 블록: 해당 블록의 시험 항목만 사용
               currentIds = blockIdIds;
             } else {
-              // 미분할 블록: 다른 분할 블록에 이미 할당된 식별자 제외
+              // 미분할 블록: 다른 분할 블록에 이미 할당된 시험 항목 제외
               var otherIds = {};
               allBlocks.forEach(function (b) {
-                if (b.id === blockId || !b.identifier_ids) return;
-                b.identifier_ids.forEach(function (id) { otherIds[id] = true; });
+                if (b.id === blockId || !b.test_item_ids) return;
+                b.test_item_ids.forEach(function (id) { otherIds[id] = true; });
               });
-              currentIds = tsk.identifiers
+              currentIds = tsk.test_items
                 .map(function(it) { return typeof it === 'object' ? it.id : it; })
                 .filter(function(id) { return !otherIds[id]; });
             }
 
-            // 현재 블록의 식별자만으로 test_list 필터링
-            var blockTestList = tsk.identifiers.filter(function(it) {
+            // 현재 블록의 시험 항목만으로 test_list 필터링
+            var blockTestList = tsk.test_items.filter(function(it) {
               var iid = typeof it === 'object' ? it.id : it;
               return currentIds.indexOf(iid) !== -1;
             });
             if (blockTestList.length < 2) {
-              showToast('이 블록의 식별자가 2개 이상이어야 분리할 수 있습니다.', 'danger');
+              showToast('이 블록의 시험 항목가 2개 이상이어야 분리할 수 있습니다.', 'danger');
               return;
             }
 
@@ -150,7 +150,7 @@
               var keepIds = keepItems.map(function (s) { return typeof s === 'object' ? s.id : s; });
               // 서버에 분리 요청
               api('POST', '/schedule/api/blocks/' + blockId + '/split', {
-                keep_identifier_ids: keepIds
+                keep_test_item_ids: keepIds
               }).then(function () {
                 showToast('블록이 분리되었습니다.', 'success');
                 setTimeout(function () { location.reload(); }, 300);
@@ -158,51 +158,51 @@
             });
           });
         } else if (btn.dataset.action === 'partial-return') {
-          // 일부 식별자를 큐로 되돌리기
-          var taskId = block.dataset.taskId;
-          if (!taskId) { showToast('태스크가 연결되지 않은 블록입니다.', 'danger'); return; }
+          // 일부 시험 항목를 큐로 되돌리기
+          var procedureId = block.dataset.procedureId;
+          if (!procedureId) { showToast('시험 절차서가 연결되지 않은 블록입니다.', 'danger'); return; }
           Promise.all([
-            api('GET', '/tasks/api/' + taskId),
-            api('GET', '/schedule/api/blocks/by-task/' + taskId).catch(function() { return {blocks: []}; }),
+            api('GET', '/procedures/api/' + procedureId),
+            api('GET', '/schedule/api/blocks/by-procedure/' + procedureId).catch(function() { return {blocks: []}; }),
           ]).then(function (results) {
-            var tsk = results[0].task;
+            var tsk = results[0].procedure;
             var allBlocks = (results[1] && results[1].blocks) || [];
-            if (!tsk || !tsk.identifiers || tsk.identifiers.length < 2) {
-              showToast('식별자가 2개 이상이어야 일부를 큐로 보낼 수 있습니다.', 'danger');
+            if (!tsk || !tsk.test_items || tsk.test_items.length < 2) {
+              showToast('시험 항목가 2개 이상이어야 일부를 큐로 보낼 수 있습니다.', 'danger');
               return;
             }
-            // 현재 블록의 식별자 파악
+            // 현재 블록의 시험 항목 파악
             var blockIdIds = null;
-            try { if (block.dataset.identifierIds) blockIdIds = JSON.parse(block.dataset.identifierIds); } catch(ex) {}
+            try { if (block.dataset.testItemIds) blockIdIds = JSON.parse(block.dataset.testItemIds); } catch(ex) {}
             var currentIds;
             if (blockIdIds) {
               currentIds = blockIdIds;
             } else {
               var otherIds = {};
               allBlocks.forEach(function (b) {
-                if (b.id === blockId || !b.identifier_ids) return;
-                b.identifier_ids.forEach(function (id) { otherIds[id] = true; });
+                if (b.id === blockId || !b.test_item_ids) return;
+                b.test_item_ids.forEach(function (id) { otherIds[id] = true; });
               });
-              currentIds = tsk.identifiers
+              currentIds = tsk.test_items
                 .map(function(it) { return typeof it === 'object' ? it.id : it; })
                 .filter(function(id) { return !otherIds[id]; });
             }
-            var blockTestList = tsk.identifiers.filter(function(it) {
+            var blockTestList = tsk.test_items.filter(function(it) {
               var iid = typeof it === 'object' ? it.id : it;
               return currentIds.indexOf(iid) !== -1;
             });
             if (blockTestList.length < 2) {
-              showToast('이 블록의 식별자가 2개 이상이어야 합니다. 전체를 보내려면 "큐로 보내기"를 사용하세요.', 'info');
+              showToast('이 블록의 시험 항목가 2개 이상이어야 합니다. 전체를 보내려면 "큐로 보내기"를 사용하세요.', 'info');
               return;
             }
             // 피커 표시: 체크 유지=블록에 남김, 체크 해제=큐로 되돌림
             App.showSplitPicker(blockTestList, function (keepItems) {
               if (!keepItems) return;
               var keepIds = keepItems.map(function (s) { return typeof s === 'object' ? s.id : s; });
-              api('POST', '/schedule/api/blocks/' + blockId + '/return-identifiers', {
-                keep_identifier_ids: keepIds
+              api('POST', '/schedule/api/blocks/' + blockId + '/return-test_items', {
+                keep_test_item_ids: keepIds
               }).then(function () {
-                showToast('선택한 식별자를 큐로 되돌렸습니다.', 'success');
+                showToast('선택한 시험 항목를 큐로 되돌렸습니다.', 'success');
                 setTimeout(function () { location.reload(); }, 300);
               }).catch(function (err) { showToast(err.message, 'danger'); });
             });
@@ -239,18 +239,18 @@
   // 분리 피커 — 체크 유지=이 블록에 남김, 체크 해제=새 블록으로 분리
   // =====================================================================
   /**
-   * 블록 분리 시 어떤 식별자를 이 블록에 남기고 어떤 것을 새 블록으로 분리할지 선택하는 팝업.
-   * @param {Array<Object|string>} testList - 현재 블록의 식별자 목록
+   * 블록 분리 시 어떤 시험 항목를 이 블록에 남기고 어떤 것을 새 블록으로 분리할지 선택하는 팝업.
+   * @param {Array<Object|string>} testList - 현재 블록의 시험 항목 목록
    * @param {function} callback - 선택 결과 콜백 (남길 항목 배열 또는 취소 시 null)
    */
   function showSplitPicker(testList, callback) {
-    var old = document.getElementById('identifier-picker');
+    var old = document.getElementById('test_item-picker');
     if (old) old.remove();
 
     var overlay = document.createElement('div');
-    overlay.id = 'identifier-picker';
+    overlay.id = 'test_item-picker';
     overlay.className = 'block-detail-overlay';
-    // 각 식별자별 체크박스 행 (기본 전체 체크)
+    // 각 시험 항목별 체크박스 행 (기본 전체 체크)
     var rows = '';
     testList.forEach(function (item, i) {
       var id = typeof item === 'object' ? item.id : item;

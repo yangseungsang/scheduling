@@ -14,20 +14,20 @@ from xml.sax.saxutils import escape
 
 # 내보내기 열 헤더 (기존 Excel 양식)
 HEADERS = ['날짜', '문서명']
-PRACTITIONER_HEADERS = ['날짜', '장소', '시작', '종료', '절차서', '시험 식별자']
+PRACTITIONER_HEADERS = ['날짜', '장소', '시작', '종료', '절차서', '시험 항목']
 CALENDAR_COLUMN_WIDTH = 34
 DATE_FILL_COLOR = 'EAF3F8'
 
 
 def _block_to_row(b):
     """블록 딕셔너리를 내보내기용 행(row) 데이터로 변환한다."""
-    name = b.get('display_name') or b.get('doc_name', '') or b.get('task_title', '')
+    name = b.get('display_name') or b.get('document_name', '') or b.get('procedure_title', '')
     if b.get('is_split'):
         name += (
             ' ('
-            + str(b.get('block_identifier_count', '?'))
+            + str(b.get('block_test_item_count', '?'))
             + '/'
-            + str(b.get('total_identifier_count', '?'))
+            + str(b.get('total_test_item_count', '?'))
             + ')'
         )
     return [b.get('date', ''), name]
@@ -35,40 +35,40 @@ def _block_to_row(b):
 
 def _block_label(b):
     """블록의 표시 라벨을 생성한다 (달력 시트용)."""
-    name = b.get('display_name') or b.get('doc_name', '') or b.get('task_title', '')
+    name = b.get('display_name') or b.get('document_name', '') or b.get('procedure_title', '')
     if b.get('is_split'):
         name += (
             ' ('
-            + str(b.get('block_identifier_count', '?'))
+            + str(b.get('block_test_item_count', '?'))
             + '/'
-            + str(b.get('total_identifier_count', '?'))
+            + str(b.get('total_test_item_count', '?'))
             + ')'
         )
     return name
 
 
-def _identifier_label(identifier):
-    if isinstance(identifier, dict):
-        identifier_id = identifier.get('id', '')
-        identifier_name = identifier.get('name', '')
-        if identifier_id and identifier_name:
-            return f'{identifier_id} - {identifier_name}'
-        return identifier_id or identifier_name
-    return str(identifier) if identifier is not None else ''
+def _test_item_label(test_item):
+    if isinstance(test_item, dict):
+        test_item_id = test_item.get('id', '')
+        test_item_name = test_item.get('name', '')
+        if test_item_id and test_item_name:
+            return f'{test_item_id} - {test_item_name}'
+        return test_item_id or test_item_name
+    return str(test_item) if test_item is not None else ''
 
 
-def _block_identifiers(b):
-    identifiers = b.get('identifiers') or []
-    selected_ids = b.get('identifier_ids')
+def _block_test_items(b):
+    test_items = b.get('test_items') or []
+    selected_ids = b.get('test_item_ids')
     if selected_ids is None:
-        return identifiers
+        return test_items
 
     selected_id_set = set(selected_ids)
     return [
-        identifier
-        for identifier in identifiers
+        test_item
+        for test_item in test_items
         if (
-            identifier.get('id') if isinstance(identifier, dict) else identifier
+            test_item.get('id') if isinstance(test_item, dict) else test_item
         )
         in selected_id_set
     ]
@@ -87,10 +87,10 @@ def _practitioner_rows(enriched_blocks):
         ),
     )
     for b in sorted_blocks:
-        identifiers = _block_identifiers(b)
-        if not identifiers:
-            identifiers = ['']
-        for identifier in identifiers:
+        test_items = _block_test_items(b)
+        if not test_items:
+            test_items = ['']
+        for test_item in test_items:
             rows.append(
                 [
                     b.get('date', ''),
@@ -98,7 +98,7 @@ def _practitioner_rows(enriched_blocks):
                     b.get('start_time', ''),
                     b.get('end_time', ''),
                     _block_label(b),
-                    _identifier_label(identifier),
+                    _test_item_label(test_item),
                 ]
             )
     return rows
@@ -441,7 +441,7 @@ def export_xlsx(enriched_blocks, start_date, end_date, version_name=''):
             max_len = max(max_len, len(val))
         ws2.column_dimensions[col[0].column_letter].width = max_len + 4
 
-    # 세 번째 시트: 실무자용 날짜/장소/식별자 목록
+    # 세 번째 시트: 실무자용 날짜/장소/시험 항목 목록
     ws3 = wb.create_sheet(title='실무자용')
     for row_values in _practitioner_rows(enriched_blocks):
         ws3.append(row_values)

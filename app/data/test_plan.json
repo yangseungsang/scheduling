@@ -1,0 +1,235 @@
+{
+  "version_id": "TEST-CYCLE-2026-08",
+  "test_procedures": [
+    {
+      "id": "tp_payment_release",
+      "document_id": "DOC-1001",
+      "document_name": "결제 서비스 정기 배포",
+      "test_round": 1,
+      "test_items": [
+        {
+          "id": "PAY-LOGIN",
+          "name": "로그인 및 결제 진입",
+          "estimated_minutes": 90,
+          "total_count": 24,
+          "owner_names": [
+            "김민지"
+          ]
+        },
+        {
+          "id": "PAY-REFUND",
+          "name": "취소 및 환불",
+          "estimated_minutes": 120,
+          "total_count": 18,
+          "owner_names": [
+            "이준호"
+          ]
+        }
+      ],
+      "assignee_names": [
+        "김민지",
+        "이준호"
+      ],
+      "location_name": "QA Lab A",
+      "memo": "배포 전 핵심 회귀 시험"
+    },
+    {
+      "id": "tp_mobile_release",
+      "document_id": "DOC-1002",
+      "document_name": "모바일 앱 릴리스",
+      "test_round": 1,
+      "test_items": [
+        {
+          "id": "APP-ANDROID",
+          "name": "Android 주요 시나리오",
+          "estimated_minutes": 120,
+          "total_count": 32,
+          "owner_names": [
+            "박서연"
+          ]
+        },
+        {
+          "id": "APP-IOS",
+          "name": "iOS 주요 시나리오",
+          "estimated_minutes": 120,
+          "total_count": 30,
+          "owner_names": [
+            "박서연",
+            "최현우"
+          ]
+        }
+      ],
+      "assignee_names": [
+        "박서연",
+        "최현우"
+      ],
+      "memo": "스토어 심사 제출 전 확인"
+    },
+    {
+      "id": "tp_security_check",
+      "document_id": "DOC-1003",
+      "document_name": "권한 관리 보안 점검",
+      "test_round": 2,
+      "test_items": [
+        {
+          "id": "SEC-AUTH",
+          "name": "인증 정책",
+          "estimated_minutes": 90,
+          "total_count": 20,
+          "owner_names": [
+            "김민지"
+          ]
+        },
+        {
+          "id": "SEC-PERM",
+          "name": "역할별 접근 권한",
+          "estimated_minutes": 90,
+          "total_count": 22,
+          "owner_names": [
+            "정다은"
+          ]
+        }
+      ],
+      "assignee_names": [
+        "김민지",
+        "정다은"
+      ],
+      "location_name": "Security Lab",
+      "memo": "관리자 권한 변경 포함"
+    },
+    {
+      "id": "tp_network_regression",
+      "document_id": "DOC-1004",
+      "document_name": "네트워크 장애 복구 시험",
+      "test_round": 1,
+      "test_items": [
+        {
+          "id": "NET-FAILOVER",
+          "name": "회선 절체",
+          "estimated_minutes": 120,
+          "total_count": 16,
+          "owner_names": [
+            "최현우"
+          ]
+        },
+        {
+          "id": "NET-RECOVERY",
+          "name": "서비스 자동 복구",
+          "estimated_minutes": 90,
+          "total_count": 14,
+          "owner_names": [
+            "최현우"
+          ]
+        }
+      ],
+      "assignee_names": [
+        "최현우"
+      ],
+      "memo": "아직 일정이 배정되지 않은 작업"
+    }
+  ],
+  "schedule_blocks": [
+    {
+      "id": "blk_payment_login",
+      "date": "2026-08-10",
+      "start_time": "09:15",
+      "end_time": "10:45",
+      "procedure_id": "tp_payment_release",
+      "test_item_ids": [
+        "PAY-LOGIN"
+      ],
+      "location_name": "회의실 2",
+      "assignee_names": [
+        "김민지"
+      ],
+      "is_locked": true
+    },
+    {
+      "id": "blk_payment_refund",
+      "date": "2026-08-11",
+      "start_time": "09:00",
+      "end_time": "11:00",
+      "procedure_id": "tp_payment_release",
+      "test_item_ids": [
+        "PAY-REFUND"
+      ],
+      "location_name": "QA Lab A",
+      "assignee_names": [
+        "이준호"
+      ]
+    },
+    {
+      "id": "blk_mobile_ios",
+      "date": "2026-08-11",
+      "start_time": "13:00",
+      "end_time": "15:00",
+      "procedure_id": "tp_mobile_release",
+      "test_item_ids": [
+        "APP-IOS"
+      ],
+      "location_name": "Mobile Lab",
+      "assignee_names": [
+        "박서연",
+        "최현우"
+      ]
+    },
+    {
+      "id": "blk_security_auth",
+      "date": "2026-08-11",
+      "start_time": "10:00",
+      "end_time": "11:15",
+      "procedure_id": "tp_security_check",
+      "test_item_ids": [
+        "SEC-AUTH"
+      ],
+      "location_name": "회의실 2",
+      "assignee_names": [
+        "김민지"
+      ],
+      "manual_status": "paused"
+    },
+    {
+      "id": "blk_security_permission",
+      "date": "2026-08-12",
+      "start_time": "09:30",
+      "end_time": "11:00",
+      "procedure_id": "tp_security_check",
+      "test_item_ids": [
+        "SEC-PERM"
+      ],
+      "location_name": "Security Lab",
+      "assignee_names": [
+        "정다은"
+      ]
+    },
+    {
+      "id": "blk_team_sync",
+      "date": "2026-08-10",
+      "start_time": "16:00",
+      "end_time": "16:30",
+      "location_name": "회의실 2",
+      "assignee_names": [
+        "김민지",
+        "박서연",
+        "최현우"
+      ],
+      "title": "시험 진행 상황 공유",
+      "memo": "이슈와 다음 일정 확인"
+    },
+    {
+      "id": "blk_6a23336d1b6c",
+      "date": "2026-08-13",
+      "start_time": "09:15",
+      "end_time": "11:30",
+      "procedure_id": "tp_mobile_release",
+      "test_item_ids": [
+        "APP-ANDROID"
+      ],
+      "location_name": "Mobile Lab",
+      "assignee_names": [
+        "박서연",
+        "최현우"
+      ]
+    }
+  ]
+}

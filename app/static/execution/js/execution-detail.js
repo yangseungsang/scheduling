@@ -4,19 +4,18 @@
  * execution-detail.js — 시험 개별 항목 실행 화면 컨트롤러
  *
  * 역할:
- *   - 단일 식별자(identifier)에 대한 시험 실행 상태를 표시·제어한다.
+ *   - 단일 시험 항목(test_item)에 대한 시험 실행 상태를 표시·제어한다.
  *   - 상태 머신: pending → in_progress ↔ paused → completed
  *                doReset() 호출 시 execution 레코드 삭제 → pending으로 복귀
  *
  * 의존성:
  *   - Bootstrap 5 (Modal, Tooltip)
  *   - Bootstrap Icons
- *   - 전역 변수 IDENTIFIER_ID, BARCODE_PREFIX (Jinja2 템플릿이 인라인으로 주입)
+ *   - 전역 변수 TEST_ITEM_ID, BARCODE_PREFIX (Jinja2 템플릿이 인라인으로 주입)
  *
  * 설계 결정:
  *   - 화면 전체를 renderPage()로 재생성하는 방식 — DOM 파편 최소화, 상태 동기화 단순화
- *   - 서버는 segments[] 배열로 시험 구간을 저장하고, 클라이언트는
- *     elapsed_seconds(서버 계산값)를 _timerBase로 사용해 로컬 타이머를 돌린다.
+ *   - 서버의 elapsed_seconds를 기준으로 로컬 타이머를 표시한다.
  */
 
 // ── 전역 상태 ────────────────────────────────────────────────────────────────
@@ -27,7 +26,7 @@ let _item = null;
 /**
  * 시험이 아직 시작되지 않은(pending) 상태에서 미리 입력한 코멘트.
  * doStart() 호출 시 execution 생성 직후 /api/comment 로 전송된다.
- * localStorage('pending_comment_<IDENTIFIER_ID>')에도 백업된다.
+ * localStorage('pending_comment_<TEST_ITEM_ID>')에도 백업된다.
  */
 let _pendingComment = '';
 
@@ -227,7 +226,7 @@ function _totalCount(item, ex) {
  *
  * 레이아웃 구조:
  *   .exec-detail-layout
- *     └ 왼쪽 사이드바 (.exec-detail-sidebar): 식별자 정보 + 작성자·날짜·장소 요약
+ *     └ 왼쪽 사이드바 (.exec-detail-sidebar): 시험 항목 정보 + 작성자·날짜·장소 요약
  *     └ 오른쪽 메인 (.exec-detail-main):
  *         - 타이머 카드 (상태별 배경색, 액션 버튼)
  *         - FAIL/BLOCK/PASS 입력 또는 완료 결과 표시
@@ -248,8 +247,8 @@ function renderPage() {
   const leftPanel = `
   <div class="exec-detail-sidebar">
     <div class="sidebar-top">
-      <div class="sidebar-id">${escHtml(item.identifier_id)}</div>
-      <div class="sidebar-name">${escHtml(item.identifier_name)}</div>
+      <div class="sidebar-id">${escHtml(item.test_item_id)}</div>
+      <div class="sidebar-name">${escHtml(item.test_item_name)}</div>
       <span class="sidebar-status sidebar-status--${status}">
         ${cfg.label}
       </span>
@@ -257,7 +256,7 @@ function renderPage() {
     <div class="sidebar-section">
       <div class="sidebar-field">
         <div class="sidebar-field-label">문서</div>
-        <div class="sidebar-field-value">${escHtml(item.display_name || item.doc_name || '-')}</div>
+        <div class="sidebar-field-value">${escHtml(item.display_name || item.document_name || '-')}</div>
       </div>
       <div class="sidebar-field">
         <div class="sidebar-field-label">작성자</div>
@@ -489,7 +488,7 @@ function _attachHandlers() {
       if (!_isStarted(_item?.execution)) { _pendingPerformer = pi.value; return; }
       try {
         await apiFetch('/execution/api/performer', 'PUT', {
-          execution_id: _item.execution.id, performer: pi.value,
+          ...executionKey(), performer: pi.value,
         });
         _item.execution.performer = pi.value;
       } catch { /* 실패 시 무시 — 다음 저장 시 재시도 가능 */ }
@@ -502,12 +501,12 @@ function _attachHandlers() {
 // ── pending 코멘트 영속화 ──────────────────────────────────────────────────────
 
 /**
- * 식별자별 localStorage 키를 반환한다.
- * TASK_ID를 포함해 원본/재시험이 같은 identifier_id를 가져도 충돌하지 않는다.
+ * 시험 항목별 localStorage 키를 반환한다.
+ * PROCEDURE_ID를 포함해 원본/재시험이 같은 test_item_id를 가져도 충돌하지 않는다.
  */
 function _pendingCommentKey() {
-  const iid = typeof IDENTIFIER_ID !== 'undefined' ? IDENTIFIER_ID : '';
-  const tid = typeof TASK_ID !== 'undefined' ? TASK_ID : '';
+  const iid = typeof TEST_ITEM_ID !== 'undefined' ? TEST_ITEM_ID : '';
+  const tid = typeof PROCEDURE_ID !== 'undefined' ? PROCEDURE_ID : '';
   return `pending_comment_${iid}_${tid}`;
 }
 
@@ -565,7 +564,7 @@ async function doSaveComment() {
     _savePendingComment(ta.value);
     try {
       await apiFetch('/execution/api/pending-comment', 'PUT', {
-        identifier_id: _item.identifier_id, task_id: _item.task_id, comment: ta.value,
+        test_item_id: _item.test_item_id, procedure_id: _item.procedure_id, comment: ta.value,
       });
       if (_item.execution) _item.execution.comment = ta.value;
     } catch { /* localStorage에는 이미 저장됨 — 서버 실패는 무시 */ }
@@ -574,7 +573,7 @@ async function doSaveComment() {
   }
   try {
     await apiFetch('/execution/api/comment', 'PUT', {
-      execution_id: _item.execution.id, comment: ta.value,
+      ...executionKey(), comment: ta.value,
     });
     _item.execution.comment = ta.value;
     if (saveBtn) _showSaveFeedback(saveBtn);
@@ -618,7 +617,7 @@ async function doStart() {
     const resp = await fetch('/execution/api/start', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier_id: _item.identifier_id, task_id: _item.task_id }),
+      body: JSON.stringify({ test_item_id: _item.test_item_id, procedure_id: _item.procedure_id }),
     });
     if (resp.status === 409) {
       // 다른 시험이 진행 중인 경우 서버가 409로 응답한다.
@@ -630,14 +629,14 @@ async function doStart() {
     const ex = await resp.json();
     // 서버 응답의 최소 필드로 로컬 execution 객체를 초기화한다.
     _item.execution = {
-      id: ex.id, status: ex.status, elapsed_seconds: 0,
+      status: ex.status, elapsed_seconds: 0,
       total_count: ex.total_count, fail_count: 0, block_count: 0, pass_count: 0,
       comment: _pendingComment, performer: ex.performer || _pendingPerformer,
       completed_at: ex.completed_at || null,
     };
     // 시작 전에 입력된 코멘트·수행자를 이제 실제 execution에 반영한다.
-    if (_pendingComment)   await apiFetch('/execution/api/comment', 'PUT', { execution_id: ex.id, comment: _pendingComment });
-    if (_pendingPerformer && !ex.performer) await apiFetch('/execution/api/performer', 'PUT', { execution_id: ex.id, performer: _pendingPerformer });
+    if (_pendingComment)   await apiFetch('/execution/api/comment', 'PUT', { ...executionKey(), comment: _pendingComment });
+    if (_pendingPerformer && !ex.performer) await apiFetch('/execution/api/performer', 'PUT', { ...executionKey(), performer: _pendingPerformer });
     _clearPendingComment();
     _pendingPerformer = '';
     renderPage();
@@ -647,15 +646,13 @@ async function doStart() {
 /**
  * 진행 중인 시험을 일시정지한다 (in_progress → paused).
  *
- * /api/pause 응답에는 업데이트된 segments 배열이 포함되어 있으며,
- * _computeElapsed()로 경과 시간을 재계산해 _item.execution에 반영한다.
- * 로컬 타이머도 즉시 중단한다.
+ * 서버가 확정한 누적 실제 시험시간을 반영하고 로컬 타이머를 중단한다.
  */
 async function doPause() {
   try {
-    const ex = await apiFetch('/execution/api/pause', 'POST', { execution_id: _item.execution.id });
+    const ex = await apiFetch('/execution/api/pause', 'POST', executionKey());
     stopLocalTimer();
-    _item.execution = { ..._item.execution, status: 'paused', elapsed_seconds: _computeElapsed(ex) };
+    _item.execution = { ..._item.execution, status: 'paused', elapsed_seconds: ex.elapsed_seconds || 0 };
     renderPage();
   } catch { alert('일시정지 실패'); }
 }
@@ -663,15 +660,13 @@ async function doPause() {
 /**
  * 일시정지된 시험을 재개한다 (paused → in_progress).
  *
- * doStart()와 달리 /resume 엔드포인트를 사용하며,
- * 기존 execution 레코드에 새 segment를 추가하는 방식으로 동작한다.
- * elapsed_seconds는 segments를 다시 합산해 갱신한다.
+ * 누적 시간은 유지하고 현재 진행 구간만 다시 시작한다.
  */
 async function doResume() {
   try {
-    const ex = await apiFetch('/execution/api/resume', 'POST', { execution_id: _item.execution.id });
+    const ex = await apiFetch('/execution/api/resume', 'POST', executionKey());
     _item.execution.status = 'in_progress';
-    _item.execution.elapsed_seconds = _computeElapsed(ex);
+    _item.execution.elapsed_seconds = ex.elapsed_seconds || 0;
     renderPage();
   } catch { alert('재시작 실패'); }
 }
@@ -689,16 +684,16 @@ async function doComplete() {
   const comment    = document.getElementById('comment-input')?.value ?? '';
   try {
     const ex = await apiFetch('/execution/api/complete', 'POST', {
-      execution_id: _item.execution.id, fail_count: failCount, block_count: blockCount,
+      ...executionKey(), fail_count: failCount, block_count: blockCount,
     });
     await apiFetch('/execution/api/comment', 'PUT', {
-      execution_id: _item.execution.id, comment,
+      ...executionKey(), comment,
     });
     stopLocalTimer();
     _item.execution = {
       ..._item.execution, status: 'completed',
       fail_count: ex.fail_count, block_count: ex.block_count ?? blockCount,
-      pass_count: ex.pass_count, elapsed_seconds: _computeElapsed(ex),
+      pass_count: ex.pass_count, elapsed_seconds: ex.elapsed_seconds || 0,
       total_count: ex.total_count, comment, completed_at: ex.completed_at || null,
     };
     _item.display_date = _item.execution.completed_at || _item.scheduled_date || '';
@@ -714,10 +709,10 @@ async function doComplete() {
  * 확인 대화상자로 실수 방지.
  */
 async function doReset() {
-  if (!_item?.execution?.id) return;
+  if (!_item?.execution) return;
   if (!confirm('초기화하면 현재 기록이 삭제됩니다. 계속할까요?')) return;
   try {
-    await apiFetch('/execution/api/reset', 'POST', { execution_id: _item.execution.id });
+    await apiFetch('/execution/api/reset', 'POST', executionKey());
     stopLocalTimer();
     _item.execution = null;
     _clearPendingComment(); _pendingPerformer = '';
@@ -725,25 +720,8 @@ async function doReset() {
   } catch { alert('재시험 처리 실패'); }
 }
 
-/**
- * 서버 응답의 segments 배열을 합산해 총 경과 시간(초)을 반환한다.
- *
- * 각 segment는 {start: ISO문자열, end: ISO문자열|null} 형태이며,
- * end가 null이면 현재 시각까지 계산한다 (in_progress 상태의 마지막 구간).
- *
- * 서버가 elapsed_seconds를 직접 내려주기도 하지만,
- * doPause/doResume/doComplete 직후에는 segments가 가장 정확하므로
- * 클라이언트에서 재계산해 사용한다.
- */
-function _computeElapsed(ex) {
-  let total = 0;
-  const now = new Date();
-  for (const seg of (ex.segments || [])) {
-    const start = new Date(seg.start);
-    const end   = seg.end ? new Date(seg.end) : now;
-    total += Math.floor((end - start) / 1000);
-  }
-  return Math.max(0, total);
+function executionKey() {
+  return { procedure_id: _item.procedure_id, test_item_id: _item.test_item_id };
 }
 
 // ── 바코드 스캐너 ─────────────────────────────────────────────────────────────
@@ -759,7 +737,7 @@ function _computeElapsed(ex) {
  *   - textarea/input에 포커스가 있으면 처리하지 않는다 (사용자 타이핑 방해 방지).
  *
  * 지원 바코드 형식:
- *   - `OPEN-TC-001`: 해당 식별자 페이지로 이동 (BARCODE_PREFIX 처리 후 TC-001 추출)
+ *   - `OPEN-TC-001`: 해당 시험 항목 페이지로 이동 (BARCODE_PREFIX 처리 후 TC-001 추출)
  *   - `TERMINATE`: 현재 진행 중인 시험을 일시정지
  */
 function _initBarcodeListener(onScan) {
@@ -784,7 +762,7 @@ function _initBarcodeListener(onScan) {
 }
 
 /**
- * 바코드 코드에서 식별자 ID를 추출한다.
+ * 바코드 코드에서 시험 항목 ID를 추출한다.
  *
  * 예: BARCODE_PREFIX='', code='OPEN-TC-001' → 'TC-001'
  *     BARCODE_PREFIX='SW-', code='OPEN-SW-TC-001' → 'SW-TC-001'
@@ -823,10 +801,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch { /* 무시 */ }
 
   try {
-    // IDENTIFIER_ID, TASK_ID는 Jinja2 템플릿이 <script>로 주입하는 전역 변수다.
-    const taskParam = typeof TASK_ID !== 'undefined' && TASK_ID
-      ? `?task_id=${encodeURIComponent(TASK_ID)}` : '';
-    _item = await apiFetch(`/execution/api/item/${encodeURIComponent(IDENTIFIER_ID)}${taskParam}`);
+    // TEST_ITEM_ID, PROCEDURE_ID는 Jinja2 템플릿이 <script>로 주입하는 전역 변수다.
+    const procedureParam = typeof PROCEDURE_ID !== 'undefined' && PROCEDURE_ID
+      ? `?procedure_id=${encodeURIComponent(PROCEDURE_ID)}` : '';
+    _item = await apiFetch(`/execution/api/item/${encodeURIComponent(TEST_ITEM_ID)}${procedureParam}`);
     if (!_isStarted(_item.execution)) {
       // pending 상태: 이전에 미리 입력해 둔 코멘트를 localStorage에서 복원한다.
       _pendingComment = _item.execution?.comment || _loadPendingComment();
@@ -860,14 +838,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       // TERMINATE 바코드: 현재 진행 중인 시험을 일시정지한다.
       if (_item?.execution?.status === 'in_progress') doPause();
     } else if (code.startsWith('OPEN-')) {
-      // OPEN-<식별자> 바코드: 해당 식별자 페이지로 이동하거나 현재 항목을 자동 시작한다.
-      const identifierId = _barcodeToId(code);
-      if (identifierId === IDENTIFIER_ID) {
-        // 같은 식별자 바코드 → 자동 시작/재개
+      // OPEN-<시험 항목> 바코드: 해당 시험 항목 페이지로 이동하거나 현재 항목을 자동 시작한다.
+      const testItemId = _barcodeToId(code);
+      if (testItemId === TEST_ITEM_ID) {
+        // 같은 시험 항목 바코드 → 자동 시작/재개
         _tryAutoStart();
       } else {
-        // 다른 식별자 바코드 → 해당 상세 페이지로 이동 (autostart 포함)
-        window.location.href = `/execution/${encodeURIComponent(identifierId)}?autostart=1`;
+        // 다른 시험 항목 바코드 → 해당 상세 페이지로 이동 (autostart 포함)
+        window.location.href = `/execution/${encodeURIComponent(testItemId)}?autostart=1`;
       }
     }
   });

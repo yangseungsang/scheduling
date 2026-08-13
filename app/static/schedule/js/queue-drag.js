@@ -1,6 +1,6 @@
 /**
- * 큐 드래그 모듈 — 큐에서 캘린더로 태스크를 드래그하여 배치한다.
- * 식별자 선택 피커, 월간 배치 설정 피커, 장소 선택 피커 기능도 포함한다.
+ * 큐 드래그 모듈 — 큐에서 캘린더로 시험 절차서를 드래그하여 배치한다.
+ * 시험 항목 선택 피커, 월간 배치 설정 피커, 장소 선택 피커 기능도 포함한다.
  */
 (function (App) {
   'use strict';
@@ -9,7 +9,7 @@
   var startDrag = App.startDrag;
   var api = App.api;
   var showToast = App.showToast;
-  var getTaskRemaining = App.getTaskRemaining;
+  var getTestProcedureRemaining = App.getTestProcedureRemaining;
   var checkRemainingAfterPlace = App.checkRemainingAfterPlace;
   var timeToMin = App.timeToMin;
   var minToTime = App.minToTime;
@@ -21,12 +21,12 @@
   // 2. 큐 드래그 — 큐 아이템을 캘린더에 드래그하여 블록 생성
   // =====================================================================
   /**
-   * 큐의 모든 태스크 아이템에 드래그 이벤트를 등록한다.
+   * 큐의 모든 시험 절차서 아이템에 드래그 이벤트를 등록한다.
    * 시간 슬롯 또는 월간뷰 셀에 드롭하면 블록이 생성된다.
-   * 식별자가 2개 이상이면 선택 피커를 표시하여 부분 배치가 가능하다.
+   * 시험 항목가 2개 이상이면 선택 피커를 표시하여 부분 배치가 가능하다.
    */
   function initQueueDrag() {
-    document.querySelectorAll('.queue-task-item[data-task-id]').forEach(function (item) {
+    document.querySelectorAll('.queue-procedure-item[data-procedure-id]').forEach(function (item) {
       item.addEventListener('mousedown', function (e) {
         // 다중 선택된 아이템이 있고 현재 아이템이 선택된 상태면 다중 드래그
         var selectedItems = App.getSelectedQueueItems ? App.getSelectedQueueItems() : [];
@@ -50,16 +50,16 @@
 
               var dropDate = target.date;
               var curMin = target.type === 'slot' ? App.snapToBlockEdge(target.el) : timeToMin('08:30');
-              var dropLocId = (target.type === 'slot' ? target.locationId : '') || '';
+              var dropLocId = (target.type === 'slot' ? target.locationName : '') || '';
 
               var chain = Promise.resolve();
               selectedItems.forEach(function (si) {
                 chain = chain.then(function () {
                   var rem = Math.round(parseFloat(si.dataset.remainingMinutes) || 1);
                   var payload = {
-                    task_id: si.dataset.taskId,
+                    procedure_id: si.dataset.procedureId,
                     assignee_names: si.dataset.assigneeNames ? si.dataset.assigneeNames.split(',').filter(Boolean) : [],
-                    location_id: dropLocId || si.dataset.locationId || '',
+                    location_name: dropLocId || si.dataset.locationName || '',
                     date: dropDate,
                     start_time: minToTime(curMin),
                     end_time: minToTime(curMin + rem),
@@ -81,18 +81,18 @@
         }
 
         // ── 단일 드래그 (기존 로직) ──
-        var taskId = item.dataset.taskId;
+        var procedureId = item.dataset.procedureId;
         // 담당자 이름 배열 파싱 (쉼표 구분 문자열)
         var assigneeNames = item.dataset.assigneeNames ? item.dataset.assigneeNames.split(',').filter(Boolean) : [];
-        var locationId = item.dataset.locationId || '';
+        var locationName = item.dataset.locationName || '';
         // 잔여 시간(분) — 블록 길이 결정에 사용
         var remaining = parseFloat(item.dataset.remainingMinutes) || 1;
         var title = (item.querySelector('.queue-card-section-title') || item.querySelector('.queue-card-id') || {}).textContent || '';
 
-        // 식별자 목록 파싱 (JSON 배열)
-        var identifiersRaw = item.dataset.identifiers || '[]';
+        // 시험 항목 목록 파싱 (JSON 배열)
+        var test_itemsRaw = item.dataset.test_items || '[]';
         var testList = [];
-        try { testList = JSON.parse(identifiersRaw); } catch(e2) {}
+        try { testList = JSON.parse(test_itemsRaw); } catch(e2) {}
 
         // 블록 길이를 잔여 시간(분)으로 설정
         var blockMin = Math.round(remaining);
@@ -127,13 +127,13 @@
 
             /**
              * 실제 블록을 생성하는 핵심 함수.
-             * 분할 배치 시 선택된 식별자만, 전체 배치 시 null을 전달한다.
-             * @param {Array<string>|null} selectedIds - 선택된 식별자 ID 목록 (null이면 전체)
+             * 분할 배치 시 선택된 시험 항목만, 전체 배치 시 null을 전달한다.
+             * @param {Array<string>|null} selectedIds - 선택된 시험 항목 ID 목록 (null이면 전체)
              * @param {number|null} overrideMin - 분할 시 개별 시간 합계 (null이면 원래 blockMin 사용)
              */
             function createBlock(selectedIds, overrideMin) {
               var bMin = overrideMin || blockMin;
-              var identifierIds = selectedIds || null;
+              var testItemIds = selectedIds || null;
               var isPartial = !!selectedIds; // 분할 배치 여부
 
               /**
@@ -145,8 +145,8 @@
                */
               function doCreate(startMin, endMin, overflowMin, locOverride) {
                 var prevRem;
-                // 드롭 위치의 장소 결정 (오버라이드 > 슬롯 장소 > 태스크 기본 장소 > 활성 필터 장소)
-                var dropLocationId = locOverride || (target.type === 'slot' ? (target.locationId || locationId) : locationId);
+                // 드롭 위치의 장소 결정 (오버라이드 > 슬롯 장소 > 시험 절차서 기본 장소 > 활성 필터 장소)
+                var dropLocationId = locOverride || (target.type === 'slot' ? (target.locationName || locationName) : locationName);
                 // 장소가 여전히 비어있으면 활성 장소 필터에서 추론
                 if (!dropLocationId) {
                   var activeLocs = [];
@@ -168,15 +168,15 @@
                   });
                   return;
                 }
-                getTaskRemaining(taskId).then(function (r) {
+                getTestProcedureRemaining(procedureId).then(function (r) {
                   prevRem = r;
                   var payload = {
-                    task_id: taskId, assignee_names: assigneeNames,
-                    location_id: dropLocationId,
+                    procedure_id: procedureId, assignee_names: assigneeNames,
+                    location_name: dropLocationId,
                     date: target.date,
                     start_time: minToTime(startMin),
                     end_time: minToTime(endMin),
-                    identifier_ids: identifierIds,
+                    test_item_ids: testItemIds,
                   };
                   // 초과 시간이 있으면 서버에 알림
                   if (overflowMin > 0) payload.overflow_minutes = overflowMin;
@@ -189,7 +189,7 @@
                     showToast(res.continuation_failed, 'danger');
                   }
                   // 전체 배치일 때만 잔여 시간 경고 확인
-                  if (!isPartial) return checkRemainingAfterPlace(taskId, title.trim(), prevRem);
+                  if (!isPartial) return checkRemainingAfterPlace(procedureId, title.trim(), prevRem);
                 }).then(function () { return App.softReload(); })
                   .catch(function (err) { showToast(err.message, 'danger'); });
               }
@@ -228,39 +228,39 @@
                 clampAndCreate(t, bMin);
               } else if (target.type === 'month') {
                 // 월간뷰에 드롭: 장소/시간 선택 피커 표시 후 배치
-                showMonthPlacePicker(locationId, function (result) {
+                showMonthPlacePicker(locationName, function (result) {
                   if (!result) return;
                   var st = timeToMin(result.startTime);
-                  clampAndCreate(st, bMin, result.locationId);
+                  clampAndCreate(st, bMin, result.locationName);
                 });
               }
             }
 
-            // 식별자가 2개 이상이면 식별자 선택 피커 표시
+            // 시험 항목가 2개 이상이면 시험 항목 선택 피커 표시
             if (testList.length > 1) {
-              // 이미 배치된 식별자 조회 (배치됨 표시를 위해)
-              api('GET', '/schedule/api/blocks/by-task/' + taskId).then(function (res) {
+              // 이미 배치된 시험 항목 조회 (배치됨 표시를 위해)
+              api('GET', '/schedule/api/blocks/by-procedure/' + procedureId).then(function (res) {
                 var existingBlocks = (res && res.blocks) || [];
                 var scheduledIds = [];
                 existingBlocks.forEach(function (b) {
-                  var ids = b.identifier_ids;
+                  var ids = b.test_item_ids;
                   if (ids && ids.length) {
-                    // 명시적으로 할당된 식별자만 배치된 것으로 간주
+                    // 명시적으로 할당된 시험 항목만 배치된 것으로 간주
                     ids.forEach(function (id) { scheduledIds.push(id); });
                   }
-                  // identifier_ids=null은 미분할 블록 — 모두를 배치됨으로 표시하지 않음
+                  // test_item_ids=null은 미분할 블록 — 모두를 배치됨으로 표시하지 않음
                 });
 
-                showIdentifierPicker(testList, { scheduledIds: scheduledIds }, function (selected) {
+                showTestItemPicker(testList, { scheduledIds: scheduledIds }, function (selected) {
                   if (!selected) return;
                   var allIds = testList.map(function (s) { return typeof s === 'object' ? s.id : s; });
                   var selectedIds = selected.map(function (s) { return typeof s === 'object' ? s.id : s; });
                   var isAll = selectedIds.length === allIds.length;
                   if (isAll) {
-                    // 전체 선택 시 identifier_ids = null (미분할 블록)
+                    // 전체 선택 시 test_item_ids = null (미분할 블록)
                     createBlock(null, null);
                   } else {
-                    // 부분 선택 시 선택된 식별자들의 시간 합계로 블록 생성
+                    // 부분 선택 시 선택된 시험 항목들의 시간 합계로 블록 생성
                     var totalMin = 0;
                     selected.forEach(function (s) { totalMin += typeof s === 'object' ? (s.estimated_minutes || 0) : 0; });
                     totalMin = Math.max(totalMin, 1);
@@ -269,13 +269,13 @@
                 });
               }).catch(function () {
                 // 폴백: 배치 정보 없이 피커 표시
-                showIdentifierPicker(testList, function (selected) {
+                showTestItemPicker(testList, function (selected) {
                   if (!selected) return;
                   createBlock(null, null);
                 });
               });
             } else {
-              // 식별자 1개 이하: 바로 블록 생성
+              // 시험 항목 1개 이하: 바로 블록 생성
               createBlock(null, null);
             }
           },
@@ -285,39 +285,39 @@
   }
 
   // =====================================================================
-  // 14. 식별자 선택 피커 (큐 드래그 시 분할 배치)
+  // 14. 시험 항목 선택 피커 (큐 드래그 시 분할 배치)
   // =====================================================================
   /**
-   * 식별자 선택 팝업을 표시한다.
-   * 각 식별자에 체크박스를 표시하며, 이미 배치된 식별자는 '배치됨' 배지와 함께 비활성화 표시된다.
-   * @param {Array<Object|string>} testList - 전체 식별자 목록
+   * 시험 항목 선택 팝업을 표시한다.
+   * 각 시험 항목에 체크박스를 표시하며, 이미 배치된 시험 항목는 '배치됨' 배지와 함께 비활성화 표시된다.
+   * @param {Array<Object|string>} testList - 전체 시험 항목 목록
    * @param {Object} [opts] - 옵션 (또는 2인자 호출 시 callback)
-   * @param {Array<string>} [opts.scheduledIds] - 이미 배치된 식별자 ID 목록
+   * @param {Array<string>} [opts.scheduledIds] - 이미 배치된 시험 항목 ID 목록
    * @param {function} callback - 선택 결과 콜백 (선택된 항목 배열 또는 취소 시 null)
    */
-  function showIdentifierPicker(testList, opts, callback) {
-    // 구버전 2인자 호출 지원: showIdentifierPicker(list, cb)
+  function showTestItemPicker(testList, opts, callback) {
+    // 구버전 2인자 호출 지원: showTestItemPicker(list, cb)
     if (typeof opts === 'function') { callback = opts; opts = {}; }
     opts = opts || {};
-    // 이미 배치된 식별자 ID를 빠른 조회를 위해 객체로 변환
+    // 이미 배치된 시험 항목 ID를 빠른 조회를 위해 객체로 변환
     var scheduledSet = {};
     (opts.scheduledIds || []).forEach(function (id) { scheduledSet[id] = true; });
 
     // 기존 피커 제거
-    var old = document.getElementById('identifier-picker');
+    var old = document.getElementById('test_item-picker');
     if (old) old.remove();
 
     var overlay = document.createElement('div');
-    overlay.id = 'identifier-picker';
+    overlay.id = 'test_item-picker';
     overlay.className = 'block-detail-overlay';
-    // 각 식별자별 체크박스 행 생성
+    // 각 시험 항목별 체크박스 행 생성
     var rows = '';
     testList.forEach(function (item, i) {
       var id = typeof item === 'object' ? item.id : item;
       var owners = (typeof item === 'object' && item.owners) ? item.owners : [];
       var mins = typeof item === 'object' ? (item.estimated_minutes || 0) : 0;
       var isScheduled = !!scheduledSet[id];
-      // 이미 배치된 식별자는 기본 체크 해제, 미배치는 체크
+      // 이미 배치된 시험 항목는 기본 체크 해제, 미배치는 체크
       var checked = isScheduled ? '' : ' checked';
       var badge = isScheduled
         ? ' <span class="badge bg-secondary" style="font-size:0.65rem;vertical-align:middle">배치됨</span>'
@@ -334,11 +334,11 @@
     });
     overlay.innerHTML =
       '<div class="bd-box">' +
-        '<div class="bd-header"><div class="bd-header-left"><span class="bd-id">식별자 선택</span></div>' +
+        '<div class="bd-header"><div class="bd-header-left"><span class="bd-id">시험 항목 선택</span></div>' +
           '<button class="bd-x" id="picker-close">&times;</button></div>' +
         '<div class="bd-divider"></div>' +
         '<div style="padding:12px">' +
-          '<div class="form-text mb-2">배치할 식별자를 선택하세요</div>' +
+          '<div class="form-text mb-2">배치할 시험 항목를 선택하세요</div>' +
           '<div class="d-flex gap-1 mb-2">' +
             '<button type="button" class="btn btn-outline-secondary btn-sm" id="picker-select-all">전체 선택</button>' +
             '<button type="button" class="btn btn-outline-secondary btn-sm" id="picker-deselect-all">전체 해제</button>' +
@@ -389,7 +389,7 @@
   /**
    * 월간뷰에서 블록 배치 시 장소와 시작 시간을 선택하는 팝업을 표시한다.
    * @param {string} defaultLocId - 기본 선택할 장소 ID
-   * @param {function} callback - 선택 결과 콜백 ({locationId, startTime} 또는 취소 시 null)
+   * @param {function} callback - 선택 결과 콜백 ({locationName, startTime} 또는 취소 시 null)
    */
   function showMonthPlacePicker(defaultLocId, callback) {
     // 장소 필터 버튼에서 장소 목록 수집
@@ -466,7 +466,7 @@
         overlay.remove();
         if (!locId) { showToast('장소를 선택하세요.', 'danger'); callback(null); return; }
         if (!time) { showToast('시간을 입력하세요.', 'danger'); callback(null); return; }
-        callback({ locationId: locId, startTime: time });
+        callback({ locationName: locId, startTime: time });
       });
     }
   }
@@ -543,6 +543,6 @@
   }
 
   App.initQueueDrag = initQueueDrag;
-  App.showIdentifierPicker = showIdentifierPicker;
+  App.showTestItemPicker = showTestItemPicker;
   App.showLocationPicker = showLocationPicker;
 })(window.ScheduleApp);

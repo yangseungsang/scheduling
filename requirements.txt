@@ -2,5 +2,3 @@ flask
 portalocker
 openpyxl
 pytest
-PyMySQL
-SQLAlchemy

@@ -5,13 +5,12 @@
 {% block main_class %}container-fluid p-0{% endblock %}
 
 {% block toolbar_extra %}
-{% include "schedule/views/_version_selector.html" %}
 {% endblock %}
 
 {% block content_sub %}
 <div class="schedule-layout">
-  {# Task queue sidebar #}
-  {% include "schedule/views/_task_queue.html" %}
+  {# TestProcedure queue sidebar #}
+  {% include "schedule/views/_procedure_queue.html" %}
 
   <div class="schedule-main">
     {# Navigation #}
@@ -53,23 +52,23 @@
               {% for block in day_data.blocks %}
               <div class="month-block-item block-status-{{ block.block_status }}"
                    data-block-id="{{ block.id }}"
-                   data-task-id="{{ block.task_id }}"
+                   data-procedure-id="{{ block.procedure_id }}"
                    data-block-status="{{ block.block_status }}"
-                   data-location-id="{{ block.location_id }}"
-                   data-doc-id="{{ block.doc_id }}"
-                   data-doc-name="{{ block.doc_name }}"
+                   data-location-name="{{ block.location_name }}"
+                   data-document-id="{{ block.document_id }}"
+                   data-document-name="{{ block.document_name }}"
                    data-assignee-name="{{ block.assignee_name }}"
                    data-location-name="{{ block.location_name }}"
                    data-start-time="{{ block.start_time }}"
                    data-end-time="{{ block.end_time }}"
-                   data-identifier-ids='{{ block.identifier_ids|tojson if block.identifier_ids else "" }}'
+                   data-test-item-ids='{{ block.test_item_ids|tojson if block.test_item_ids else "" }}'
                    style="background-color: {{ block.color }};"
-                   title="{{ block.task_title }} ({{ block.assignee_name }}) {{ block.start_time }}–{{ block.end_time }}">
+                   title="{{ block.procedure_title }} ({{ block.assignee_name }}) {{ block.start_time }}–{{ block.end_time }}">
                 {% if block.block_status == 'in_progress' %}<i class="bi bi-play-circle-fill month-status-icon"></i>
                 {% elif block.block_status == 'completed' %}<i class="bi bi-check-circle-fill month-status-icon"></i>
                 {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-circle-fill month-status-icon"></i>
                 {% else %}<i class="bi bi-hourglass month-status-icon"></i>
-                {% endif %}{{ block.display_name or block.task_title }}{% if block.is_split %} <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}">{{ block.block_identifier_count }}/{{ block.total_identifier_count }}</span>{% endif %}
+                {% endif %}{{ block.display_name or block.procedure_title }}{% if block.is_split %} <span class="block-split-badge{% if block.split_status == 'partial' %} split-partial{% endif %}">{{ block.block_test_item_count }}/{{ block.total_test_item_count }}</span>{% endif %}
               </div>
               {% endfor %}
             </td>

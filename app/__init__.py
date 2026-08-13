@@ -15,21 +15,11 @@ _START_TIME = int(time.time())
 
 # 환경 변수 또는 기본값으로 시크릿 키 설정
 SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
-# JSON 데이터 파일이 저장되는 디렉토리 경로
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'features', 'schedule', 'data')
-# 시험실행(Execution) 데이터 파일이 저장되는 디렉토리 경로
-EXECUTION_DATA_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    'features', 'execution', 'data'
+# 애플리케이션 데이터 경로
+DOMAIN_DATA_DIR = os.environ.get(
+    'DOMAIN_DATA_DIR',
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'),
 )
-DATABASE_URL = os.environ.get(
-    'DATABASE_URL',
-    'sqlite:///' + os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'scheduling.sqlite3'),
-)
-EXTERNAL_DATA_SOURCE = os.environ.get('EXTERNAL_DATA_SOURCE', 'json')
-EXECUTION_STORAGE = os.environ.get('EXECUTION_STORAGE', 'json')
-SCHEDULE_STORAGE = os.environ.get('SCHEDULE_STORAGE', 'json')
-SYNC_COMPACT_ON_ORM_STORAGE_WRITE = os.environ.get('SYNC_COMPACT_ON_ORM_STORAGE_WRITE', '1') != '0'
 
 
 def create_app():
@@ -37,8 +27,8 @@ def create_app():
 
     수행하는 작업:
     1. Flask 앱 생성 (템플릿/정적 파일 경로 설정)
-    2. 시크릿 키, 데이터 디렉토리 등 설정 적용
-    3. 데이터 디렉토리 생성 (없으면)
+    2. 시크릿 키와 JSON 데이터 경로 설정
+    3. 필요한 디렉토리 생성
     4. Jinja2 전역 변수 등록 (캐시 무효화용 타임스탬프)
     5. CORS 헤더 자동 추가
     6. 블루프린트 등록
@@ -53,24 +43,13 @@ def create_app():
         static_folder=os.path.join(os.path.dirname(__file__), 'static'),
     )
     app.config['SECRET_KEY'] = SECRET_KEY
-    app.config['DATA_DIR'] = DATA_DIR
-    app.config['EXECUTION_DATA_DIR'] = EXECUTION_DATA_DIR
-    app.config['DATABASE_URL'] = DATABASE_URL
-    app.config['EXTERNAL_DATA_SOURCE'] = EXTERNAL_DATA_SOURCE
-    app.config['EXECUTION_STORAGE'] = EXECUTION_STORAGE
-    app.config['SCHEDULE_STORAGE'] = SCHEDULE_STORAGE
-    app.config['SYNC_COMPACT_ON_ORM_STORAGE_WRITE'] = SYNC_COMPACT_ON_ORM_STORAGE_WRITE
+    app.config['DOMAIN_DATA_DIR'] = DOMAIN_DATA_DIR
     # 개발 환경: 정적 파일 캐시 비활성화
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
-    # 데이터 디렉토리가 없으면 자동 생성
-    os.makedirs(app.config['DATA_DIR'], exist_ok=True)
-    os.makedirs(app.config['EXECUTION_DATA_DIR'], exist_ok=True)
-    if app.config['DATABASE_URL'].startswith('sqlite:///'):
-        sqlite_path = app.config['DATABASE_URL'].replace('sqlite:///', '', 1)
-        sqlite_dir = os.path.dirname(sqlite_path)
-        if sqlite_dir:
-            os.makedirs(sqlite_dir, exist_ok=True)
+    os.makedirs(app.config['DOMAIN_DATA_DIR'], exist_ok=True)
+    from app.repositories import JsonDomainRepository
+    JsonDomainRepository(app.config['DOMAIN_DATA_DIR']).initialize()
 
     # 템플릿에서 정적 파일 URL에 cache_bust 파라미터로 사용
     app.jinja_env.globals['cache_bust'] = _START_TIME
@@ -99,10 +78,6 @@ def create_app():
     # 시험 실행 블루프린트 등록
     from app.features.execution import register_blueprints as register_execution
     register_execution(app)
-
-    # 외부 데이터 조회 API 등록
-    from app.features.external_data import register_blueprints as register_external_data
-    register_external_data(app)
 
     @app.route('/')
     def index():

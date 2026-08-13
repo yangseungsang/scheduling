@@ -3,6 +3,7 @@ __pycache__/
 venv/
 .env
 *.bak
+app/data/.data.lock
 scheduling.db
 exports/
 

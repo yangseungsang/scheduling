@@ -1,4 +1,4 @@
-# 바코드 식별자 Prefix 설정
-# 바코드 입력: OPEN|TC|011  →  실제 식별자: {IDENTIFIER_PREFIX}TC-011
-# 예) IDENTIFIER_PREFIX = 'A-BCD-'  →  A-BCD-TC-011
-IDENTIFIER_PREFIX = ''
+# 바코드 시험 항목 Prefix 설정
+# 바코드 입력: OPEN|TC|011  →  실제 시험 항목: {TEST_ITEM_PREFIX}TC-011
+# 예) TEST_ITEM_PREFIX = 'A-BCD-'  →  A-BCD-TC-011
+TEST_ITEM_PREFIX = ''

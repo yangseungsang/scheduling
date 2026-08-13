@@ -1,6 +1,6 @@
-# Task Scheduling Web Service Implementation Plan
+# TestProcedure Scheduling Web Service Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan procedure-by-procedure.
 
 **Goal:** Flask + Bootstrap5 기반 팀 업무 공유 캘린더 서비스 구현 (드래그앤드랍 스케줄링, 추천 알고리즘 포함)
 
@@ -10,17 +10,17 @@
 
 ---
 
-## 병렬 실행 가능한 태스크 그룹
+## 병렬 실행 가능한 시험 절차서 그룹
 
-- **Phase 1 (순차):** Task 1 → Task 2 → Task 3
-- **Phase 2 (병렬):** Task 4 + Task 5 + Task 6 (DB 레이어 완료 후 동시 진행)
-- **Phase 3 (순차):** Task 7 → Task 8
-- **Phase 4 (병렬):** Task 9 + Task 10 + Task 11 (Blueprint 완료 후 동시 진행)
-- **Phase 5 (순차):** Task 12 → Task 13 → Task 14
+- **Phase 1 (순차):** TestProcedure 1 → TestProcedure 2 → TestProcedure 3
+- **Phase 2 (병렬):** TestProcedure 4 + TestProcedure 5 + TestProcedure 6 (DB 레이어 완료 후 동시 진행)
+- **Phase 3 (순차):** TestProcedure 7 → TestProcedure 8
+- **Phase 4 (병렬):** TestProcedure 9 + TestProcedure 10 + TestProcedure 11 (Blueprint 완료 후 동시 진행)
+- **Phase 5 (순차):** TestProcedure 12 → TestProcedure 13 → TestProcedure 14
 
 ---
 
-### Task 1: 프로젝트 초기 설정
+### TestProcedure 1: 프로젝트 초기 설정
 
 **Files:**
 - Create: `requirements.txt`
@@ -32,12 +32,12 @@
 **Step 1: 디렉토리 구조 생성**
 
 ```bash
-mkdir -p scheduling/app/blueprints/tasks
+mkdir -p scheduling/app/blueprints/procedures
 mkdir -p scheduling/app/blueprints/schedule
 mkdir -p scheduling/app/blueprints/admin
 mkdir -p scheduling/app/repositories
 mkdir -p scheduling/app/services
-mkdir -p scheduling/app/templates/tasks
+mkdir -p scheduling/app/templates/procedures
 mkdir -p scheduling/app/templates/schedule
 mkdir -p scheduling/app/templates/admin
 mkdir -p scheduling/app/templates/components
@@ -45,7 +45,7 @@ mkdir -p scheduling/app/static/css
 mkdir -p scheduling/app/static/js
 mkdir -p scheduling/tests
 touch scheduling/app/blueprints/__init__.py
-touch scheduling/app/blueprints/tasks/__init__.py
+touch scheduling/app/blueprints/procedures/__init__.py
 touch scheduling/app/blueprints/schedule/__init__.py
 touch scheduling/app/blueprints/admin/__init__.py
 ```
@@ -142,11 +142,11 @@ def create_app(config_name='default'):
 
     db_init_app(app)
 
-    from app.blueprints.tasks import tasks_bp
+    from app.blueprints.procedures import procedures_bp
     from app.blueprints.schedule import schedule_bp
     from app.blueprints.admin import admin_bp
 
-    app.register_blueprint(tasks_bp, url_prefix='/tasks')
+    app.register_blueprint(procedures_bp, url_prefix='/procedures')
     app.register_blueprint(schedule_bp, url_prefix='/schedule')
     app.register_blueprint(admin_bp, url_prefix='/admin')
 
@@ -181,7 +181,7 @@ Expected: 패키지 설치 완료
 
 ---
 
-### Task 2: 데이터베이스 스키마
+### TestProcedure 2: 데이터베이스 스키마
 
 **Files:**
 - Create: `app/schema.sql`
@@ -189,10 +189,10 @@ Expected: 패키지 설치 완료
 **Step 1: schema.sql 작성**
 
 ```sql
-DROP TABLE IF EXISTS task_notes;
-DROP TABLE IF EXISTS task_assignees;
+DROP TABLE IF EXISTS procedure_notes;
+DROP TABLE IF EXISTS procedure_assignees;
 DROP TABLE IF EXISTS schedule_blocks;
-DROP TABLE IF EXISTS tasks;
+DROP TABLE IF EXISTS procedures;
 DROP TABLE IF EXISTS categories;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS settings;
@@ -224,7 +224,7 @@ CREATE TABLE categories (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE tasks (
+CREATE TABLE procedures (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
     description TEXT,
@@ -238,15 +238,15 @@ CREATE TABLE tasks (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE task_assignees (
-    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+CREATE TABLE procedure_assignees (
+    procedure_id INTEGER NOT NULL REFERENCES procedures(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    PRIMARY KEY (task_id, user_id)
+    PRIMARY KEY (procedure_id, user_id)
 );
 
 CREATE TABLE schedule_blocks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    procedure_id INTEGER NOT NULL REFERENCES procedures(id) ON DELETE CASCADE,
     assigned_date DATE NOT NULL,
     start_time TEXT NOT NULL,
     end_time TEXT NOT NULL,
@@ -254,9 +254,9 @@ CREATE TABLE schedule_blocks (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE task_notes (
+CREATE TABLE procedure_notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    procedure_id INTEGER NOT NULL REFERENCES procedures(id) ON DELETE CASCADE,
     user_id INTEGER REFERENCES users(id),
     content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -286,7 +286,7 @@ Expected: `Initialized the database.`
 
 ---
 
-### Task 3: Repository 레이어 — Settings & Users
+### TestProcedure 3: Repository 레이어 — Settings & Users
 
 **Files:**
 - Create: `app/repositories/settings_repo.py`
@@ -423,18 +423,18 @@ def delete_category(category_id):
 
 ---
 
-### Task 4: Repository 레이어 — Tasks (병렬 가능)
+### TestProcedure 4: Repository 레이어 — TestProcedures (병렬 가능)
 
 **Files:**
-- Create: `app/repositories/task_repo.py`
+- Create: `app/repositories/procedure_repo.py`
 
-**Step 1: task_repo.py 작성**
+**Step 1: procedure_repo.py 작성**
 
 ```python
 from app.db import get_db
 
 
-def get_all_tasks(status=None, category_id=None, assignee_id=None):
+def get_all_procedures(status=None, category_id=None, assignee_id=None):
     db = get_db()
     query = '''
         SELECT t.id, t.title, t.description, t.category_id, t.priority,
@@ -442,9 +442,9 @@ def get_all_tasks(status=None, category_id=None, assignee_id=None):
                t.created_at, t.updated_at,
                c.name as category_name, c.color as category_color,
                GROUP_CONCAT(u.name, ', ') as assignees
-        FROM tasks t
+        FROM procedures t
         LEFT JOIN categories c ON t.category_id = c.id
-        LEFT JOIN task_assignees ta ON t.id = ta.task_id
+        LEFT JOIN procedure_assignees ta ON t.id = ta.procedure_id
         LEFT JOIN users u ON ta.user_id = u.id
         WHERE 1=1
     '''
@@ -462,91 +462,91 @@ def get_all_tasks(status=None, category_id=None, assignee_id=None):
     return db.execute(query, params).fetchall()
 
 
-def get_task_by_id(task_id):
+def get_procedure_by_id(procedure_id):
     db = get_db()
-    task = db.execute('''
+    procedure = db.execute('''
         SELECT t.*, c.name as category_name, c.color as category_color
-        FROM tasks t
+        FROM procedures t
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE t.id = ?
-    ''', (task_id,)).fetchone()
-    if task:
+    ''', (procedure_id,)).fetchone()
+    if procedure:
         assignees = db.execute('''
             SELECT u.id, u.name FROM users u
-            JOIN task_assignees ta ON u.id = ta.user_id
-            WHERE ta.task_id = ?
-        ''', (task_id,)).fetchall()
-        return dict(task), [dict(a) for a in assignees]
+            JOIN procedure_assignees ta ON u.id = ta.user_id
+            WHERE ta.procedure_id = ?
+        ''', (procedure_id,)).fetchall()
+        return dict(procedure), [dict(a) for a in assignees]
     return None, []
 
 
-def create_task(title, description, category_id, priority, estimated_minutes,
+def create_procedure(title, description, category_id, priority, estimated_minutes,
                 due_date, created_by, assignee_ids):
     db = get_db()
     cursor = db.execute('''
-        INSERT INTO tasks (title, description, category_id, priority,
+        INSERT INTO procedures (title, description, category_id, priority,
                            estimated_minutes, due_date, created_by)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     ''', (title, description, category_id, priority, estimated_minutes,
           due_date, created_by))
-    task_id = cursor.lastrowid
+    procedure_id = cursor.lastrowid
     for uid in assignee_ids:
         db.execute(
-            'INSERT INTO task_assignees (task_id, user_id) VALUES (?, ?)',
-            (task_id, uid)
+            'INSERT INTO procedure_assignees (procedure_id, user_id) VALUES (?, ?)',
+            (procedure_id, uid)
         )
     db.commit()
-    return task_id
+    return procedure_id
 
 
-def update_task(task_id, title, description, category_id, priority,
+def update_procedure(procedure_id, title, description, category_id, priority,
                 estimated_minutes, due_date, assignee_ids):
     db = get_db()
     db.execute('''
-        UPDATE tasks
+        UPDATE procedures
         SET title=?, description=?, category_id=?, priority=?,
             estimated_minutes=?, due_date=?, updated_at=CURRENT_TIMESTAMP
         WHERE id=?
     ''', (title, description, category_id, priority, estimated_minutes,
-          due_date, task_id))
-    db.execute('DELETE FROM task_assignees WHERE task_id = ?', (task_id,))
+          due_date, procedure_id))
+    db.execute('DELETE FROM procedure_assignees WHERE procedure_id = ?', (procedure_id,))
     for uid in assignee_ids:
         db.execute(
-            'INSERT INTO task_assignees (task_id, user_id) VALUES (?, ?)',
-            (task_id, uid)
+            'INSERT INTO procedure_assignees (procedure_id, user_id) VALUES (?, ?)',
+            (procedure_id, uid)
         )
     db.commit()
 
 
-def update_task_status(task_id, status):
+def update_procedure_status(procedure_id, status):
     db = get_db()
     db.execute('''
-        UPDATE tasks SET status = ?, updated_at = CURRENT_TIMESTAMP
+        UPDATE procedures SET status = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
-    ''', (status, task_id))
+    ''', (status, procedure_id))
     db.commit()
 
 
-def delete_task(task_id):
+def delete_procedure(procedure_id):
     db = get_db()
-    db.execute('DELETE FROM tasks WHERE id = ?', (task_id,))
+    db.execute('DELETE FROM procedures WHERE id = ?', (procedure_id,))
     db.commit()
 
 
-def get_unscheduled_tasks(category_id=None):
+def get_unscheduled_procedures(category_id=None):
     """스케줄에 배치되지 않은 미완료 업무 목록."""
     db = get_db()
     query = '''
         SELECT t.id, t.title, t.category_id, t.priority, t.estimated_minutes,
                t.status, t.due_date, c.name as category_name, c.color as category_color,
                GROUP_CONCAT(u.name, ', ') as assignees
-        FROM tasks t
+        FROM procedures t
         LEFT JOIN categories c ON t.category_id = c.id
-        LEFT JOIN task_assignees ta ON t.id = ta.task_id
+        LEFT JOIN procedure_assignees ta ON t.id = ta.procedure_id
         LEFT JOIN users u ON ta.user_id = u.id
         WHERE t.status NOT IN ('completed', 'cancelled')
         AND t.id NOT IN (
-            SELECT DISTINCT task_id FROM schedule_blocks WHERE is_draft = 0
+            SELECT DISTINCT procedure_id FROM schedule_blocks WHERE is_draft = 0
         )
     '''
     params = []
@@ -557,29 +557,29 @@ def get_unscheduled_tasks(category_id=None):
     return db.execute(query, params).fetchall()
 
 
-def get_task_notes(task_id):
+def get_procedure_notes(procedure_id):
     db = get_db()
     return db.execute('''
         SELECT tn.id, tn.content, tn.created_at, u.name as author
-        FROM task_notes tn
+        FROM procedure_notes tn
         LEFT JOIN users u ON tn.user_id = u.id
-        WHERE tn.task_id = ?
+        WHERE tn.procedure_id = ?
         ORDER BY tn.created_at DESC
-    ''', (task_id,)).fetchall()
+    ''', (procedure_id,)).fetchall()
 
 
-def add_task_note(task_id, user_id, content):
+def add_procedure_note(procedure_id, user_id, content):
     db = get_db()
     db.execute(
-        'INSERT INTO task_notes (task_id, user_id, content) VALUES (?, ?, ?)',
-        (task_id, user_id, content)
+        'INSERT INTO procedure_notes (procedure_id, user_id, content) VALUES (?, ?, ?)',
+        (procedure_id, user_id, content)
     )
     db.commit()
 ```
 
 ---
 
-### Task 5: Repository 레이어 — Schedule (병렬 가능)
+### TestProcedure 5: Repository 레이어 — Schedule (병렬 가능)
 
 **Files:**
 - Create: `app/repositories/schedule_repo.py`
@@ -593,11 +593,11 @@ from app.db import get_db
 def get_blocks_for_date(date_str):
     db = get_db()
     return db.execute('''
-        SELECT sb.id, sb.task_id, sb.assigned_date, sb.start_time, sb.end_time,
+        SELECT sb.id, sb.procedure_id, sb.assigned_date, sb.start_time, sb.end_time,
                sb.is_draft, t.title, t.priority, t.status,
                c.name as category_name, c.color as category_color
         FROM schedule_blocks sb
-        JOIN tasks t ON sb.task_id = t.id
+        JOIN procedures t ON sb.procedure_id = t.id
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE sb.assigned_date = ?
         ORDER BY sb.start_time
@@ -607,11 +607,11 @@ def get_blocks_for_date(date_str):
 def get_blocks_for_week(start_date_str, end_date_str):
     db = get_db()
     return db.execute('''
-        SELECT sb.id, sb.task_id, sb.assigned_date, sb.start_time, sb.end_time,
+        SELECT sb.id, sb.procedure_id, sb.assigned_date, sb.start_time, sb.end_time,
                sb.is_draft, t.title, t.priority, t.status,
                c.name as category_name, c.color as category_color
         FROM schedule_blocks sb
-        JOIN tasks t ON sb.task_id = t.id
+        JOIN procedures t ON sb.procedure_id = t.id
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE sb.assigned_date BETWEEN ? AND ?
         ORDER BY sb.assigned_date, sb.start_time
@@ -622,23 +622,23 @@ def get_blocks_for_month(year, month):
     db = get_db()
     date_prefix = f'{year:04d}-{month:02d}'
     return db.execute('''
-        SELECT sb.id, sb.task_id, sb.assigned_date, sb.start_time, sb.end_time,
+        SELECT sb.id, sb.procedure_id, sb.assigned_date, sb.start_time, sb.end_time,
                sb.is_draft, t.title, t.priority, t.status,
                c.name as category_name, c.color as category_color
         FROM schedule_blocks sb
-        JOIN tasks t ON sb.task_id = t.id
+        JOIN procedures t ON sb.procedure_id = t.id
         LEFT JOIN categories c ON t.category_id = c.id
         WHERE sb.assigned_date LIKE ?
         ORDER BY sb.assigned_date, sb.start_time
     ''', (f'{date_prefix}%',)).fetchall()
 
 
-def create_block(task_id, assigned_date, start_time, end_time, is_draft=False):
+def create_block(procedure_id, assigned_date, start_time, end_time, is_draft=False):
     db = get_db()
     cursor = db.execute('''
-        INSERT INTO schedule_blocks (task_id, assigned_date, start_time, end_time, is_draft)
+        INSERT INTO schedule_blocks (procedure_id, assigned_date, start_time, end_time, is_draft)
         VALUES (?, ?, ?, ?, ?)
-    ''', (task_id, assigned_date, start_time, end_time, 1 if is_draft else 0))
+    ''', (procedure_id, assigned_date, start_time, end_time, 1 if is_draft else 0))
     db.commit()
     return cursor.lastrowid
 
@@ -665,8 +665,8 @@ def approve_draft_blocks(category_id=None):
     if category_id:
         db.execute('''
             UPDATE schedule_blocks SET is_draft = 0
-            WHERE is_draft = 1 AND task_id IN (
-                SELECT id FROM tasks WHERE category_id = ?
+            WHERE is_draft = 1 AND procedure_id IN (
+                SELECT id FROM procedures WHERE category_id = ?
             )
         ''', (category_id,))
     else:
@@ -680,8 +680,8 @@ def discard_draft_blocks(category_id=None):
     if category_id:
         db.execute('''
             DELETE FROM schedule_blocks
-            WHERE is_draft = 1 AND task_id IN (
-                SELECT id FROM tasks WHERE category_id = ?
+            WHERE is_draft = 1 AND procedure_id IN (
+                SELECT id FROM procedures WHERE category_id = ?
             )
         ''', (category_id,))
     else:
@@ -702,7 +702,7 @@ def get_occupied_slots(date_str):
 
 ---
 
-### Task 6: 스케줄링 알고리즘 서비스 (병렬 가능)
+### TestProcedure 6: 스케줄링 알고리즘 서비스 (병렬 가능)
 
 **Files:**
 - Create: `app/services/scheduler.py`
@@ -771,21 +771,21 @@ def get_available_slots(date_str, work_hours, occupied_slots, exclude_category_i
     return free_slots
 
 
-def can_fit_in_day(task_minutes, available_slots, allow_lunch_break=True):
+def can_fit_in_day(procedure_minutes, available_slots, allow_lunch_break=True):
     """
     업무가 당일 가용 시간 내에 완료 가능한지 확인.
     점심 시간을 걸치는 경우 오전/오후로 분할 허용.
     """
     total_available = sum(end - start for start, end in available_slots)
-    return task_minutes <= total_available
+    return procedure_minutes <= total_available
 
 
-def schedule_task_in_slots(task_minutes, available_slots, allow_split=True):
+def schedule_procedure_in_slots(procedure_minutes, available_slots, allow_split=True):
     """
     업무를 가용 슬롯에 배치. 점심을 걸치는 경우 분할하여 배치.
     반환: [(start_min, end_min), ...] 배치된 블록 목록
     """
-    remaining = task_minutes
+    remaining = procedure_minutes
     blocks = []
 
     for (slot_start, slot_end) in available_slots:
@@ -799,19 +799,19 @@ def schedule_task_in_slots(task_minutes, available_slots, allow_split=True):
     return blocks if remaining <= 0 else []
 
 
-def generate_draft(tasks, work_hours, occupied_by_date, start_date, days=14):
+def generate_draft(procedures, work_hours, occupied_by_date, start_date, days=14):
     """
     스케줄링 초안 생성 알고리즘.
 
     Args:
-        tasks: 배치할 업무 목록 (각 업무는 dict with id, estimated_minutes, priority)
+        procedures: 배치할 업무 목록 (각 업무는 dict with id, estimated_minutes, priority)
         work_hours: 근무시간 설정 dict
         occupied_by_date: {date_str: [occupied_slots]} 기존 확정 블록
         start_date: 시작 날짜 (date 객체)
         days: 최대 배치 일수
 
     Returns:
-        draft_blocks: [{'task_id': int, 'assigned_date': str,
+        draft_blocks: [{'procedure_id': int, 'assigned_date': str,
                         'start_time': str, 'end_time': str}, ...]
     """
     priority_order = {'urgent': 0, 'high': 1, 'medium': 2, 'low': 3}
@@ -823,19 +823,19 @@ def generate_draft(tasks, work_hours, occupied_by_date, start_date, days=14):
     lunch_end = time_to_minutes(work_hours['lunch_end'])
     total_work_minutes = (work_end - work_start) - (lunch_end - lunch_start)
 
-    def sort_key(task):
-        fits_today = 1 if task['estimated_minutes'] <= total_work_minutes else 0
-        return (-fits_today, priority_order.get(task['priority'], 2), task['estimated_minutes'])
+    def sort_key(procedure):
+        fits_today = 1 if procedure['estimated_minutes'] <= total_work_minutes else 0
+        return (-fits_today, priority_order.get(procedure['priority'], 2), procedure['estimated_minutes'])
 
-    sorted_tasks = sorted(tasks, key=sort_key)
+    sorted_procedures = sorted(procedures, key=sort_key)
 
     draft_blocks = []
     # 날짜별 가용 슬롯 추적 (초안 블록도 점유로 취급)
     date_slots_used = {}
 
-    for task in sorted_tasks:
-        task_minutes = task['estimated_minutes']
-        remaining = task_minutes
+    for procedure in sorted_procedures:
+        procedure_minutes = procedure['estimated_minutes']
+        remaining = procedure_minutes
         placed = False
 
         for day_offset in range(days):
@@ -856,13 +856,13 @@ def generate_draft(tasks, work_hours, occupied_by_date, start_date, days=14):
             if total_free <= 0:
                 continue
 
-            blocks = schedule_task_in_slots(remaining, free_slots)
+            blocks = schedule_procedure_in_slots(remaining, free_slots)
             if blocks:
                 for (b_start, b_end) in blocks:
                     start_str = minutes_to_time(b_start)
                     end_str = minutes_to_time(b_end)
                     draft_blocks.append({
-                        'task_id': task['id'],
+                        'procedure_id': procedure['id'],
                         'assigned_date': date_str,
                         'start_time': start_str,
                         'end_time': end_str,
@@ -881,7 +881,7 @@ def generate_draft(tasks, work_hours, occupied_by_date, start_date, days=14):
                     start_str = minutes_to_time(slot_start)
                     end_str = minutes_to_time(slot_start + use)
                     draft_blocks.append({
-                        'task_id': task['id'],
+                        'procedure_id': procedure['id'],
                         'assigned_date': date_str,
                         'start_time': start_str,
                         'end_time': end_str,
@@ -900,49 +900,49 @@ def generate_draft(tasks, work_hours, occupied_by_date, start_date, days=14):
 
 ---
 
-### Task 7: Blueprint — Tasks
+### TestProcedure 7: Blueprint — TestProcedures
 
 **Files:**
-- Create: `app/blueprints/tasks/routes.py`
-- Modify: `app/blueprints/tasks/__init__.py`
+- Create: `app/blueprints/procedures/routes.py`
+- Modify: `app/blueprints/procedures/__init__.py`
 
-**Step 1: tasks/__init__.py 작성**
+**Step 1: procedures/__init__.py 작성**
 
 ```python
 from flask import Blueprint
 
-tasks_bp = Blueprint('tasks', __name__)
+procedures_bp = Blueprint('procedures', __name__)
 
-from app.blueprints.tasks import routes  # noqa
+from app.blueprints.procedures import routes  # noqa
 ```
 
-**Step 2: tasks/routes.py 작성**
+**Step 2: procedures/routes.py 작성**
 
 ```python
 from flask import render_template, request, redirect, url_for, jsonify, flash
-from app.blueprints.tasks import tasks_bp
-from app.repositories import task_repo, category_repo, user_repo
+from app.blueprints.procedures import procedures_bp
+from app.repositories import procedure_repo, category_repo, user_repo
 
 
-@tasks_bp.route('/')
-def task_list():
+@procedures_bp.route('/')
+def procedure_list():
     status = request.args.get('status')
     category_id = request.args.get('category_id', type=int)
     assignee_id = request.args.get('assignee_id', type=int)
-    tasks = task_repo.get_all_tasks(status=status, category_id=category_id,
+    procedures = procedure_repo.get_all_procedures(status=status, category_id=category_id,
                                     assignee_id=assignee_id)
     categories = category_repo.get_all_categories()
     users = user_repo.get_all_users()
-    return render_template('tasks/list.html', tasks=tasks, categories=categories,
+    return render_template('procedures/list.html', procedures=procedures, categories=categories,
                            users=users, selected_status=status,
                            selected_category=category_id, selected_assignee=assignee_id)
 
 
-@tasks_bp.route('/new', methods=['GET', 'POST'])
-def create_task():
+@procedures_bp.route('/new', methods=['GET', 'POST'])
+def create_procedure():
     if request.method == 'POST':
         assignee_ids = request.form.getlist('assignee_ids', type=int)
-        task_id = task_repo.create_task(
+        procedure_id = procedure_repo.create_procedure(
             title=request.form['title'],
             description=request.form.get('description', ''),
             category_id=request.form.get('category_id', type=int),
@@ -953,35 +953,35 @@ def create_task():
             assignee_ids=assignee_ids,
         )
         flash('업무가 생성되었습니다.', 'success')
-        return redirect(url_for('tasks.task_detail', task_id=task_id))
+        return redirect(url_for('procedures.procedure_detail', procedure_id=procedure_id))
     categories = category_repo.get_all_categories()
     users = user_repo.get_all_users()
-    return render_template('tasks/form.html', categories=categories, users=users,
-                           task=None, assignees=[])
+    return render_template('procedures/form.html', categories=categories, users=users,
+                           procedure=None, assignees=[])
 
 
-@tasks_bp.route('/<int:task_id>')
-def task_detail(task_id):
-    task, assignees = task_repo.get_task_by_id(task_id)
-    if not task:
+@procedures_bp.route('/<int:procedure_id>')
+def procedure_detail(procedure_id):
+    procedure, assignees = procedure_repo.get_procedure_by_id(procedure_id)
+    if not procedure:
         flash('업무를 찾을 수 없습니다.', 'danger')
-        return redirect(url_for('tasks.task_list'))
-    notes = task_repo.get_task_notes(task_id)
+        return redirect(url_for('procedures.procedure_list'))
+    notes = procedure_repo.get_procedure_notes(procedure_id)
     categories = category_repo.get_all_categories()
     users = user_repo.get_all_users()
-    return render_template('tasks/detail.html', task=task, assignees=assignees,
+    return render_template('procedures/detail.html', procedure=procedure, assignees=assignees,
                            notes=notes, categories=categories, users=users)
 
 
-@tasks_bp.route('/<int:task_id>/edit', methods=['GET', 'POST'])
-def edit_task(task_id):
-    task, assignees = task_repo.get_task_by_id(task_id)
-    if not task:
-        return redirect(url_for('tasks.task_list'))
+@procedures_bp.route('/<int:procedure_id>/edit', methods=['GET', 'POST'])
+def edit_procedure(procedure_id):
+    procedure, assignees = procedure_repo.get_procedure_by_id(procedure_id)
+    if not procedure:
+        return redirect(url_for('procedures.procedure_list'))
     if request.method == 'POST':
         assignee_ids = request.form.getlist('assignee_ids', type=int)
-        task_repo.update_task(
-            task_id=task_id,
+        procedure_repo.update_procedure(
+            procedure_id=procedure_id,
             title=request.form['title'],
             description=request.form.get('description', ''),
             category_id=request.form.get('category_id', type=int),
@@ -991,43 +991,43 @@ def edit_task(task_id):
             assignee_ids=assignee_ids,
         )
         flash('업무가 수정되었습니다.', 'success')
-        return redirect(url_for('tasks.task_detail', task_id=task_id))
+        return redirect(url_for('procedures.procedure_detail', procedure_id=procedure_id))
     categories = category_repo.get_all_categories()
     users = user_repo.get_all_users()
-    return render_template('tasks/form.html', task=task, assignees=assignees,
+    return render_template('procedures/form.html', procedure=procedure, assignees=assignees,
                            categories=categories, users=users)
 
 
-@tasks_bp.route('/<int:task_id>/status', methods=['POST'])
-def update_status(task_id):
+@procedures_bp.route('/<int:procedure_id>/status', methods=['POST'])
+def update_status(procedure_id):
     status = request.form.get('status') or request.json.get('status')
-    task_repo.update_task_status(task_id, status)
+    procedure_repo.update_procedure_status(procedure_id, status)
     if request.is_json:
         return jsonify({'success': True})
     flash('상태가 업데이트되었습니다.', 'success')
-    return redirect(url_for('tasks.task_detail', task_id=task_id))
+    return redirect(url_for('procedures.procedure_detail', procedure_id=procedure_id))
 
 
-@tasks_bp.route('/<int:task_id>/delete', methods=['POST'])
-def delete_task(task_id):
-    task_repo.delete_task(task_id)
+@procedures_bp.route('/<int:procedure_id>/delete', methods=['POST'])
+def delete_procedure(procedure_id):
+    procedure_repo.delete_procedure(procedure_id)
     flash('업무가 삭제되었습니다.', 'info')
-    return redirect(url_for('tasks.task_list'))
+    return redirect(url_for('procedures.procedure_list'))
 
 
-@tasks_bp.route('/<int:task_id>/notes', methods=['POST'])
-def add_note(task_id):
+@procedures_bp.route('/<int:procedure_id>/notes', methods=['POST'])
+def add_note(procedure_id):
     content = request.form.get('content', '').strip()
     user_id = request.form.get('user_id', type=int)
     if content:
-        task_repo.add_task_note(task_id, user_id, content)
+        procedure_repo.add_procedure_note(procedure_id, user_id, content)
         flash('메모가 추가되었습니다.', 'success')
-    return redirect(url_for('tasks.task_detail', task_id=task_id))
+    return redirect(url_for('procedures.procedure_detail', procedure_id=procedure_id))
 ```
 
 ---
 
-### Task 8: Blueprint — Admin
+### TestProcedure 8: Blueprint — Admin
 
 **Files:**
 - Create: `app/blueprints/admin/routes.py`
@@ -1151,7 +1151,7 @@ def delete_category(category_id):
 
 ---
 
-### Task 9: Blueprint — Schedule (병렬 가능)
+### TestProcedure 9: Blueprint — Schedule (병렬 가능)
 
 **Files:**
 - Create: `app/blueprints/schedule/routes.py`
@@ -1173,7 +1173,7 @@ from app.blueprints.schedule import routes  # noqa
 from datetime import date, timedelta, datetime
 from flask import render_template, request, redirect, url_for, jsonify, flash
 from app.blueprints.schedule import schedule_bp
-from app.repositories import schedule_repo, task_repo, category_repo, settings_repo
+from app.repositories import schedule_repo, procedure_repo, category_repo, settings_repo
 from app.services.scheduler import generate_draft
 
 
@@ -1186,7 +1186,7 @@ def day_view():
     next_date = (current_date + timedelta(days=1)).strftime('%Y-%m-%d')
 
     blocks = schedule_repo.get_blocks_for_date(date_str)
-    unscheduled = task_repo.get_unscheduled_tasks(category_id=category_id)
+    unscheduled = procedure_repo.get_unscheduled_procedures(category_id=category_id)
     categories = category_repo.get_all_categories()
     work_hours = settings_repo.get_work_hours()
 
@@ -1266,7 +1266,7 @@ def month_view():
 def api_create_block():
     data = request.json
     block_id = schedule_repo.create_block(
-        task_id=data['task_id'],
+        procedure_id=data['procedure_id'],
         assigned_date=data['assigned_date'],
         start_time=data['start_time'],
         end_time=data['end_time'],
@@ -1301,8 +1301,8 @@ def api_generate_draft():
     start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
 
     work_hours = settings_repo.get_work_hours()
-    tasks = task_repo.get_unscheduled_tasks(category_id=category_id)
-    tasks_list = [dict(t) for t in tasks]
+    procedures = procedure_repo.get_unscheduled_procedures(category_id=category_id)
+    procedures_list = [dict(t) for t in procedures]
 
     # 기존 확정 블록 로드
     from app.repositories.schedule_repo import get_blocks_for_week
@@ -1317,13 +1317,13 @@ def api_generate_draft():
             occupied_by_date[d].append({'start_time': block['start_time'],
                                          'end_time': block['end_time']})
 
-    draft_blocks = generate_draft(tasks_list, work_hours, occupied_by_date, start_date)
+    draft_blocks = generate_draft(procedures_list, work_hours, occupied_by_date, start_date)
 
     # 기존 초안 삭제 후 새 초안 저장
     schedule_repo.discard_draft_blocks(category_id=category_id)
     for b in draft_blocks:
         schedule_repo.create_block(
-            task_id=b['task_id'],
+            procedure_id=b['procedure_id'],
             assigned_date=b['assigned_date'],
             start_time=b['start_time'],
             end_time=b['end_time'],
@@ -1359,11 +1359,11 @@ def api_discard_draft():
 
 ---
 
-### Task 10: 베이스 템플릿 & 공통 컴포넌트 (병렬 가능)
+### TestProcedure 10: 베이스 템플릿 & 공통 컴포넌트 (병렬 가능)
 
 **Files:**
 - Create: `app/templates/base.html`
-- Create: `app/templates/components/task_card.html`
+- Create: `app/templates/components/procedure_card.html`
 - Create: `app/static/css/style.css`
 
 **Step 1: base.html 작성**
@@ -1396,8 +1396,8 @@ def api_discard_draft():
             <a class="nav-link text-white" href="{{ url_for('schedule.month_view') }}">
                 <i class="bi bi-calendar-month"></i> 월
             </a>
-            <a class="nav-link text-white" href="{{ url_for('tasks.task_list') }}">
-                <i class="bi bi-list-task"></i> 업무
+            <a class="nav-link text-white" href="{{ url_for('procedures.procedure_list') }}">
+                <i class="bi bi-list-procedure"></i> 업무
             </a>
             <a class="nav-link text-white" href="{{ url_for('admin.settings') }}">
                 <i class="bi bi-gear"></i> 설정
@@ -1469,7 +1469,7 @@ def api_discard_draft():
     );
 }
 
-/* Task Blocks */
+/* TestProcedure Blocks */
 .schedule-block {
     position: relative;
     border-radius: 6px;
@@ -1500,19 +1500,19 @@ def api_discard_draft():
 .priority-medium  { border-left-color: #0d6efd !important; }
 .priority-low     { border-left-color: #6c757d !important; }
 
-/* Unscheduled task list */
-.task-item {
+/* Unscheduled procedure list */
+.procedure-item {
     cursor: grab;
     transition: transform 0.15s, box-shadow 0.15s;
     user-select: none;
 }
 
-.task-item:hover {
+.procedure-item:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
-.task-item.sortable-chosen {
+.procedure-item.sortable-chosen {
     box-shadow: 0 6px 16px rgba(0,0,0,0.2);
     transform: scale(1.02);
 }
@@ -1554,7 +1554,7 @@ def api_discard_draft():
 
 ---
 
-### Task 11: 스케줄 뷰 템플릿 (병렬 가능)
+### TestProcedure 11: 스케줄 뷰 템플릿 (병렬 가능)
 
 **Files:**
 - Create: `app/templates/schedule/day.html`
@@ -1609,16 +1609,16 @@ def api_discard_draft():
                 </form>
                 <!-- 미배치 업무 목록 (드래그 소스) -->
                 <div id="unscheduled-list" class="d-flex flex-column gap-2">
-                    {% for task in unscheduled %}
-                    <div class="task-item card p-2 priority-{{ task.priority }}"
-                         data-task-id="{{ task.id }}"
-                         data-estimated="{{ task.estimated_minutes }}"
-                         style="border-left: 4px solid {{ task.category_color or '#4A90E2' }};">
-                        <div class="fw-semibold text-truncate small">{{ task.title }}</div>
+                    {% for procedure in unscheduled %}
+                    <div class="procedure-item card p-2 priority-{{ procedure.priority }}"
+                         data-procedure-id="{{ procedure.id }}"
+                         data-estimated="{{ procedure.estimated_minutes }}"
+                         style="border-left: 4px solid {{ procedure.category_color or '#4A90E2' }};">
+                        <div class="fw-semibold text-truncate small">{{ procedure.title }}</div>
                         <div class="d-flex gap-1 flex-wrap mt-1">
-                            <span class="badge" style="background:{{ task.category_color or '#4A90E2' }}">{{ task.category_name or '미분류' }}</span>
-                            <span class="badge bg-secondary">{{ task.estimated_minutes }}분</span>
-                            {% if task.due_date %}<span class="badge bg-warning text-dark">{{ task.due_date }}</span>{% endif %}
+                            <span class="badge" style="background:{{ procedure.category_color or '#4A90E2' }}">{{ procedure.category_name or '미분류' }}</span>
+                            <span class="badge bg-secondary">{{ procedure.estimated_minutes }}분</span>
+                            {% if procedure.due_date %}<span class="badge bg-warning text-dark">{{ procedure.due_date }}</span>{% endif %}
                         </div>
                     </div>
                     {% else %}
@@ -1664,7 +1664,7 @@ def api_discard_draft():
                         <div class="schedule-block priority-{{ block.priority }} {% if block.is_draft %}is-draft{% endif %}"
                              style="background-color: {{ block.category_color or '#4A90E2' }}22; color: #333;"
                              data-block-id="{{ block.id }}"
-                             data-task-id="{{ block.task_id }}"
+                             data-procedure-id="{{ block.procedure_id }}"
                              title="{{ block.title }}">
                             <span class="fw-semibold">{{ block.title }}</span>
                             <span class="text-muted ms-1 small">{{ block.start_time }}-{{ block.end_time }}</span>
@@ -1869,27 +1869,27 @@ const currentDate = '{{ current_date }}';
 
 ---
 
-### Task 12: 업무 & 관리자 템플릿 (병렬 가능)
+### TestProcedure 12: 업무 & 관리자 템플릿 (병렬 가능)
 
 **Files:**
-- Create: `app/templates/tasks/list.html`
-- Create: `app/templates/tasks/form.html`
-- Create: `app/templates/tasks/detail.html`
+- Create: `app/templates/procedures/list.html`
+- Create: `app/templates/procedures/form.html`
+- Create: `app/templates/procedures/detail.html`
 - Create: `app/templates/admin/settings.html`
 - Create: `app/templates/admin/users.html`
 - Create: `app/templates/admin/user_form.html`
 - Create: `app/templates/admin/categories.html`
 - Create: `app/templates/admin/category_form.html`
 
-**Step 1: tasks/list.html 작성**
+**Step 1: procedures/list.html 작성**
 
 ```html
 {% extends 'base.html' %}
 {% block title %}업무 목록{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0"><i class="bi bi-list-task"></i> 업무 목록</h4>
-    <a href="{{ url_for('tasks.create_task') }}" class="btn btn-primary">
+    <h4 class="mb-0"><i class="bi bi-list-procedure"></i> 업무 목록</h4>
+    <a href="{{ url_for('procedures.create_procedure') }}" class="btn btn-primary">
         <i class="bi bi-plus-circle"></i> 업무 추가
     </a>
 </div>
@@ -1926,7 +1926,7 @@ const currentDate = '{{ current_date }}';
             </div>
             <div class="col-auto">
                 <button class="btn btn-outline-secondary btn-sm" type="submit">적용</button>
-                <a href="{{ url_for('tasks.task_list') }}" class="btn btn-link btn-sm">초기화</a>
+                <a href="{{ url_for('procedures.procedure_list') }}" class="btn btn-link btn-sm">초기화</a>
             </div>
         </form>
     </div>
@@ -1943,37 +1943,37 @@ const currentDate = '{{ current_date }}';
                 </tr>
             </thead>
             <tbody>
-                {% for task in tasks %}
+                {% for procedure in procedures %}
                 <tr>
-                    <td><a href="{{ url_for('tasks.task_detail', task_id=task.id) }}" class="text-decoration-none fw-semibold">{{ task.title }}</a></td>
+                    <td><a href="{{ url_for('procedures.procedure_detail', procedure_id=procedure.id) }}" class="text-decoration-none fw-semibold">{{ procedure.title }}</a></td>
                     <td>
-                        {% if task.category_name %}
-                        <span class="badge" style="background:{{ task.category_color }}">{{ task.category_name }}</span>
+                        {% if procedure.category_name %}
+                        <span class="badge" style="background:{{ procedure.category_color }}">{{ procedure.category_name }}</span>
                         {% endif %}
                     </td>
-                    <td><small>{{ task.assignees or '-' }}</small></td>
+                    <td><small>{{ procedure.assignees or '-' }}</small></td>
                     <td>
                         {% set p_map = {'urgent':'danger','high':'warning','medium':'primary','low':'secondary'} %}
-                        <span class="badge bg-{{ p_map[task.priority] }}">
-                            {{ {'urgent':'긴급','high':'높음','medium':'보통','low':'낮음'}[task.priority] }}
+                        <span class="badge bg-{{ p_map[procedure.priority] }}">
+                            {{ {'urgent':'긴급','high':'높음','medium':'보통','low':'낮음'}[procedure.priority] }}
                         </span>
                     </td>
-                    <td>{{ task.estimated_minutes }}분</td>
+                    <td>{{ procedure.estimated_minutes }}분</td>
                     <td>
-                        <form method="post" action="{{ url_for('tasks.update_status', task_id=task.id) }}" class="d-inline">
-                            <select name="status" class="form-select form-select-sm d-inline-block w-auto status-{{ task.status }}"
+                        <form method="post" action="{{ url_for('procedures.update_status', procedure_id=procedure.id) }}" class="d-inline">
+                            <select name="status" class="form-select form-select-sm d-inline-block w-auto status-{{ procedure.status }}"
                                     onchange="this.form.submit()">
                                 {% for s, label in [('pending','대기'),('in_progress','진행중'),('completed','완료'),('cancelled','취소')] %}
-                                <option value="{{ s }}" {% if task.status == s %}selected{% endif %}>{{ label }}</option>
+                                <option value="{{ s }}" {% if procedure.status == s %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
                         </form>
                     </td>
-                    <td>{{ task.due_date or '-' }}</td>
+                    <td>{{ procedure.due_date or '-' }}</td>
                     <td>
                         <div class="btn-group btn-group-sm">
-                            <a href="{{ url_for('tasks.edit_task', task_id=task.id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i></a>
-                            <form method="post" action="{{ url_for('tasks.delete_task', task_id=task.id) }}" onsubmit="return confirm('삭제하시겠습니까?')">
+                            <a href="{{ url_for('procedures.edit_procedure', procedure_id=procedure.id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                            <form method="post" action="{{ url_for('procedures.delete_procedure', procedure_id=procedure.id) }}" onsubmit="return confirm('삭제하시겠습니까?')">
                                 <button class="btn btn-outline-danger"><i class="bi bi-trash"></i></button>
                             </form>
                         </div>
@@ -1989,27 +1989,27 @@ const currentDate = '{{ current_date }}';
 {% endblock %}
 ```
 
-**Step 2: tasks/form.html 작성**
+**Step 2: procedures/form.html 작성**
 
 ```html
 {% extends 'base.html' %}
-{% block title %}{% if task %}업무 수정{% else %}업무 추가{% endif %}{% endblock %}
+{% block title %}{% if procedure %}업무 수정{% else %}업무 추가{% endif %}{% endblock %}
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
         <div class="card">
             <div class="card-header fw-semibold">
-                {% if task %}업무 수정{% else %}업무 추가{% endif %}
+                {% if procedure %}업무 수정{% else %}업무 추가{% endif %}
             </div>
             <div class="card-body">
                 <form method="post">
                     <div class="mb-3">
                         <label class="form-label">업무명 *</label>
-                        <input type="text" name="title" class="form-control" required value="{{ task.title if task else '' }}">
+                        <input type="text" name="title" class="form-control" required value="{{ procedure.title if procedure else '' }}">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">설명</label>
-                        <textarea name="description" class="form-control" rows="3">{{ task.description if task else '' }}</textarea>
+                        <textarea name="description" class="form-control" rows="3">{{ procedure.description if procedure else '' }}</textarea>
                     </div>
                     <div class="row g-3">
                         <div class="col-md-6">
@@ -2017,7 +2017,7 @@ const currentDate = '{{ current_date }}';
                             <select name="category_id" class="form-select">
                                 <option value="">선택 없음</option>
                                 {% for cat in categories %}
-                                <option value="{{ cat.id }}" {% if task and task.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                                <option value="{{ cat.id }}" {% if procedure and procedure.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -2025,17 +2025,17 @@ const currentDate = '{{ current_date }}';
                             <label class="form-label">우선순위</label>
                             <select name="priority" class="form-select">
                                 {% for p, label in [('low','낮음'),('medium','보통'),('high','높음'),('urgent','긴급')] %}
-                                <option value="{{ p }}" {% if task and task.priority == p %}selected{% elif not task and p == 'medium' %}selected{% endif %}>{{ label }}</option>
+                                <option value="{{ p }}" {% if procedure and procedure.priority == p %}selected{% elif not procedure and p == 'medium' %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">예상 소요시간 (분)</label>
-                            <input type="number" name="estimated_minutes" class="form-control" min="1" value="{{ task.estimated_minutes if task else 60 }}">
+                            <input type="number" name="estimated_minutes" class="form-control" min="1" value="{{ procedure.estimated_minutes if procedure else 60 }}">
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">마감일</label>
-                            <input type="date" name="due_date" class="form-control" value="{{ task.due_date if task else '' }}">
+                            <input type="date" name="due_date" class="form-control" value="{{ procedure.due_date if procedure else '' }}">
                         </div>
                     </div>
                     <div class="mb-3 mt-3">
@@ -2053,7 +2053,7 @@ const currentDate = '{{ current_date }}';
                     </div>
                     <div class="d-flex gap-2">
                         <button type="submit" class="btn btn-primary">저장</button>
-                        <a href="{{ url_for('tasks.task_list') }}" class="btn btn-outline-secondary">취소</a>
+                        <a href="{{ url_for('procedures.procedure_list') }}" class="btn btn-outline-secondary">취소</a>
                     </div>
                 </form>
             </div>
@@ -2063,20 +2063,20 @@ const currentDate = '{{ current_date }}';
 {% endblock %}
 ```
 
-**Step 3: tasks/detail.html 작성**
+**Step 3: procedures/detail.html 작성**
 
 ```html
 {% extends 'base.html' %}
-{% block title %}{{ task.title }}{% endblock %}
+{% block title %}{{ procedure.title }}{% endblock %}
 {% block content %}
 <div class="row g-3">
     <div class="col-lg-8">
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between">
-                <span class="fw-semibold">{{ task.title }}</span>
+                <span class="fw-semibold">{{ procedure.title }}</span>
                 <div class="btn-group btn-group-sm">
-                    <a href="{{ url_for('tasks.edit_task', task_id=task.id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> 수정</a>
-                    <form method="post" action="{{ url_for('tasks.delete_task', task_id=task.id) }}" onsubmit="return confirm('삭제하시겠습니까?')">
+                    <a href="{{ url_for('procedures.edit_procedure', procedure_id=procedure.id) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> 수정</a>
+                    <form method="post" action="{{ url_for('procedures.delete_procedure', procedure_id=procedure.id) }}" onsubmit="return confirm('삭제하시겠습니까?')">
                         <button class="btn btn-outline-danger"><i class="bi bi-trash"></i> 삭제</button>
                     </form>
                 </div>
@@ -2085,20 +2085,20 @@ const currentDate = '{{ current_date }}';
                 <div class="row g-3">
                     <div class="col-md-6">
                         <small class="text-muted">카테고리</small>
-                        <div><span class="badge" style="background:{{ task.category_color or '#ccc' }}">{{ task.category_name or '미분류' }}</span></div>
+                        <div><span class="badge" style="background:{{ procedure.category_color or '#ccc' }}">{{ procedure.category_name or '미분류' }}</span></div>
                     </div>
                     <div class="col-md-6">
                         <small class="text-muted">우선순위</small>
                         {% set p_map = {'urgent':'danger','high':'warning','medium':'primary','low':'secondary'} %}
-                        <div><span class="badge bg-{{ p_map[task.priority] }}">{{ task.priority }}</span></div>
+                        <div><span class="badge bg-{{ p_map[procedure.priority] }}">{{ procedure.priority }}</span></div>
                     </div>
                     <div class="col-md-6">
                         <small class="text-muted">예상 소요시간</small>
-                        <div>{{ task.estimated_minutes }}분</div>
+                        <div>{{ procedure.estimated_minutes }}분</div>
                     </div>
                     <div class="col-md-6">
                         <small class="text-muted">마감일</small>
-                        <div>{{ task.due_date or '-' }}</div>
+                        <div>{{ procedure.due_date or '-' }}</div>
                     </div>
                     <div class="col-12">
                         <small class="text-muted">담당자</small>
@@ -2106,7 +2106,7 @@ const currentDate = '{{ current_date }}';
                     </div>
                     <div class="col-12">
                         <small class="text-muted">설명</small>
-                        <div>{{ task.description or '-' }}</div>
+                        <div>{{ procedure.description or '-' }}</div>
                     </div>
                 </div>
             </div>
@@ -2116,7 +2116,7 @@ const currentDate = '{{ current_date }}';
         <div class="card">
             <div class="card-header fw-semibold"><i class="bi bi-journal-text"></i> 메모</div>
             <div class="card-body">
-                <form method="post" action="{{ url_for('tasks.add_note', task_id=task.id) }}" class="mb-3">
+                <form method="post" action="{{ url_for('procedures.add_note', procedure_id=procedure.id) }}" class="mb-3">
                     <select name="user_id" class="form-select form-select-sm mb-2" style="width:auto">
                         {% for user in users %}
                         <option value="{{ user.id }}">{{ user.name }}</option>
@@ -2146,10 +2146,10 @@ const currentDate = '{{ current_date }}';
         <div class="card">
             <div class="card-header fw-semibold">상태 변경</div>
             <div class="card-body">
-                <form method="post" action="{{ url_for('tasks.update_status', task_id=task.id) }}">
+                <form method="post" action="{{ url_for('procedures.update_status', procedure_id=procedure.id) }}">
                     <select name="status" class="form-select mb-2">
                         {% for s, label in [('pending','대기'),('in_progress','진행중'),('completed','완료'),('cancelled','취소')] %}
-                        <option value="{{ s }}" {% if task.status == s %}selected{% endif %}>{{ label }}</option>
+                        <option value="{{ s }}" {% if procedure.status == s %}selected{% endif %}>{{ label }}</option>
                         {% endfor %}
                     </select>
                     <button type="submit" class="btn btn-primary w-100">상태 업데이트</button>
@@ -2335,7 +2335,7 @@ const currentDate = '{{ current_date }}';
 
 ---
 
-### Task 13: 드래그앤드랍 JavaScript
+### TestProcedure 13: 드래그앤드랍 JavaScript
 
 **Files:**
 - Create: `app/static/js/drag_drop.js`
@@ -2379,12 +2379,12 @@ function initDragDrop() {
             animation: 150,
             ghostClass: 'sortable-ghost',
             onAdd: function (evt) {
-                const taskId = evt.item.dataset.taskId;
+                const procedureId = evt.item.dataset.procedureId;
                 const estimatedMinutes = parseInt(evt.item.dataset.estimated || 60);
                 const date = target.dataset.date;
                 const startTime = target.dataset.time;
 
-                if (!taskId || !date || !startTime) return;
+                if (!procedureId || !date || !startTime) return;
 
                 const endTime = addMinutes(startTime, estimatedMinutes);
 
@@ -2392,7 +2392,7 @@ function initDragDrop() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        task_id: parseInt(taskId),
+                        procedure_id: parseInt(procedureId),
                         assigned_date: date,
                         start_time: startTime,
                         end_time: endTime,
@@ -2533,7 +2533,7 @@ function showToast(message, type) {
 
 ---
 
-### Task 14: 앱 실행 검증 & Playwright 테스트
+### TestProcedure 14: 앱 실행 검증 & Playwright 테스트
 
 **Files:**
 - Create: `tests/test_app.py`
@@ -2581,23 +2581,23 @@ def test_create_category(page: Page):
     expect(page.locator('text=테스트카테고리')).to_be_visible()
 
 
-def test_create_task(page: Page):
-    page.goto(f'{BASE_URL}/tasks/new')
+def test_create_procedure(page: Page):
+    page.goto(f'{BASE_URL}/procedures/new')
     page.fill('input[name="title"]', '테스트 업무')
     page.fill('input[name="estimated_minutes"]', '120')
     page.click('button[type="submit"]')
     expect(page.locator('text=테스트 업무')).to_be_visible()
 
 
-def test_task_list_filter(page: Page):
-    page.goto(f'{BASE_URL}/tasks')
+def test_procedure_list_filter(page: Page):
+    page.goto(f'{BASE_URL}/procedures')
     page.select_option('select[name="status"]', 'pending')
     page.click('button[type="submit"]')
-    expect(page).to_have_url(f'{BASE_URL}/tasks?status=pending')
+    expect(page).to_have_url(f'{BASE_URL}/procedures?status=pending')
 
 
-def test_task_status_update(page: Page):
-    page.goto(f'{BASE_URL}/tasks')
+def test_procedure_status_update(page: Page):
+    page.goto(f'{BASE_URL}/procedures')
     # 첫 번째 업무의 상태 변경
     status_select = page.locator('select[name="status"]').first
     status_select.select_option('in_progress')
@@ -2630,9 +2630,9 @@ def test_generate_draft(page: Page):
     expect(page.locator('text=초안')).to_be_visible(timeout=5000)
 
 
-def test_add_task_note(page: Page):
+def test_add_procedure_note(page: Page):
     # 업무 상세로 이동
-    page.goto(f'{BASE_URL}/tasks')
+    page.goto(f'{BASE_URL}/procedures')
     page.locator('a.fw-semibold').first.click()
     page.fill('textarea[name="content"]', '테스트 메모입니다.')
     page.click('button:has-text("추가")')

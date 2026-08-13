@@ -1,6 +1,6 @@
 /**
- * 기타 스케줄 기능 모듈 — 큐 복귀 버튼, 큐 검색/토글, 태스크 호버 링크,
- * 주말 토글, 일정 이동(shift), 블록/태스크 추가 버튼 등 부가 기능을 제공한다.
+ * 기타 스케줄 기능 모듈 — 큐 복귀 버튼, 큐 검색/토글, 시험 절차서 호버 링크,
+ * 주말 토글, 일정 이동(shift), 블록/시험 절차서 추가 버튼 등 부가 기능을 제공한다.
  */
 (function () {
   'use strict';
@@ -49,7 +49,7 @@
    * 검색어 입력 시 제목/섹션명으로 실시간 필터링한다.
    */
   function initQueueSearch() {
-    var body = document.getElementById('task-queue-body');
+    var body = document.getElementById('procedure-queue-body');
     var input = document.getElementById('queue-search');
     if (!body || !input) return;
 
@@ -59,7 +59,7 @@
     function sortItems() {
       // 기존 그룹 헤더 제거
       body.querySelectorAll('.queue-group-header').forEach(function (h) { h.remove(); });
-      var items = Array.from(body.querySelectorAll('.queue-task-item'));
+      var items = Array.from(body.querySelectorAll('.queue-procedure-item'));
       // 1차 담당자명, 2차 제목 순 정렬
       items.sort(function (a, b) {
         var aAssignee = (a.dataset.assigneeName || '(미배정)');
@@ -105,7 +105,7 @@
     // 검색어 입력 시 실시간 필터링
     input.addEventListener('input', function () {
       var query = input.value.trim().toLowerCase();
-      body.querySelectorAll('.queue-task-item').forEach(function (item) {
+      body.querySelectorAll('.queue-procedure-item').forEach(function (item) {
         var title = (item.dataset.title || '').toLowerCase();
         var assignee = (item.dataset.assigneeName || '').toLowerCase();
         var match = !query || title.indexOf(query) !== -1 || assignee.indexOf(query) !== -1;
@@ -122,34 +122,34 @@
    */
   function initQueueToggle() {
     var btn = document.getElementById('toggle-queue');
-    var q = document.getElementById('task-queue');
+    var q = document.getElementById('procedure-queue');
     if (btn && q) btn.onclick = function () { q.classList.toggle('collapsed'); };
   }
 
   // =====================================================================
-  // 동일 태스크 호버 하이라이트
+  // 동일 시험 절차서 호버 하이라이트
   // =====================================================================
   /**
-   * 같은 task-id를 가진 모든 요소에 마우스 호버 시 동시 하이라이트를 적용한다.
-   * 큐 아이템, 스케줄 블록, 월간 블록 등이 같은 태스크이면 함께 강조된다.
+   * 같은 procedure-id를 가진 모든 요소에 마우스 호버 시 동시 하이라이트를 적용한다.
+   * 큐 아이템, 스케줄 블록, 월간 블록 등이 같은 시험 절차서이면 함께 강조된다.
    */
-  function initTaskHoverLink() {
-    var allItems = document.querySelectorAll('[data-task-id]');
+  function initTestProcedureHoverLink() {
+    var allItems = document.querySelectorAll('[data-procedure-id]');
     if (!allItems.length) return;
 
     allItems.forEach(function (el) {
       el.addEventListener('mouseenter', function () {
-        var taskId = el.dataset.taskId;
-        if (!taskId) return;
-        // 같은 task-id를 가진 모든 요소에 하이라이트 클래스 추가
-        document.querySelectorAll('[data-task-id="' + taskId + '"]').forEach(function (item) {
-          item.classList.add('task-linked-hover');
+        var procedureId = el.dataset.procedureId;
+        if (!procedureId) return;
+        // 같은 procedure-id를 가진 모든 요소에 하이라이트 클래스 추가
+        document.querySelectorAll('[data-procedure-id="' + procedureId + '"]').forEach(function (item) {
+          item.classList.add('procedure-linked-hover');
         });
       });
       el.addEventListener('mouseleave', function () {
         // 모든 하이라이트 제거
-        document.querySelectorAll('.task-linked-hover').forEach(function (item) {
-          item.classList.remove('task-linked-hover');
+        document.querySelectorAll('.procedure-linked-hover').forEach(function (item) {
+          item.classList.remove('procedure-linked-hover');
         });
       });
     });
@@ -260,19 +260,19 @@
   }
 
   // =====================================================================
-  // 태스크 추가 / 간단 블록 추가 버튼
+  // 시험 절차서 추가 / 간단 블록 추가 버튼
   // =====================================================================
   /**
-   * '태스크 추가' 및 '간단 블록 추가' 버튼을 초기화한다.
-   * - 태스크 추가: 태스크 생성 페이지로 이동
+   * '시험 절차서 추가' 및 '간단 블록 추가' 버튼을 초기화한다.
+   * - 시험 절차서 추가: 시험 절차서 생성 페이지로 이동
    * - 간단 블록 추가: 제목/시간만 입력하여 큐에 추가
    */
   function initAddButtons() {
-    // 태스크 추가 버튼 — 새 태스크 생성 페이지로 이동
-    var taskBtn = document.getElementById('btn-add-task');
-    if (taskBtn) {
-      taskBtn.addEventListener('click', function () {
-        window.location.href = '/tasks/new';
+    // 시험 절차서 추가 버튼 — 새 시험 절차서 생성 페이지로 이동
+    var procedureBtn = document.getElementById('btn-add-procedure');
+    if (procedureBtn) {
+      procedureBtn.addEventListener('click', function () {
+        window.location.href = '/procedures/new';
       });
     }
 
@@ -328,7 +328,7 @@
   App.initReturnToQueue = initReturnToQueue;
   App.initQueueSearch = initQueueSearch;
   App.initQueueToggle = initQueueToggle;
-  App.initTaskHoverLink = initTaskHoverLink;
+  App.initTestProcedureHoverLink = initTestProcedureHoverLink;
 
   // =====================================================================
   // 월간뷰 "더보기" 토글
@@ -359,19 +359,19 @@
   // 큐 다중 선택 (클릭 + Shift+클릭 범위 선택)
   // =====================================================================
   function initQueueMultiSelect() {
-    var body = document.getElementById('task-queue-body');
+    var body = document.getElementById('procedure-queue-body');
     if (!body) return;
     var lastClicked = null; // 마지막 클릭한 아이템 (Shift 범위 기준)
 
     /** 모든 visible 큐 아이템을 순서대로 반환 */
     function getVisibleItems() {
-      return Array.from(body.querySelectorAll('.queue-task-item')).filter(function (el) {
+      return Array.from(body.querySelectorAll('.queue-procedure-item')).filter(function (el) {
         return el.style.display !== 'none';
       });
     }
 
     body.addEventListener('click', function (e) {
-      var item = e.target.closest('.queue-task-item');
+      var item = e.target.closest('.queue-procedure-item');
       if (!item) return;
       // 드래그 중 또는 다른 인터랙션이면 무시
       if (e.target.closest('.queue-card-color')) return;
@@ -414,7 +414,7 @@
 
   /** 현재 선택된 큐 아이템 목록 반환 (다른 모듈에서 사용) */
   function getSelectedQueueItems() {
-    return Array.from(document.querySelectorAll('.queue-task-item.queue-item-selected'));
+    return Array.from(document.querySelectorAll('.queue-procedure-item.queue-item-selected'));
   }
 
   App.initWeekendToggle = initWeekendToggle;

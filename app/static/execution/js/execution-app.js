@@ -28,15 +28,25 @@ let _allItems = [];
 
 /**
  * 현재 정렬 중인 열 키. null이면 정렬 없음.
- * 가능한 값: 'location' | 'date' | 'status' (COL_DEFS 중 sortable 열만 해당)
+ * 가능한 값: 'location' | 'scheduled_time' | 'actual_time' | 'status'
  */
 let _sortCol = null;
 
 /** 정렬 방향. 'asc' 또는 'desc'. */
 let _sortDir = 'asc';
 
-/** 실시간 텍스트 검색어. identifier_id·identifier_name·owners 대상. */
+/** 실시간 텍스트 검색어. test_item_id·test_item_name·owners 대상. */
 let _searchText = '';
+
+const FILTER_PARAM_BY_TARGET = {
+  'filter-document': 'procedure_id',
+  'filter-date': 'date',
+  'filter-location': 'location',
+  'filter-status': 'status',
+};
+const _columnFilters = {
+  procedure_id: [], date: [], location: [], status: [],
+};
 
 /**
  * 상태 정렬 순서 정의.
@@ -60,15 +70,16 @@ const STATUS_CFG = {
  * colVisible(key)가 true인 열만 포함한다.
  *
  * sortable 여부는 buildTableHeader() 내부에서 하드코딩으로 처리하며,
- * 현재 location·date·status 3개 열만 정렬을 지원한다.
+ * 현재 location·scheduled_time·actual_time·status 열의 정렬을 지원한다.
  */
 const COL_DEFS = [
   { key: 'doc',        label: '문서' },
-  { key: 'identifier', label: '식별자' },
+  { key: 'test_item', label: '시험 항목' },
   { key: 'name',       label: '시험항목' },
   { key: 'assignee',   label: '작성자' },
   { key: 'location',   label: '장소' },
-  { key: 'date',       label: '날짜' },
+  { key: 'scheduled_time', label: '예정 날짜(시간)' },
+  { key: 'actual_time',    label: '실제 수행 날짜(시간)' },
   { key: 'estimated',  label: '예상시간' },
   { key: 'performer',  label: '수행자' },
   { key: 'result',     label: '결과' },
@@ -108,6 +119,37 @@ function formatElapsed(seconds) {
 function formatMinutes(mins) {
   if (!mins) return '-';
   return `${mins}분`;
+}
+
+/** 날짜와 시간 구간을 두 줄로 표시한다. */
+function renderDateTimeCell(date, time) {
+  if (!date) return '-';
+  return `<span class="datetime-date">${escHtml(date)}</span>` +
+    (time ? `<span class="datetime-time">${escHtml(time)}</span>` : '');
+}
+
+/** 일정 블록의 예정 날짜와 시작·종료 시각을 표시한다. */
+function renderScheduledPeriod(item) {
+  const start = item.scheduled_start_time || '';
+  const end = item.scheduled_end_time ? `–${item.scheduled_end_time}` : '';
+  return renderDateTimeCell(item.scheduled_date, `${start}${end}`);
+}
+
+/** 실제 실행 구간의 최초 시작과 최종 종료 시각을 표시한다. */
+function renderActualPeriod(item) {
+  if (!item.actual_start_at) return '-';
+  const start = String(item.actual_start_at).replace('T', ' ');
+  const startDate = start.slice(0, 10);
+  const startTime = start.slice(11, 16);
+  if (!item.actual_end_at) {
+    const suffix = item.execution_status === 'in_progress' ? '–진행 중' : '';
+    return renderDateTimeCell(startDate, `${startTime}${suffix}`);
+  }
+  const end = String(item.actual_end_at).replace('T', ' ');
+  const endTime = end.slice(0, 10) === startDate
+    ? end.slice(11, 16)
+    : `${end.slice(0, 10)} ${end.slice(11, 16)}`;
+  return renderDateTimeCell(startDate, `${startTime}–${endTime}`);
 }
 
 /** HTML 특수문자를 엔티티로 이스케이프한다. XSS 방지용. */
@@ -160,26 +202,97 @@ function toggleCol(key, visible) {
   applyAndRender();
 }
 
+function columnFilterButton(targetId, label) {
+  const selected = _columnFilters[FILTER_PARAM_BY_TARGET[targetId]] || [];
+  const active = selected.length ? ' active' : '';
+  const count = selected.length > 1 ? `<span class="column-filter-count">${selected.length}</span>` : '';
+  return `<button type="button" class="column-filter-btn${active}" ` +
+    `data-filter-target="${targetId}" data-filter-label="${label}" ` +
+    `title="${label} 필터"><i class="bi bi-funnel-fill"></i>${count}</button>`;
+}
+
+function closeColumnFilter() {
+  document.getElementById('column-filter-menu')?.remove();
+}
+
+/** 상단 select의 항목을 재사용해 헤더 필터 메뉴를 연다. */
+function openColumnFilter(button) {
+  closeColumnFilter();
+  const source = document.getElementById(button.dataset.filterTarget);
+  if (!source) return;
+  const param = FILTER_PARAM_BY_TARGET[button.dataset.filterTarget];
+  const selected = new Set(_columnFilters[param]);
+  const menu = document.createElement('div');
+  menu.id = 'column-filter-menu';
+  menu.className = 'exec-column-filter-menu';
+  const title = document.createElement('div');
+  title.className = 'column-filter-title';
+  title.textContent = button.dataset.filterLabel;
+  menu.appendChild(title);
+  Array.from(source.options).filter(option => option.value).forEach(option => {
+    const item = document.createElement('label');
+    item.className = 'column-filter-option';
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = option.value;
+    checkbox.checked = selected.has(option.value);
+    const text = document.createElement('span');
+    text.textContent = option.textContent;
+    item.append(checkbox, text);
+    menu.appendChild(item);
+  });
+  const actions = document.createElement('div');
+  actions.className = 'column-filter-actions';
+  const clear = document.createElement('button');
+  clear.type = 'button';
+  clear.className = 'btn btn-sm btn-outline-secondary';
+  clear.textContent = '전체';
+  clear.addEventListener('click', () => {
+    menu.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = false; });
+  });
+  const apply = document.createElement('button');
+  apply.type = 'button';
+  apply.className = 'btn btn-sm btn-primary';
+  apply.textContent = '적용';
+  apply.addEventListener('click', () => {
+    _columnFilters[param] = Array.from(
+      menu.querySelectorAll('input[type="checkbox"]:checked'),
+      input => input.value,
+    );
+    source.value = _columnFilters[param].length === 1 ? _columnFilters[param][0] : '';
+    closeColumnFilter();
+    loadList();
+  });
+  actions.append(clear, apply);
+  menu.appendChild(actions);
+  document.body.appendChild(menu);
+  const rect = button.getBoundingClientRect();
+  const left = Math.min(rect.left, window.innerWidth - menu.offsetWidth - 12);
+  menu.style.left = `${Math.max(12, left)}px`;
+  menu.style.top = `${rect.bottom + 6}px`;
+}
+
 // ── 테이블 헤더 렌더링 ────────────────────────────────────────────────────────
 
 /**
  * 현재 가시 열 기준으로 <th> 문자열을 생성해 반환한다.
  *
- * sortable 열(location·date·status)은 class="sortable"과 data-sort 속성을 포함한다.
+ * sortable 열(location·scheduled_time·actual_time·status)은 정렬 속성을 포함한다.
  * 정렬 핸들러는 refreshTableHeader()에서 별도로 등록한다.
  */
 function buildTableHeader() {
   const cols = [];
-  if (colVisible('doc'))        cols.push('<th style="width:250px">문서</th>');
-  if (colVisible('identifier')) cols.push('<th style="width:180px">식별자</th>');
+  if (colVisible('doc'))        cols.push(`<th style="width:250px">문서 ${columnFilterButton('filter-document', '문서')}</th>`);
+  if (colVisible('test_item')) cols.push('<th style="width:180px">시험 항목</th>');
   if (colVisible('name'))       cols.push('<th>시험항목</th>');
   if (colVisible('assignee'))   cols.push('<th style="width:100px">작성자</th>');
-  if (colVisible('location'))   cols.push('<th class="sortable" data-sort="location" style="width:90px">장소 <i class="bi bi-arrow-down-up ms-1 text-muted"></i></th>');
-  if (colVisible('date'))       cols.push('<th class="sortable" data-sort="date" style="width:95px">날짜 <i class="bi bi-arrow-down-up ms-1 text-muted"></i></th>');
+  if (colVisible('location'))   cols.push(`<th class="sortable" data-sort="location" style="width:90px">장소 <i class="bi bi-arrow-down-up ms-1 text-muted"></i> ${columnFilterButton('filter-location', '장소')}</th>`);
+  if (colVisible('scheduled_time')) cols.push(`<th class="sortable" data-sort="scheduled_time" style="width:135px">예정 날짜(시간) <i class="bi bi-arrow-down-up ms-1 text-muted"></i> ${columnFilterButton('filter-date', '예정 날짜')}</th>`);
+  if (colVisible('actual_time')) cols.push('<th class="sortable" data-sort="actual_time" style="width:150px">실제 수행 날짜(시간) <i class="bi bi-arrow-down-up ms-1 text-muted"></i></th>');
   if (colVisible('estimated'))  cols.push('<th style="width:75px">예상</th>');
   if (colVisible('performer'))  cols.push('<th style="width:80px">수행자</th>');
   if (colVisible('result'))     cols.push('<th style="width:130px">결과</th>');
-  if (colVisible('status'))     cols.push('<th class="sortable" data-sort="status" style="width:120px">상태 <i class="bi bi-arrow-down-up ms-1 text-muted"></i></th>');
+  if (colVisible('status'))     cols.push(`<th class="sortable" data-sort="status" style="width:120px">상태 <i class="bi bi-arrow-down-up ms-1 text-muted"></i> ${columnFilterButton('filter-status', '상태')}</th>`);
   return cols.join('');
 }
 
@@ -206,6 +319,11 @@ function refreshTableHeader() {
   // 정렬 클릭 이벤트 재등록
   thead.querySelectorAll('th[data-sort]').forEach(th =>
     th.addEventListener('click', () => setSort(th.dataset.sort)));
+  thead.querySelectorAll('.column-filter-btn').forEach(button =>
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      openColumnFilter(button);
+    }));
 }
 
 // ── 리스트 로드 ───────────────────────────────────────────────────────────────
@@ -219,11 +337,10 @@ function refreshTableHeader() {
  * 로드 실패 시: 오류 메시지 행 표시
  */
 async function loadList() {
-  const date = document.getElementById('filter-date').value;
-  const loc  = document.getElementById('filter-location').value;
   const params = new URLSearchParams();
-  if (date) params.set('date', date);
-  if (loc)  params.set('location', loc);
+  Object.entries(_columnFilters).forEach(([key, values]) => {
+    values.forEach(value => params.append(key, value));
+  });
 
   // 가시 열 수만큼 colspan을 설정해 로딩 행이 전체 너비를 차지하게 한다.
   const visibleCount = COL_DEFS.filter(c => colVisible(c.key)).length;
@@ -269,11 +386,12 @@ function setSort(col) {
  * _allItems에 텍스트 검색과 정렬을 적용한 뒤 renderTable()을 호출한다.
  *
  * 필터:
- *   - 텍스트 검색(_searchText): identifier_id·identifier_name·owners 포함 검색
+ *   - 텍스트 검색(_searchText): test_item_id·test_item_name·owners 포함 검색
  *   - 날짜·장소 필터는 loadList() 단계에서 서버에 파라미터로 전달하므로 여기서는 처리 안 함
  *
  * 정렬:
- *   - 'date': display_date 문자열 비교 (완료 시각 우선, 없으면 배치 날짜)
+ *   - 'scheduled_time': 예정 날짜와 시작 시각 비교
+ *   - 'actual_time': 실제 수행 시작 시각 비교
  *   - 'location': location_name 문자열 비교
  *   - 'status': 서버가 내려준 status_order 숫자 비교
  */
@@ -281,13 +399,17 @@ function applyAndRender() {
   let items = [..._allItems];
   const q = _searchText.toLowerCase();
   if (q) items = items.filter(i =>
-    i.identifier_id.toLowerCase().includes(q) ||
-    i.identifier_name.toLowerCase().includes(q) ||
+    i.test_item_id.toLowerCase().includes(q) ||
+    i.test_item_name.toLowerCase().includes(q) ||
     (i.owners || []).some(a => a.toLowerCase().includes(q)));
   if (_sortCol) {
     items.sort((a, b) => {
       let va, vb;
-      if (_sortCol === 'date')     { va = a.display_date || a.scheduled_date || ''; vb = b.display_date || b.scheduled_date || ''; }
+      if (_sortCol === 'scheduled_time') {
+        va = `${a.scheduled_date || ''} ${a.scheduled_start_time || ''}`;
+        vb = `${b.scheduled_date || ''} ${b.scheduled_start_time || ''}`;
+      }
+      else if (_sortCol === 'actual_time') { va = a.actual_start_at || ''; vb = b.actual_start_at || ''; }
       else if (_sortCol === 'location') { va = a.location_name || ''; vb = b.location_name || ''; }
       else if (_sortCol === 'status')   {
         va = a.status_order ?? 0;
@@ -377,17 +499,18 @@ function buildRow(item) {
   const owners = (item.owners || []).join(', ') || '-';
   const status = item.execution_status || 'pending';
   const cells = [];
-  if (colVisible('doc'))        cells.push(`<td class="td-doc">${escHtml(item.display_name || item.doc_name || '-')}</td>`);
-  if (colVisible('identifier')) cells.push(`<td class="td-id">${escHtml(item.identifier_id)}</td>`);
-  if (colVisible('name'))       cells.push(`<td class="td-name">${escHtml(item.identifier_name)}${renderCommentIcon(item)}</td>`);
+  if (colVisible('doc'))        cells.push(`<td class="td-doc">${escHtml(item.display_name || item.document_name || '-')}</td>`);
+  if (colVisible('test_item')) cells.push(`<td class="td-id">${escHtml(item.test_item_id)}</td>`);
+  if (colVisible('name'))       cells.push(`<td class="td-name">${escHtml(item.test_item_name)}${renderCommentIcon(item)}</td>`);
   if (colVisible('assignee'))   cells.push(`<td class="td-meta">${escHtml(owners)}</td>`);
   if (colVisible('location'))   cells.push(`<td class="td-meta">${escHtml(item.location_name || '-')}</td>`);
-  if (colVisible('date'))       cells.push(`<td class="td-meta">${escHtml(item.display_date || item.scheduled_date || '-')}</td>`);
+  if (colVisible('scheduled_time')) cells.push(`<td class="td-meta td-datetime">${renderScheduledPeriod(item)}</td>`);
+  if (colVisible('actual_time')) cells.push(`<td class="td-meta td-datetime">${renderActualPeriod(item)}</td>`);
   if (colVisible('estimated'))  cells.push(`<td class="td-meta">${formatMinutes(item.estimated_minutes)}</td>`);
   if (colVisible('performer'))  cells.push(`<td>${escHtml(item.performer_name || '-')}</td>`);
   if (colVisible('result'))     cells.push(renderResultCell(item));
   if (colVisible('status'))     cells.push(`<td>${statusBadge(item)}</td>`);
-  return `<tr data-id="${escHtml(item.identifier_id)}" data-status="${escHtml(status)}"
+  return `<tr data-id="${escHtml(item.test_item_id)}" data-status="${escHtml(status)}"
       data-item='${escHtml(JSON.stringify(item))}'>${cells.join('')}</tr>`;
 }
 
@@ -416,8 +539,8 @@ function renderTable(items) {
   tbody.querySelectorAll('tr').forEach(tr =>
     tr.addEventListener('click', () => {
       const item = JSON.parse(tr.dataset.item);
-      const taskParam = item.task_id ? `?task_id=${encodeURIComponent(item.task_id)}` : '';
-      window.location.href = `/execution/${encodeURIComponent(item.identifier_id)}${taskParam}`;
+      const procedureParam = item.procedure_id ? `?procedure_id=${encodeURIComponent(item.procedure_id)}` : '';
+      window.location.href = `/execution/${encodeURIComponent(item.test_item_id)}${procedureParam}`;
     }));
 
   // 코멘트 아이콘(💬)의 Bootstrap Tooltip 초기화
@@ -466,10 +589,10 @@ function _initBarcodeListener(onScan) {
 }
 
 /**
- * 바코드 코드에서 식별자 ID를 추출한다.
+ * 바코드 코드에서 시험 항목 ID를 추출한다.
  * 예: BARCODE_PREFIX='', code='OPEN-TC-001' → 'TC-001'
  */
-// 바코드 코드에서 식별자 추출: OPEN-TC-001 → TC-001
+// 바코드 코드에서 시험 항목 추출: OPEN-TC-001 → TC-001
 function _barcodeToId(code) {
   const parts = code.split('-');
   return (typeof BARCODE_PREFIX !== 'undefined' ? BARCODE_PREFIX : '') + parts.slice(1).join('-');
@@ -493,6 +616,12 @@ document.addEventListener('fullscreenchange', () => {
   if (icon) icon.className = document.fullscreenElement ? 'bi bi-fullscreen-exit' : 'bi bi-fullscreen';
 });
 
+document.addEventListener('click', event => {
+  if (!event.target.closest('#column-filter-menu, .column-filter-btn')) {
+    closeColumnFilter();
+  }
+});
+
 // ── 초기화 ────────────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -502,9 +631,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const fsBtn = document.getElementById('btn-fullscreen');
   if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
 
-  // 날짜/장소 필터 변경 시 서버에서 다시 목록을 가져온다.
-  document.getElementById('filter-date').addEventListener('change', loadList);
-  document.getElementById('filter-location').addEventListener('change', loadList);
+  // 문서/날짜/장소/상태 필터 변경 시 서버에서 다시 목록을 가져온다.
+  Object.entries(FILTER_PARAM_BY_TARGET).forEach(([targetId, param]) => {
+    document.getElementById(targetId).addEventListener('change', event => {
+      _columnFilters[param] = event.target.value ? [event.target.value] : [];
+      loadList();
+    });
+  });
+
+  document.getElementById('reset-filters').addEventListener('click', () => {
+    document.getElementById('filter-document').value = '';
+    document.getElementById('filter-date').value = '';
+    document.getElementById('filter-location').value = '';
+    document.getElementById('filter-status').value = '';
+    Object.keys(_columnFilters).forEach(key => { _columnFilters[key] = []; });
+    document.getElementById('search-input').value = '';
+    _searchText = '';
+    loadList();
+  });
 
   // 텍스트 검색은 서버 호출 없이 _allItems를 로컬 필터링만 한다.
   document.getElementById('search-input').addEventListener('input', e => {
@@ -515,14 +659,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // 초기 목록 로드
   loadList();
 
-  // 바코드 OPEN 명령 감지 (#78): OPEN-<식별자> 스캔 시 해당 상세 페이지로 이동
+  // 바코드 OPEN 명령 감지 (#78): OPEN-<시험 항목> 스캔 시 해당 상세 페이지로 이동
   _initBarcodeListener(code => {
     console.log('[barcode] onScan:', JSON.stringify(code), 'startsWith OPEN-:', code.startsWith('OPEN-'));
     if (code.startsWith('OPEN-')) {
-      const identifierId = _barcodeToId(code);
-      console.log('[barcode] navigating to:', identifierId);
+      const testItemId = _barcodeToId(code);
+      console.log('[barcode] navigating to:', testItemId);
       // autostart=1 파라미터로 이동해 상세 페이지에서 자동으로 시험을 시작한다.
-      window.location.href = `/execution/${encodeURIComponent(identifierId)}?autostart=1`;
+      window.location.href = `/execution/${encodeURIComponent(testItemId)}?autostart=1`;
     }
   });
 });

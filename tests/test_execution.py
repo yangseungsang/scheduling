@@ -1,34 +1,35 @@
-import json
 import os
 import pytest
 from app import create_app
+from tests.conftest import configure_test_storage
 
 
 @pytest.fixture
 def exec_app(tmp_path):
-    data_dir = str(tmp_path / 'data')
-    exec_dir = str(tmp_path / 'exec_data')
-    os.makedirs(data_dir)
-    os.makedirs(exec_dir)
-
-    for name in ('users', 'locations', 'tasks', 'schedule_blocks', 'versions', 'procedures'):
-        with open(os.path.join(data_dir, f'{name}.json'), 'w') as f:
-            json.dump([], f)
-    with open(os.path.join(data_dir, 'settings.json'), 'w') as f:
-        json.dump({
-            'work_start': '08:00', 'work_end': '17:00',
-            'actual_work_start': '08:30', 'actual_work_end': '16:30',
-            'lunch_start': '12:00', 'lunch_end': '13:00',
-            'breaks': [], 'grid_interval_minutes': 15,
-            'max_schedule_days': 14, 'block_color_by': 'assignee',
-        }, f)
-    with open(os.path.join(exec_dir, 'executions.json'), 'w') as f:
-        json.dump([], f)
-
     app = create_app()
-    app.config['DATA_DIR'] = data_dir
-    app.config['EXECUTION_DATA_DIR'] = exec_dir
     app.config['TESTING'] = True
+    configure_test_storage(app, tmp_path)
+    with app.app_context():
+        from app.features.schedule.services.test_procedures import TestProcedureService
+
+        service = TestProcedureService(app.config['DOMAIN_DATA_DIR'])
+        service.create_procedure({
+            'id': 't_001', 'document_id': 1, 'document_name': '기본 시험',
+            'test_items': [
+                {'id': f'TC-{number:03d}', 'total_count': 10}
+                for number in range(1, 15)
+            ],
+        })
+        for procedure_id, test_item_id, document_id in (
+            ('t_alice', 'TC-ALICE', 2),
+            ('t_bob', 'TC-BOB', 3),
+            ('t_new', 'TC-NEW', 4),
+            ('t_other', 'TC-OTHER', 5),
+        ):
+            service.create_procedure({
+                'id': procedure_id, 'document_id': document_id, 'document_name': procedure_id,
+                'test_items': [{'id': test_item_id}],
+            })
     yield app
 
 
@@ -40,145 +41,147 @@ def exec_client(exec_app):
 class TestExecutionRepository:
     def test_uses_configured_json_storage(self, exec_app):
         with exec_app.app_context():
-            from app.features.execution.repositories import execution_storage_from_config
+            from app.features.execution.storage import get_execution_storage
 
-            storage = execution_storage_from_config(exec_app.config)
+            storage = get_execution_storage(exec_app.config)
             assert storage.get_all() == []
-            assert storage.generate_id('ex_').startswith('ex_')
 
-    def test_can_use_orm_storage(self, exec_app, tmp_path):
-        exec_app.config['DATABASE_URL'] = f'sqlite:///{tmp_path / "execution-storage.db"}'
-        exec_app.config['EXECUTION_STORAGE'] = 'orm'
+    def test_uses_alternate_json_directory(self, exec_app, tmp_path):
+        configure_test_storage(exec_app, tmp_path / 'alternate')
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
-            from app.features.execution.repositories import execution_storage_from_config
+            from app.features.execution.repository import ExecutionRepository
+            from app.features.execution.storage import get_execution_storage
+            from app.features.schedule.services.test_procedures import TestProcedureService
 
-            ex = ExecutionRepository.start('TC-ORM', 't_orm', total_count=4)
+            TestProcedureService(exec_app.config['DOMAIN_DATA_DIR']).create_procedure({
+                'id': 't_json', 'document_id': 100, 'document_name': 'JSON',
+                'test_items': [{'id': 'TC-JSON'}],
+            })
+
+            ex = ExecutionRepository.start('TC-JSON', 't_json', total_count=4)
             assert ex['status'] == 'in_progress'
-            ExecutionRepository.pause(ex['id'])
-            stored = execution_storage_from_config(exec_app.config).get_all()
-            assert stored[0]['identifier_id'] == 'TC-ORM'
+            ExecutionRepository.pause('t_json', 'TC-JSON')
+            stored = get_execution_storage(exec_app.config).get_all()
+            assert stored[0]['test_item_id'] == 'TC-JSON'
             assert stored[0]['status'] == 'paused'
 
     def test_start_creates_record(self, exec_app):
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repository import ExecutionRepository
             ex = ExecutionRepository.start('TC-001', 't_001', total_count=5)
-            assert ex['identifier_id'] == 'TC-001'
+            assert ex['test_item_id'] == 'TC-001'
             assert ex['status'] == 'in_progress'
-            assert len(ex['segments']) == 1
-            assert ex['segments'][0]['end'] is None
+            assert ex['started_at']
+            assert ex['active_started_at'] == ex['started_at']
+            assert ex['actual_seconds'] == 0
             assert ex['total_count'] == 5
 
     def test_pause_closes_segment(self, exec_app):
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repository import ExecutionRepository
             ex = ExecutionRepository.start('TC-002', 't_001', total_count=5)
-            paused = ExecutionRepository.pause(ex['id'])
+            paused = ExecutionRepository.pause('t_001', 'TC-002')
             assert paused['status'] == 'paused'
-            assert paused['segments'][0]['end'] is not None
+            assert paused['active_started_at'] is None
+            assert paused['actual_seconds'] >= 0
 
     def test_resume_adds_segment(self, exec_app):
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repository import ExecutionRepository
             ex = ExecutionRepository.start('TC-003', 't_001', total_count=5)
-            paused = ExecutionRepository.pause(ex['id'])
-            resumed = ExecutionRepository.resume(paused['id'])
+            paused = ExecutionRepository.pause('t_001', 'TC-003')
+            resumed = ExecutionRepository.resume('t_001', 'TC-003')
             assert resumed['status'] == 'in_progress'
-            assert len(resumed['segments']) == 2
-            assert resumed['segments'][1]['end'] is None
+            assert resumed['active_started_at']
+            assert resumed['started_at'] == ex['started_at']
+            assert resumed['actual_seconds'] == paused['actual_seconds']
 
     def test_complete_saves_result(self, exec_app):
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repository import ExecutionRepository
             ex = ExecutionRepository.start('TC-004', 't_001', total_count=8)
-            done = ExecutionRepository.complete(ex['id'], fail_count=2)
+            done = ExecutionRepository.complete('t_001', 'TC-004', fail_count=2)
             assert done['status'] == 'completed'
             assert done['fail_count'] == 2
             assert done['pass_count'] == 6
             assert done['completed_at'] is not None
-            assert done['segments'][0]['end'] is not None
+            assert done['ended_at'] == done['completed_at']
+            assert done['active_started_at'] is None
 
     def test_reset_clears_record(self, exec_app):
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repository import ExecutionRepository
             ex = ExecutionRepository.start('TC-005', 't_001', total_count=5)
-            ExecutionRepository.complete(ex['id'], fail_count=1)
-            reset = ExecutionRepository.reset(ex['id'])
+            ExecutionRepository.complete('t_001', 'TC-005', fail_count=1)
+            reset = ExecutionRepository.reset('t_001', 'TC-005')
             assert reset['status'] == 'pending'
-            assert reset['segments'] == []
+            assert reset['started_at'] is None
+            assert reset['ended_at'] is None
+            assert reset['actual_seconds'] == 0
             assert reset['fail_count'] == 0
             assert reset['completed_at'] is None
 
-    def test_compute_elapsed_seconds(self, exec_app):
+    def test_paused_elapsed_seconds_is_accumulated_value(self, exec_app):
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
-            segments = [
-                {'start': '2026-04-17T09:00:00', 'end': '2026-04-17T09:30:00'},
-                {'start': '2026-04-17T10:00:00', 'end': '2026-04-17T10:15:00'},
-            ]
-            assert ExecutionRepository.compute_elapsed_seconds(segments) == 2700
+            from app.domain.execution import ExecutionRun
+            run = ExecutionRun(
+                procedure_id='t_001', test_item_id='TC-006',
+                status='paused', actual_seconds=2700,
+            )
+            assert run.elapsed_seconds == 2700
 
     def test_pause_on_already_paused_returns_none(self, exec_app):
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repository import ExecutionRepository
             ex = ExecutionRepository.start('TC-011', 't_001', total_count=5)
-            ExecutionRepository.pause(ex['id'])
-            result = ExecutionRepository.pause(ex['id'])  # already paused
+            ExecutionRepository.pause('t_001', 'TC-011')
+            result = ExecutionRepository.pause('t_001', 'TC-011')  # already paused
             assert result is None
 
     def test_resume_on_non_paused_returns_none(self, exec_app):
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repository import ExecutionRepository
             ex = ExecutionRepository.start('TC-012', 't_001', total_count=5)
-            result = ExecutionRepository.resume(ex['id'])  # in_progress, not paused
+            result = ExecutionRepository.resume('t_001', 'TC-012')  # in_progress, not paused
             assert result is None
 
     def test_complete_on_pending_returns_none(self, exec_app):
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repository import ExecutionRepository
             ex = ExecutionRepository.start('TC-013', 't_001', total_count=5)
-            ExecutionRepository.reset(ex['id'])  # → pending
-            result = ExecutionRepository.complete(ex['id'], fail_count=1)
+            ExecutionRepository.reset('t_001', 'TC-013')  # → pending
+            result = ExecutionRepository.complete('t_001', 'TC-013', fail_count=1)
             assert result is None
 
     def test_complete_while_paused_does_not_add_time(self, exec_app):
-        """일시정지 상태에서 완료해도 세그먼트 end 시각이 변경되지 않아야 한다."""
-        import json
+        """일시정지 상태에서 완료해도 정지 이후 시간이 추가되지 않아야 한다."""
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repository import ExecutionRepository
             from flask import current_app
-            import os
-
-            closed_end = '2026-05-13T10:00:00'
             ex = {
-                'id': 'ex_test_paused',
-                'identifier_id': 'TC-014',
-                'task_id': 't_001',
+                'test_item_id': 'TC-014',
+                'procedure_id': 't_001',
                 'status': 'paused',
-                'segments': [{'start': '2026-05-13T09:00:00', 'end': closed_end}],
+                'started_at': '2026-05-13T09:00:00',
+                'actual_seconds': 3600,
                 'total_count': 10, 'fail_count': 0, 'block_count': 0, 'pass_count': 0,
                 'comment': '', 'performer': '',
-                'created_at': '2026-05-13T09:00:00', 'completed_at': None,
             }
-            data_file = os.path.join(
-                current_app.config['EXECUTION_DATA_DIR'], 'executions.json'
-            )
-            with open(data_file, 'w') as f:
-                json.dump([ex], f)
+            from app.features.execution.storage import get_execution_storage
+            get_execution_storage(current_app.config).save_all([ex])
 
-            result = ExecutionRepository.complete('ex_test_paused', fail_count=1, block_count=0)
-            assert result['segments'][-1]['end'] == closed_end, (
-                f"Expected end={closed_end!r}, got {result['segments'][-1]['end']!r} — "
-                "paused segment was overwritten with current time"
+            result = ExecutionRepository.complete(
+                't_001', 'TC-014', fail_count=1, block_count=0,
             )
+            assert result['actual_seconds'] == 3600
             assert result['status'] == 'completed'
+            assert result['ended_at']
 
 
 class TestExecutionAPI:
     def test_start(self, exec_client):
         r = exec_client.post('/execution/api/start', json={
-            'identifier_id': 'TC-001', 'task_id': 't_001'
+            'test_item_id': 'TC-001', 'procedure_id': 't_001'
         })
         assert r.status_code == 201
         data = r.get_json()
@@ -186,58 +189,57 @@ class TestExecutionAPI:
 
     def test_start_allows_when_other_performer_is_in_progress(self, exec_app, exec_client):
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repository import ExecutionRepository
 
             ex = ExecutionRepository.start('TC-OTHER', 't_other', total_count=0)
-            ExecutionRepository.update_performer(ex['id'], 'alice')
+            ExecutionRepository.update_performer('t_other', 'TC-OTHER', 'alice')
 
         exec_client.post('/execution/api/login', json={'username': 'bob'})
         r = exec_client.post('/execution/api/start', json={
-            'identifier_id': 'TC-BOB', 'task_id': 't_bob'
+            'test_item_id': 'TC-BOB', 'procedure_id': 't_bob'
         })
         assert r.status_code == 201
         assert r.get_json()['performer'] == 'bob'
 
     def test_start_blocks_when_current_user_is_already_in_progress(self, exec_app, exec_client):
         with exec_app.app_context():
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.execution.repository import ExecutionRepository
 
             ex = ExecutionRepository.start('TC-ALICE', 't_alice', total_count=0)
-            ExecutionRepository.update_performer(ex['id'], 'alice')
+            ExecutionRepository.update_performer('t_alice', 'TC-ALICE', 'alice')
 
         exec_client.post('/execution/api/login', json={'username': 'alice'})
         r = exec_client.post('/execution/api/start', json={
-            'identifier_id': 'TC-NEW', 'task_id': 't_new'
+            'test_item_id': 'TC-NEW', 'procedure_id': 't_new'
         })
         assert r.status_code == 409
         assert r.get_json()['code'] == 'user_busy'
 
     def test_pause(self, exec_client):
         r = exec_client.post('/execution/api/start', json={
-            'identifier_id': 'TC-001', 'task_id': 't_001'
+            'test_item_id': 'TC-001', 'procedure_id': 't_001'
         })
-        ex_id = r.get_json()['id']
-        r2 = exec_client.post('/execution/api/pause', json={'execution_id': ex_id})
+        key = {'procedure_id': 't_001', 'test_item_id': 'TC-001'}
+        r2 = exec_client.post('/execution/api/pause', json=key)
         assert r2.status_code == 200
         assert r2.get_json()['status'] == 'paused'
 
     def test_resume(self, exec_client):
         r = exec_client.post('/execution/api/start', json={
-            'identifier_id': 'TC-001', 'task_id': 't_001'
+            'test_item_id': 'TC-001', 'procedure_id': 't_001'
         })
-        ex_id = r.get_json()['id']
-        exec_client.post('/execution/api/pause', json={'execution_id': ex_id})
-        r3 = exec_client.post('/execution/api/resume', json={'execution_id': ex_id})
+        key = {'procedure_id': 't_001', 'test_item_id': 'TC-001'}
+        exec_client.post('/execution/api/pause', json=key)
+        r3 = exec_client.post('/execution/api/resume', json=key)
         assert r3.status_code == 200
         assert r3.get_json()['status'] == 'in_progress'
 
     def test_complete(self, exec_client):
         r = exec_client.post('/execution/api/start', json={
-            'identifier_id': 'TC-001', 'task_id': 't_001'
+            'test_item_id': 'TC-001', 'procedure_id': 't_001'
         })
-        ex_id = r.get_json()['id']
         r2 = exec_client.post('/execution/api/complete', json={
-            'execution_id': ex_id, 'fail_count': 3
+            'procedure_id': 't_001', 'test_item_id': 'TC-001', 'fail_count': 3
         })
         assert r2.status_code == 200
         data = r2.get_json()
@@ -246,25 +248,25 @@ class TestExecutionAPI:
 
     def test_complete_accepts_result_counts_when_total_count_unknown(self, exec_app, exec_client):
         with exec_app.app_context():
-            from app.features.schedule.models import task as task_repo
+            from app.features.schedule.services import test_procedures as procedure_repo
 
-            task = task_repo.create(
-                doc_id=5,
+            procedure = procedure_repo.create(
+                document_id=5,
                 assignee_names=[],
-                location_id='',
-                doc_name='카운트 미정 문서',
-                identifiers=[
+                location_name='',
+                document_name='카운트 미정 문서',
+                test_items=[
                     {'id': 'TC-UNKNOWN', 'name': '카운트 미정 시험', 'estimated_minutes': 10},
                 ],
                 estimated_minutes=10,
             )
 
         r = exec_client.post('/execution/api/start', json={
-            'identifier_id': 'TC-UNKNOWN', 'task_id': task['id']
+            'test_item_id': 'TC-UNKNOWN', 'procedure_id': procedure['id']
         })
-        ex_id = r.get_json()['id']
         r2 = exec_client.post('/execution/api/complete', json={
-            'execution_id': ex_id, 'fail_count': 2, 'block_count': 1
+            'procedure_id': procedure['id'], 'test_item_id': 'TC-UNKNOWN',
+            'fail_count': 2, 'block_count': 1
         })
 
         assert r2.status_code == 200
@@ -276,13 +278,14 @@ class TestExecutionAPI:
 
     def test_reset(self, exec_client):
         r = exec_client.post('/execution/api/start', json={
-            'identifier_id': 'TC-001', 'task_id': 't_001'
+            'test_item_id': 'TC-001', 'procedure_id': 't_001'
         })
-        ex_id = r.get_json()['id']
         exec_client.post('/execution/api/complete', json={
-            'execution_id': ex_id, 'fail_count': 1
+            'procedure_id': 't_001', 'test_item_id': 'TC-001', 'fail_count': 1
         })
-        r2 = exec_client.post('/execution/api/reset', json={'execution_id': ex_id})
+        r2 = exec_client.post('/execution/api/reset', json={
+            'procedure_id': 't_001', 'test_item_id': 'TC-001',
+        })
         assert r2.status_code == 200
         assert r2.get_json()['status'] == 'pending'
 
@@ -291,18 +294,18 @@ class TestExecutionAPI:
         assert r.status_code == 200
         assert isinstance(r.get_json(), list)
 
-    def test_list_includes_identifier_owners_for_author_column(
+    def test_list_includes_test_item_owners_for_author_column(
         self, exec_app, exec_client
     ):
         with exec_app.app_context():
-            from app.features.schedule.models import task as task_repo
+            from app.features.schedule.services import test_procedures as procedure_repo
 
-            task_repo.create(
-                doc_id=1,
+            procedure_repo.create(
+                document_id=1,
                 assignee_names=['테스트 담당자'],
-                location_id='',
-                doc_name='작성자 문서',
-                identifiers=[
+                location_name='',
+                document_name='작성자 문서',
+                test_items=[
                     {
                         'id': 'TC-OWNER',
                         'name': '작성자 시험',
@@ -315,7 +318,7 @@ class TestExecutionAPI:
 
         r = exec_client.get('/execution/api/list')
         assert r.status_code == 200
-        item = next(i for i in r.get_json() if i['identifier_id'] == 'TC-OWNER')
+        item = next(i for i in r.get_json() if i['test_item_id'] == 'TC-OWNER')
         assert item['owners'] == ['Alice', 'Bob']
         assert item['assignee_names'] == ['테스트 담당자']
         assert item['execution_status'] == 'pending'
@@ -331,16 +334,16 @@ class TestExecutionAPI:
         assert r.status_code == 200
         assert 'total_count' in r.get_json()
 
-    def test_total_count_uses_identifier_data_not_hardcoded_ten(self, exec_app, exec_client):
+    def test_total_count_uses_test_item_data_not_hardcoded_ten(self, exec_app, exec_client):
         with exec_app.app_context():
-            from app.features.schedule.models import task as task_repo
+            from app.features.schedule.services import test_procedures as procedure_repo
 
-            task_repo.create(
-                doc_id=1,
+            procedure_repo.create(
+                document_id=1,
                 assignee_names=[],
-                location_id='',
-                doc_name='카운트 문서',
-                identifiers=[
+                location_name='',
+                document_name='카운트 문서',
+                test_items=[
                     {'id': 'TC-COUNT', 'name': '카운트 시험', 'estimated_minutes': 10, 'total_count': 7},
                 ],
                 estimated_minutes=10,
@@ -352,14 +355,14 @@ class TestExecutionAPI:
 
     def test_pending_item_uses_pf_num_as_total_count(self, exec_app, exec_client):
         with exec_app.app_context():
-            from app.features.schedule.models import task as task_repo
+            from app.features.schedule.services import test_procedures as procedure_repo
 
-            task = task_repo.create(
-                doc_id=1,
+            procedure = procedure_repo.create(
+                document_id=1,
                 assignee_names=[],
-                location_id='',
-                doc_name='PF 문서',
-                identifiers=[
+                location_name='',
+                document_name='PF 문서',
+                test_items=[
                     {
                         'id': 'TC-PF',
                         'name': 'PF 시험',
@@ -371,40 +374,42 @@ class TestExecutionAPI:
             )
 
         list_response = exec_client.get('/execution/api/list')
-        item = next(i for i in list_response.get_json() if i['identifier_id'] == 'TC-PF')
+        item = next(i for i in list_response.get_json() if i['test_item_id'] == 'TC-PF')
         assert item['execution'] is None
         assert item['total_count'] == 12
 
-        detail_response = exec_client.get(f'/execution/api/item/TC-PF?task_id={task["id"]}')
+        detail_response = exec_client.get(f'/execution/api/item/TC-PF?procedure_id={procedure["id"]}')
         assert detail_response.status_code == 200
         assert detail_response.get_json()['total_count'] == 12
 
         total_response = exec_client.get(
-            f'/execution/api/total-count/TC-PF?task_id={task["id"]}'
+            f'/execution/api/total-count/TC-PF?procedure_id={procedure["id"]}'
         )
         assert total_response.status_code == 200
         assert total_response.get_json()['total_count'] == 12
 
     def test_complete_result_counts_and_completed_date_are_listed(self, exec_app, exec_client):
         with exec_app.app_context():
-            from app.features.schedule.models import task as task_repo
-            from app.features.execution.models.execution import ExecutionRepository
+            from app.features.schedule.services import test_procedures as procedure_repo
+            from app.features.execution.repository import ExecutionRepository
 
-            t = task_repo.create(
-                doc_id=2,
+            t = procedure_repo.create(
+                document_id=2,
                 assignee_names=[],
-                location_id='',
-                doc_name='결과 문서',
-                identifiers=[
+                location_name='',
+                document_name='결과 문서',
+                test_items=[
                     {'id': 'TC-RESULT', 'name': '결과 시험', 'estimated_minutes': 10, 'total_count': 9},
                 ],
                 estimated_minutes=10,
             )
             ex = ExecutionRepository.start('TC-RESULT', t['id'], total_count=9)
-            done = ExecutionRepository.complete(ex['id'], fail_count=2, block_count=3)
+            done = ExecutionRepository.complete(
+                t['id'], 'TC-RESULT', fail_count=2, block_count=3,
+            )
 
         r = exec_client.get('/execution/api/list')
-        item = next(i for i in r.get_json() if i['identifier_id'] == 'TC-RESULT')
+        item = next(i for i in r.get_json() if i['test_item_id'] == 'TC-RESULT')
         assert item['execution']['fail_count'] == 2
         assert item['execution']['block_count'] == 3
         assert item['execution']['pass_count'] == 4
@@ -420,59 +425,102 @@ class TestExecutionAPI:
         }
         assert item['status_order'] == 3
         assert item['display_date'] == done['completed_at']
+        assert item['actual_start_at'] == done['started_at']
+        assert item['actual_end_at'] == done['completed_at']
 
-    def test_list_uses_scheduled_block_location_per_task_identifier(self, exec_app, exec_client):
+        completed_items = exec_client.get(
+            '/execution/api/list?status=completed'
+        ).get_json()
+        pending_items = exec_client.get(
+            '/execution/api/list?status=pending'
+        ).get_json()
+        assert any(i['test_item_id'] == 'TC-RESULT' for i in completed_items)
+        assert not any(i['test_item_id'] == 'TC-RESULT' for i in pending_items)
+        multi_status_items = exec_client.get(
+            '/execution/api/list?status=pending&status=completed'
+        ).get_json()
+        assert any(i['test_item_id'] == 'TC-RESULT' for i in multi_status_items)
+        assert {
+            item['execution_status'] for item in multi_status_items
+        } <= {'pending', 'completed'}
+
+    def test_list_uses_scheduled_block_location_per_procedure_test_item(self, exec_app, exec_client):
         with exec_app.app_context():
-            from app.features.schedule.models import location as loc_repo
-            from app.features.schedule.models import schedule_block as block_repo
-            from app.features.schedule.models import task as task_repo
+            from app.features.schedule.services import blocks as block_repo
+            from app.features.schedule.services import test_procedures as procedure_repo
 
-            loc_a = loc_repo.create('시험실A', '#111111')
-            loc_b = loc_repo.create('시험실B', '#222222')
-            task1 = task_repo.create(
-                doc_id=3,
+            loc_a = '시험실A'
+            loc_b = '시험실B'
+            procedure1 = procedure_repo.create(
+                document_id=3,
                 assignee_names=[],
-                location_id=loc_a['id'],
-                doc_name='원본',
-                identifiers=[{'id': 'TC-SAME', 'name': '원본 시험', 'estimated_minutes': 10}],
+                location_name=loc_a,
+                document_name='원본',
+                test_items=[{'id': 'TC-SAME', 'name': '원본 시험', 'estimated_minutes': 10}],
                 estimated_minutes=10,
             )
-            task2 = task_repo.create(
-                doc_id=4,
+            procedure2 = procedure_repo.create(
+                document_id=4,
                 assignee_names=[],
-                location_id=loc_a['id'],
-                doc_name='재시험',
-                identifiers=[{'id': 'TC-SAME', 'name': '재시험', 'estimated_minutes': 10}],
+                location_name=loc_a,
+                document_name='재시험',
+                test_items=[{'id': 'TC-SAME', 'name': '재시험', 'estimated_minutes': 10}],
                 estimated_minutes=10,
-                exam_no=2,
+                test_round=2,
             )
             block_repo.create(
-                task_id=task1['id'],
+                procedure_id=procedure1['id'],
                 assignee_names=[],
-                location_id=loc_a['id'],
+                location_name=loc_a,
                 date='2026-07-01',
                 start_time='09:00',
                 end_time='10:00',
-                identifier_ids=['TC-SAME'],
+                test_item_ids=['TC-SAME'],
             )
             block_repo.create(
-                task_id=task2['id'],
+                procedure_id=procedure2['id'],
                 assignee_names=[],
-                location_id=loc_b['id'],
+                location_name=loc_b,
                 date='2026-07-01',
                 start_time='10:00',
                 end_time='11:00',
-                identifier_ids=['TC-SAME'],
+                test_item_ids=['TC-SAME'],
             )
 
         r = exec_client.get('/execution/api/list')
-        items = {i['task_id']: i for i in r.get_json() if i['identifier_id'] == 'TC-SAME'}
-        assert items[task1['id']]['location_name'] == '시험실A'
-        assert items[task2['id']]['location_name'] == '시험실B'
+        items = {i['procedure_id']: i for i in r.get_json() if i['test_item_id'] == 'TC-SAME'}
+        assert items[procedure1['id']]['location_name'] == '시험실A'
+        assert items[procedure2['id']]['location_name'] == '시험실B'
+        assert items[procedure1['id']]['scheduled_date'] == '2026-07-01'
+        assert items[procedure1['id']]['scheduled_start_time'] == '09:00'
+        assert items[procedure1['id']]['scheduled_end_time'] == '10:15'
+        assert items[procedure2['id']]['scheduled_start_time'] == '10:00'
+        assert items[procedure2['id']]['scheduled_end_time'] == '11:00'
+
+        filtered = exec_client.get(
+            f'/execution/api/list?procedure_id={procedure2["id"]}'
+            '&location=시험실B&status=pending'
+        ).get_json()
+        same_items = [i for i in filtered if i['test_item_id'] == 'TC-SAME']
+        assert [item['procedure_id'] for item in same_items] == [procedure2['id']]
+
+        multi_filtered = exec_client.get(
+            f'/execution/api/list?procedure_id={procedure1["id"]}'
+            f'&procedure_id={procedure2["id"]}'
+            '&location=시험실A&location=시험실B&status=pending'
+        ).get_json()
+        same_items = [
+            item for item in multi_filtered
+            if item['test_item_id'] == 'TC-SAME'
+        ]
+        assert {item['procedure_id'] for item in same_items} == {
+            procedure1['id'], procedure2['id'],
+        }
 
     def test_execution_page(self, exec_client):
         r = exec_client.get('/execution/')
         assert r.status_code == 200
+        assert 'id="filter-document"' in r.get_data(as_text=True)
 
     def test_detail_count_inputs_only_cap_when_total_count_is_known(self):
         js_path = os.path.join(

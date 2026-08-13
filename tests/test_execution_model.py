@@ -1,59 +1,57 @@
-"""Tests for ExecutionRepository.get_by_identifier_and_task."""
-import json, os
+"""Tests for ExecutionRepository.get_by_test_item_and_procedure."""
 import pytest
 from app import create_app
+from tests.conftest import configure_test_storage
 
 
 def _make_app(tmp_path):
-    data_dir = str(tmp_path / 'sched_data')
-    exec_dir = str(tmp_path / 'exec_data')
-    os.makedirs(data_dir)
-    os.makedirs(exec_dir)
-    for name in ('users', 'locations', 'tasks', 'schedule_blocks', 'versions', 'procedures'):
-        with open(os.path.join(data_dir, f'{name}.json'), 'w') as f:
-            json.dump([], f)
-    with open(os.path.join(data_dir, 'settings.json'), 'w') as f:
-        json.dump({
-            'work_start': '08:00', 'work_end': '17:00',
-            'actual_work_start': '08:30', 'actual_work_end': '16:30',
-            'lunch_start': '12:00', 'lunch_end': '13:00',
-            'breaks': [], 'grid_interval_minutes': 15,
-            'max_schedule_days': 14, 'block_color_by': 'assignee',
-        }, f)
-    with open(os.path.join(exec_dir, 'executions.json'), 'w') as f:
-        json.dump([], f)
     app = create_app()
-    app.config['DATA_DIR'] = data_dir
-    app.config['EXECUTION_DATA_DIR'] = exec_dir
     app.config['TESTING'] = True
+    configure_test_storage(app, tmp_path)
+    with app.app_context():
+        from app.features.schedule.services.test_procedures import TestProcedureService
+
+        service = TestProcedureService(app.config['DOMAIN_DATA_DIR'])
+        service.create_procedure({
+            'id': 't_procedure1', 'document_id': 1, 'document_name': '1차',
+            'test_round': 1, 'test_items': [{'id': 'TC-001'}],
+        })
+        service.create_procedure({
+            'id': 't_procedure2', 'document_id': 1, 'document_name': '2차',
+            'test_round': 2, 'test_items': [{'id': 'TC-001'}],
+        })
     return app
 
 
-class TestGetByIdentifierAndTask:
+class TestGetByTestItemAndTestProcedure:
 
     @pytest.fixture(autouse=True)
     def setup(self, tmp_path):
         self.app = _make_app(tmp_path)
 
-    def test_returns_correct_execution_by_task_scope(self):
-        """동일 identifier_id가 두 태스크에 있을 때 task_id로 올바른 실행을 반환한다."""
-        from app.features.execution.models.execution import ExecutionRepository
+    def test_returns_correct_execution_by_procedure_scope(self):
+        """동일 test_item_id가 두 태스크에 있을 때 procedure_id로 올바른 실행을 반환한다."""
+        from app.features.execution.repository import ExecutionRepository
         with self.app.app_context():
-            ex1 = ExecutionRepository.start('TC-001', 't_task1', total_count=10)
-            ex2 = ExecutionRepository.start('TC-001', 't_task2', total_count=10)
+            ex1 = ExecutionRepository.start('TC-001', 't_procedure1', total_count=10)
+            ex2 = ExecutionRepository.start('TC-001', 't_procedure2', total_count=10)
 
-            found1 = ExecutionRepository.get_by_identifier_and_task('TC-001', 't_task1')
-            found2 = ExecutionRepository.get_by_identifier_and_task('TC-001', 't_task2')
+            found1 = ExecutionRepository.get_by_test_item_and_procedure('TC-001', 't_procedure1')
+            found2 = ExecutionRepository.get_by_test_item_and_procedure('TC-001', 't_procedure2')
 
             assert found1 is not None
-            assert found1['task_id'] == 't_task1'
+            assert found1['procedure_id'] == 't_procedure1'
             assert found2 is not None
-            assert found2['task_id'] == 't_task2'
-            assert found1['id'] != found2['id']
+            assert found2['procedure_id'] == 't_procedure2'
+            assert (
+                found1['procedure_id'], found1['test_item_id']
+            ) != (
+                found2['procedure_id'], found2['test_item_id']
+            )
 
     def test_returns_none_when_not_found(self):
         """일치하는 레코드가 없으면 None을 반환한다."""
-        from app.features.execution.models.execution import ExecutionRepository
+        from app.features.execution.repository import ExecutionRepository
         with self.app.app_context():
-            result = ExecutionRepository.get_by_identifier_and_task('TC-999', 't_none')
+            result = ExecutionRepository.get_by_test_item_and_procedure('TC-999', 't_none')
             assert result is None

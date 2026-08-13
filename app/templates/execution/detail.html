@@ -1,5 +1,5 @@
 {% extends "execution/base.html" %}
-{% block title %}시험 실행 — {{ identifier_id }}{% endblock %}
+{% block title %}시험 실행 — {{ test_item_id }}{% endblock %}
 
 {% block toolbar_right %}
 <a href="{{ url_for('execution.index') }}" class="btn btn-sm btn-outline-light">
@@ -24,8 +24,8 @@
 
 {% block scripts %}
 <script>
-  var IDENTIFIER_ID = {{ identifier_id | tojson }};
-  var TASK_ID = {{ task_id | tojson }};
+  var TEST_ITEM_ID = {{ test_item_id | tojson }};
+  var PROCEDURE_ID = {{ procedure_id | tojson }};
   var BARCODE_PREFIX = {{ barcode_prefix | tojson }};
 </script>
 <script src="{{ url_for('static', filename='execution/js/execution-detail.js') }}?v={{ cache_bust }}"></script>

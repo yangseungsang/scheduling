@@ -1,0 +1,176 @@
+{% extends "schedule/base.html" %}
+{% block title %}{{ '시험 항목 수정' if procedure else '시험 항목 추가' }} - 스케줄링{% endblock %}
+
+{% block content_sub %}
+<h2>{{ '시험 항목 수정' if procedure else '시험 항목 추가' }}</h2>
+<form method="POST" class="mt-3" style="max-width: 900px;" id="procedure-form">
+
+  {# ── 문서 정보 (최상단) ── #}
+  <div class="row mb-3">
+    <div class="col-3">
+      <label class="form-label fw-bold">문서 ID</label>
+      <input type="number" class="form-control" name="document_id" id="document_id"
+             value="{{ procedure.document_id if procedure else '' }}" required>
+    </div>
+    <div class="col">
+      <label class="form-label fw-bold">문서명</label>
+      <input type="text" class="form-control" name="document_name" id="document_name"
+             value="{{ procedure.document_name if procedure else '' }}" placeholder="예: 시스템 초기화" required>
+    </div>
+  </div>
+
+  {# ── 시험 항목 목록 ── #}
+  <div class="mb-3">
+    <label class="form-label fw-bold">시험 항목 (시험항목)</label>
+    <table class="table table-sm table-bordered" id="test_item-table">
+      <thead>
+        <tr>
+          <th style="width:15%">시험 항목 ID</th>
+          <th style="width:25%">시험항목</th>
+          <th style="width:25%">작성자 (쉼표 구분)</th>
+          <th style="width:15%">예상시간 (분)</th>
+          <th style="width:20%"></th>
+        </tr>
+      </thead>
+      <tbody id="test_item-body">
+      </tbody>
+    </table>
+    <button type="button" class="btn btn-sm btn-outline-primary" id="btn-add-test_item">
+      <i class="bi bi-plus-lg"></i> 시험 항목 추가
+    </button>
+    <div class="mt-2">
+      <strong>합계 예상시간: <span id="total-est-display">0</span>분</strong>
+    </div>
+    <div id="test_item-error" class="text-danger mt-1" style="display:none"></div>
+  </div>
+  <input type="hidden" name="test_items_json" id="test_items_json">
+  <input type="hidden" name="estimated_minutes" id="estimated_minutes_hidden" value="{{ procedure.estimated_minutes if procedure else 0 }}">
+
+  {# ── 배정 정보 ── #}
+  <div class="row mb-3">
+    <div class="col">
+      <label class="form-label">시험장소</label>
+      <input type="text" name="location_name" class="form-control"
+             list="location-options" value="{{ procedure.location_name if procedure else '' }}"
+             placeholder="예: 시험실 A">
+      <datalist id="location-options">
+        {% for loc in locations %}<option value="{{ loc.name }}">{% endfor %}
+      </datalist>
+    </div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label">시험 담당자</label>
+    <input type="text" name="assignee_names" class="form-control"
+           value="{{ procedure.assignee_names|join(', ') if procedure else '' }}"
+           placeholder="예: 홍길동, 김민수">
+  </div>
+
+  <div class="mb-3">
+    <label class="form-label">메모</label>
+    <textarea class="form-control" name="memo" rows="3">{{ procedure.memo if procedure else '' }}</textarea>
+  </div>
+  <button type="submit" class="btn btn-primary">저장</button>
+  {% if procedure %}
+  <a href="{{ url_for('procedures.procedure_detail', procedure_id=procedure.id) }}" class="btn btn-secondary">취소</a>
+  {% else %}
+  <a href="{{ url_for('procedures.procedure_list') }}" class="btn btn-secondary">취소</a>
+  {% endif %}
+</form>
+{% endblock %}
+
+{% block scripts_sub %}
+<script>
+(function() {
+  var tbody = document.getElementById('test_item-body');
+  var totalDisplay = document.getElementById('total-est-display');
+  var hiddenJson = document.getElementById('test_items_json');
+  var hiddenEst = document.getElementById('estimated_minutes_hidden');
+  var errDiv = document.getElementById('test_item-error');
+
+  // Load existing test_items
+  var initialList = {{ (procedure.test_items if procedure else [])|tojson }};
+  if (initialList && initialList.length) {
+    initialList.forEach(function(item) {
+      if (typeof item === 'string') {
+        addRow(item, '', [], 0);
+      } else {
+        addRow(item.id, item.name || '', item.owners || [], item.estimated_minutes || 0);
+      }
+    });
+  }
+  updateTotal();
+
+  function addRow(id, name, owners, minutes) {
+    owners = owners || [];
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><input type="text" class="form-control form-control-sm id-input" placeholder="TC-001" required></td>' +
+      '<td><input type="text" class="form-control form-control-sm name-input" placeholder="시험항목명"></td>' +
+      '<td><input type="text" class="form-control form-control-sm owners-input" placeholder="작성자 (쉼표 구분)"></td>' +
+      '<td><input type="number" class="form-control form-control-sm min-input" min="0" step="1"></td>' +
+      '<td><button type="button" class="btn btn-sm btn-outline-danger btn-remove-id">&times;</button></td>';
+    tr.querySelector('.id-input').value = id || '';
+    tr.querySelector('.name-input').value = name || '';
+    tr.querySelector('.owners-input').value = owners.join(', ');
+    tr.querySelector('.min-input').value = minutes || 0;
+    tbody.appendChild(tr);
+    tr.querySelector('.min-input').addEventListener('input', updateTotal);
+    tr.querySelector('.btn-remove-id').addEventListener('click', function() {
+      tr.remove();
+      updateTotal();
+    });
+  }
+
+  function updateTotal() {
+    var rows = tbody.querySelectorAll('tr');
+    var total = 0;
+    rows.forEach(function(row) {
+      total += parseInt(row.querySelector('.min-input').value) || 0;
+    });
+    totalDisplay.textContent = total;
+    hiddenEst.value = total;
+  }
+
+  document.getElementById('btn-add-test_item').addEventListener('click', function() {
+    addRow('', '', [], 0);
+  });
+
+  // Before submit: serialize test_items and validate
+  document.getElementById('procedure-form').addEventListener('submit', function(e) {
+    var rows = tbody.querySelectorAll('tr');
+    var list = [];
+    var ids = [];
+    var hasEmpty = false;
+    rows.forEach(function(row) {
+      var idVal = row.querySelector('.id-input').value.trim();
+      var nameVal = row.querySelector('.name-input').value.trim();
+      var ownersRaw = row.querySelector('.owners-input').value.trim();
+      var ownersArr = ownersRaw ? ownersRaw.split(',').map(function(s) { return s.trim(); }).filter(Boolean) : [];
+      var minVal = parseInt(row.querySelector('.min-input').value) || 0;
+      if (!idVal) { hasEmpty = true; return; }
+      ids.push(idVal);
+      list.push({id: idVal, name: nameVal, owners: ownersArr, estimated_minutes: minVal});
+    });
+    if (hasEmpty) {
+      e.preventDefault();
+      errDiv.textContent = '시험 항목 ID를 입력해주세요.';
+      errDiv.style.display = 'block';
+      return;
+    }
+    var seen = {};
+    for (var i = 0; i < ids.length; i++) {
+      if (seen[ids[i]]) {
+        e.preventDefault();
+        errDiv.textContent = '중복 시험 항목: ' + ids[i];
+        errDiv.style.display = 'block';
+        return;
+      }
+      seen[ids[i]] = true;
+    }
+    errDiv.style.display = 'none';
+    hiddenJson.value = JSON.stringify(list);
+  });
+
+})();
+</script>
+{% endblock %}

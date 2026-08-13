@@ -98,7 +98,7 @@
 
           // 시간이 실제로 변경된 경우에만 서버 요청
           if (newStart !== block.dataset.startTime || newEnd !== block.dataset.endTime) {
-            var taskId = block.dataset.taskId;
+            var procedureId = block.dataset.procedureId;
             var blockTitle = (block.querySelector('.block-title') || {}).textContent || '';
             var origStartMin = timeToMin(block.dataset.startTime);
             var origEndMin = timeToMin(block.dataset.endTime);

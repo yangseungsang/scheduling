@@ -5,9 +5,9 @@ from xml.etree import ElementTree as ET
 from io import BytesIO
 
 from tests.conftest import (
-    _create_user,
+    _assignee_name,
     _create_location,
-    _create_task,
+    _create_procedure,
     _create_block,
 )
 
@@ -51,16 +51,16 @@ class TestPageRoutes:
 
 class TestScheduleBlockAPI:
     def test_create_block(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         data, status = _create_block(client, tid, uid)
         assert status == 201
-        assert data['task_id'] == tid
+        assert data['procedure_id'] == tid
         assert uid in data['assignee_names']
         assert data['start_time'] == '09:00'
 
     def test_create_block_missing_fields(self, client):
-        r = client.post('/schedule/api/blocks', json={'task_id': 'xxx'})
+        r = client.post('/schedule/api/blocks', json={'procedure_id': 'xxx'})
         assert r.status_code == 400
 
     def test_create_block_no_body(self, client):
@@ -68,13 +68,13 @@ class TestScheduleBlockAPI:
         assert r.status_code == 400
 
     def test_create_block_auto_assignee(self, client):
-        """If no assignee_names, use the task's assignee_names."""
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        """If no assignee_names, use the procedure's assignee_names."""
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         r = client.post(
             '/schedule/api/blocks',
             json={
-                'task_id': tid,
+                'procedure_id': tid,
                 'date': '2026-03-10',
                 'start_time': '09:00',
                 'end_time': '10:00',
@@ -84,30 +84,36 @@ class TestScheduleBlockAPI:
         assert uid in r.get_json()['assignee_names']
 
     def test_create_block_overlap_rejected(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         _create_block(
-            client, tid, uid, start='09:00', end='10:00', location_id='loc_test'
+            client, tid, uid, start='09:00', end='10:00', location_name='loc_test'
         )
         # Overlapping block at same location
         _, status = _create_block(
-            client, tid, uid, start='09:30', end='10:30', location_id='loc_test'
+            client, tid, uid, start='09:30', end='10:30', location_name='loc_test'
         )
         assert status == 409
 
     def test_create_block_adjacent_allowed(self, client):
         """Blocks that touch at endpoints should not be rejected."""
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         # Use times that don't span breaks to avoid end_time adjustment
-        _create_block(client, tid, uid, start='10:00', end='11:00')
-        _, status = _create_block(client, tid, uid, start='11:00', end='11:30')
+        _create_block(
+            client, tid, uid, start='10:00', end='11:00',
+            test_item_ids=['TC-001'],
+        )
+        _, status = _create_block(
+            client, tid, uid, start='11:00', end='11:30',
+            test_item_ids=['TC-002'],
+        )
         assert status == 201
 
     def test_create_block_break_adjustment(self, client):
         """Block spanning lunch should have end_time extended."""
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         data, status = _create_block(
             client,
             tid,
@@ -120,8 +126,8 @@ class TestScheduleBlockAPI:
         assert data['end_time'] >= '15:00'
 
     def test_update_block_move(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         block, _ = _create_block(client, tid, uid)
         r = client.put(
             f'/schedule/api/blocks/{block["id"]}',
@@ -134,8 +140,8 @@ class TestScheduleBlockAPI:
         assert r.get_json()['start_time'] == '10:00'
 
     def test_update_block_change_date(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         block, _ = _create_block(client, tid, uid, date_str='2026-03-10')
         r = client.put(
             f'/schedule/api/blocks/{block["id"]}',
@@ -148,8 +154,8 @@ class TestScheduleBlockAPI:
 
     def test_update_block_preserves_work_duration(self, client):
         """Moving a block should preserve the actual work duration (excluding breaks)."""
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         # Create 1h block at 09:00-10:00
         block, _ = _create_block(client, tid, uid, start='09:00', end='10:00')
         # Move to 11:00 -- should still be 1h of work
@@ -166,8 +172,8 @@ class TestScheduleBlockAPI:
 
     def test_update_block_move_across_lunch(self, client):
         """Moving a 1h block to start at 11:30 should extend past lunch."""
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         block, _ = _create_block(client, tid, uid, start='09:00', end='10:00')
         r = client.put(
             f'/schedule/api/blocks/{block["id"]}',
@@ -183,8 +189,8 @@ class TestScheduleBlockAPI:
 
     def test_update_block_resize_no_duration_preservation(self, client):
         """Resize should use the exact end_time, not preserve work duration."""
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         block, _ = _create_block(client, tid, uid, start='09:00', end='10:00')
         r = client.put(
             f'/schedule/api/blocks/{block["id"]}',
@@ -198,10 +204,10 @@ class TestScheduleBlockAPI:
 
     def test_update_block_resize_syncs_remaining(self, client):
         """On resize-shrink, remaining hours increase (no auto-split)."""
-        uid = _create_user(client)
-        tid = _create_task(client, uid, hours='4')
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid, hours='4')
         block, _ = _create_block(client, tid, uid, start='09:00', end='11:00')
-        t_before = client.get(f'/tasks/api/{tid}').get_json()['task']
+        t_before = client.get(f'/procedures/api/{tid}').get_json()['procedure']
         rem_before = t_before['remaining_minutes']
         # Resize to 1h — remaining should increase
         r = client.put(
@@ -213,12 +219,12 @@ class TestScheduleBlockAPI:
             },
         )
         assert 'split_block' not in r.get_json()
-        t = client.get(f'/tasks/api/{tid}').get_json()['task']
+        t = client.get(f'/procedures/api/{tid}').get_json()['procedure']
         assert t['estimated_minutes'] == 240
         assert t['remaining_minutes'] > rem_before
 
     def test_update_block_overlap_rejected(self, client):
-        # Create two simple blocks (different tasks) at same location
+        # Create two simple blocks (different procedures) at same location
         client.post(
             '/schedule/api/blocks',
             json={
@@ -226,7 +232,7 @@ class TestScheduleBlockAPI:
                 'date': '2026-03-10',
                 'start_time': '10:00',
                 'end_time': '11:00',
-                'location_id': 'loc_test',
+                'location_name': 'loc_test',
                 'title': 'A',
             },
         )
@@ -237,7 +243,7 @@ class TestScheduleBlockAPI:
                 'date': '2026-03-10',
                 'start_time': '11:00',
                 'end_time': '11:30',
-                'location_id': 'loc_test',
+                'location_name': 'loc_test',
                 'title': 'B',
             },
         )
@@ -257,8 +263,8 @@ class TestScheduleBlockAPI:
         assert r.status_code == 404
 
     def test_update_block_no_body(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         block, _ = _create_block(client, tid, uid)
         r = client.put(
             f'/schedule/api/blocks/{block["id"]}',
@@ -267,8 +273,8 @@ class TestScheduleBlockAPI:
         assert r.status_code == 400
 
     def test_delete_block(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         block, _ = _create_block(client, tid, uid)
         r = client.delete(f'/schedule/api/blocks/{block["id"]}')
         assert r.status_code == 200
@@ -279,8 +285,8 @@ class TestScheduleBlockAPI:
         assert r.status_code == 404
 
     def test_lock_toggle(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         block, _ = _create_block(client, tid, uid)
         bid = block['id']
         # Lock
@@ -303,7 +309,7 @@ class TestScheduleViewAPIs:
         assert data['current_date'] == '2026-03-10'
         assert 'blocks' in data
         assert 'time_slots' in data
-        assert 'queue_tasks' in data
+        assert 'queue_procedures' in data
 
     def test_api_week_data(self, client):
         r = client.get('/schedule/api/week?date=2026-03-10')
@@ -321,75 +327,75 @@ class TestScheduleViewAPIs:
         assert len(data['weeks']) >= 4
 
     def test_api_day_data_with_blocks(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid, doc_id=820)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid, document_id=820)
         _create_block(client, tid, uid, date_str='2026-03-10')
         r = client.get('/schedule/api/day?date=2026-03-10')
         data = r.get_json()
         assert len(data['blocks']) == 1
-        assert data['blocks'][0]['task_title'] == '시스템'
+        assert data['blocks'][0]['procedure_title'] == '시스템'
 
     def test_enriched_block_has_display_fields(self, client):
-        uid = _create_user(client)
+        uid = _assignee_name(client)
         lid = _create_location(client, name='시험실Z')
-        tid = _create_task(client, uid, loc_id=lid, doc_id=654)
+        tid = _create_procedure(client, uid, loc_id=lid, document_id=654)
         _create_block(client, tid, uid, date_str='2026-03-10')
         r = client.get('/schedule/api/day?date=2026-03-10')
         block = r.get_json()['blocks'][0]
-        assert block['task_title'] == '시스템'
+        assert block['procedure_title'] == '시스템'
         assert block['assignee_name'] == '홍길동'
         assert 'color' in block
 
-    def test_queue_tasks_in_view_data(self, client):
-        uid = _create_user(client)
-        _create_task(client, uid, hours='4')
+    def test_queue_procedures_in_view_data(self, client):
+        uid = _assignee_name(client)
+        _create_procedure(client, uid, hours='4')
         r = client.get('/schedule/api/day')
         data = r.get_json()
-        assert len(data['queue_tasks']) == 1
-        assert data['queue_tasks'][0]['remaining_unscheduled_minutes'] == 240
+        assert len(data['queue_procedures']) == 1
+        assert data['queue_procedures'][0]['remaining_unscheduled_minutes'] == 240
 
-    def test_queue_tasks_exclude_fully_scheduled(self, client):
-        """Task fully covered by blocks should not appear in queue."""
-        uid = _create_user(client)
-        tid = _create_task(client, uid, hours='1')
+    def test_queue_procedures_exclude_fully_scheduled(self, client):
+        """TestProcedure fully covered by blocks should not appear in queue."""
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid, hours='1')
         _create_block(client, tid, uid, start='09:00', end='10:00')
         r = client.get('/schedule/api/day')
-        queue = r.get_json()['queue_tasks']
+        queue = r.get_json()['queue_procedures']
         assert all(t['id'] != tid for t in queue)
 
-    def test_queue_hides_task_with_full_block(self, client):
-        """Task with non-split block should NOT appear in queue (resize = real time change)."""
-        uid = _create_user(client)
-        tid = _create_task(client, uid, hours='2')
+    def test_queue_hides_procedure_with_full_block(self, client):
+        """TestProcedure with non-split block should NOT appear in queue (resize = real time change)."""
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid, hours='2')
         _create_block(client, tid, uid, start='10:00', end='11:00')
         r = client.get('/schedule/api/day')
-        queue = r.get_json()['queue_tasks']
+        queue = r.get_json()['queue_procedures']
         assert all(t['id'] != tid for t in queue)
 
-    def test_queue_excludes_completed_tasks(self, app, client):
+    def test_queue_excludes_completed_procedures(self, app, client):
         """모든 식별자가 execution 완료된 태스크는 queue 에서 제외된다 (#108)."""
-        uid = _create_user(client)
-        tid = _create_task(client, uid, hours='2')
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid, hours='2')
 
-        from app.features.execution.models.execution import ExecutionRepository
+        from app.features.execution.repository import ExecutionRepository
 
         with app.app_context():
             ex1 = ExecutionRepository.start('TC-001', tid)
-            ExecutionRepository.complete(ex1['id'], fail_count=0)
+            ExecutionRepository.complete(tid, 'TC-001', fail_count=0)
             ex2 = ExecutionRepository.start('TC-002', tid)
-            ExecutionRepository.complete(ex2['id'], fail_count=0)
+            ExecutionRepository.complete(tid, 'TC-002', fail_count=0)
 
         r = client.get('/schedule/api/day')
-        queue = r.get_json()['queue_tasks']
+        queue = r.get_json()['queue_procedures']
         assert all(t['id'] != tid for t in queue)
 
 
 class TestOverlapLayout:
     def test_overlapping_blocks_get_columns(self, client):
-        uid = _create_user(client)
-        tid1 = _create_task(client, uid, doc_id=986)
-        uid2 = _create_user(client, name='김철수', color='#FF0000')
-        tid2 = _create_task(client, uid2, doc_id=771)
+        uid = _assignee_name(client)
+        tid1 = _create_procedure(client, uid, document_id=986)
+        uid2 = _assignee_name(client, name='김철수', color='#FF0000')
+        tid2 = _create_procedure(client, uid2, document_id=771)
         # Two blocks at same time, different assignees
         _create_block(
             client, tid1, uid, date_str='2026-03-10', start='09:00', end='10:00'
@@ -403,8 +409,8 @@ class TestOverlapLayout:
         assert r.status_code == 200
 
     def test_nonoverlapping_blocks_single_column(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
         _create_block(client, tid, uid, start='09:00', end='10:00')
         _create_block(client, tid, uid, start='10:00', end='11:00')
         r = client.get('/schedule/?date=2026-03-10')
@@ -413,8 +419,8 @@ class TestOverlapLayout:
 
 class TestExportAPI:
     def test_export_csv(self, client):
-        uid = _create_user(client)
-        tid = _create_task(client, uid, doc_id=681)
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid, document_id=681)
         _create_block(client, tid, uid, date_str='2026-03-10')
         r = client.get(
             '/schedule/api/export?start_date=2026-03-10&end_date=2026-03-10&format=csv'
@@ -422,20 +428,20 @@ class TestExportAPI:
         assert r.status_code == 200
         assert 'text/csv' in r.content_type
         body = r.data.decode('utf-8-sig')
-        assert '시스템' in body  # doc_name
+        assert '시스템' in body  # document_name
         assert '2026-03-10' in body
 
     def test_export_xlsx(self, client):
-        uid = _create_user(client)
+        uid = _assignee_name(client)
         loc_id = _create_location(client, name='A 시험실')
-        tid = _create_task(client, uid, loc_id=loc_id)
+        tid = _create_procedure(client, uid, loc_id=loc_id)
         _create_block(
             client,
             tid,
             uid,
             date_str='2026-03-10',
-            location_id=loc_id,
-            identifier_ids=['TC-001'],
+            location_name=loc_id,
+            test_item_ids=['TC-001'],
         )
         _create_block(
             client,
@@ -444,8 +450,8 @@ class TestExportAPI:
             date_str='2026-03-11',
             start='10:00',
             end='11:00',
-            location_id=loc_id,
-            identifier_ids=['TC-002'],
+            location_name=loc_id,
+            test_item_ids=['TC-002'],
         )
         r = client.get(
             '/schedule/api/export?start_date=2026-03-10&end_date=2026-03-16&format=xlsx'
@@ -461,19 +467,25 @@ class TestExportAPI:
             assert 'xl/styles.xml' in names
             workbook = z.read('xl/workbook.xml').decode('utf-8')
             assert '실무자용' in workbook
-            data_sheet = z.read('xl/worksheets/sheet2.xml').decode('utf-8')
-            assert '날짜' in data_sheet
-            assert '문서명' in data_sheet
-            assert '시스템' in data_sheet
-            practitioner_sheet = z.read('xl/worksheets/sheet3.xml').decode('utf-8')
-            assert '장소' in practitioner_sheet
-            assert '절차서' in practitioner_sheet
-            assert '시험 식별자' in practitioner_sheet
-            assert 'A 시험실' in practitioner_sheet
-            assert 'TC-001' in practitioner_sheet
-            assert 'TC-002' in practitioner_sheet
-            assert practitioner_sheet.count('시스템') == 2
+        from openpyxl import load_workbook
+        workbook = load_workbook(BytesIO(r.data), read_only=True)
+        values = list(workbook['데이터'].values)
+        assert values[0] == ('날짜', '문서명')
+        assert any(
+            '시스템' in str(value)
+            for row in values for value in row if value
+        )
+        practitioner_values = list(workbook['실무자용'].values)
+        assert practitioner_values[0] == (
+            '날짜', '장소', '시작', '종료', '절차서', '시험 항목',
+        )
+        flattened = [str(value) for row in practitioner_values for value in row if value]
+        assert 'A 시험실' in flattened
+        assert sum('시스템' in value for value in flattened) == 2
+        assert any('TC-001' in value for value in flattened)
+        assert any('TC-002' in value for value in flattened)
 
+        with zipfile.ZipFile(BytesIO(r.data)) as z:
             schedule_sheet = z.read('xl/worksheets/sheet1.xml').decode('utf-8')
             styles = z.read('xl/styles.xml').decode('utf-8')
             root = ET.fromstring(schedule_sheet)

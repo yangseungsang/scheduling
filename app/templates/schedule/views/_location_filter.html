@@ -63,25 +63,25 @@
 
     // 주간 뷰 장소 컬럼 표시/숨김
     document.querySelectorAll('.week-loc-col').forEach(function(col) {
-      var slots = col.querySelectorAll('.time-slot[data-location-id]');
+      var slots = col.querySelectorAll('.time-slot[data-location-name]');
       if (slots.length) {
-        var colLocId = slots[0].dataset.locationId;
+        var colLocId = slots[0].dataset.locationName;
         col.style.display = visibleSet[colLocId] ? '' : 'none';
       }
     });
 
     // 일간 뷰 장소 컬럼 표시/숨김
     document.querySelectorAll('.day-loc-col').forEach(function(col) {
-      var slots = col.querySelectorAll('.time-slot[data-location-id]');
+      var slots = col.querySelectorAll('.time-slot[data-location-name]');
       if (slots.length) {
-        var colLocId = slots[0].dataset.locationId;
+        var colLocId = slots[0].dataset.locationName;
         col.style.display = visibleSet[colLocId] ? '' : 'none';
       }
     });
 
     // 월간 뷰 블록 표시/숨김
-    document.querySelectorAll('.month-block-item[data-location-id]').forEach(function(el) {
-      el.style.display = visibleSet[el.dataset.locationId] ? '' : 'none';
+    document.querySelectorAll('.month-block-item[data-location-name]').forEach(function(el) {
+      el.style.display = visibleSet[el.dataset.locationName] ? '' : 'none';
     });
   }
 

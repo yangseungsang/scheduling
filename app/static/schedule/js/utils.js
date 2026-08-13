@@ -74,33 +74,33 @@ window.ScheduleApp = window.ScheduleApp || {};
   // 잔여 시간 확인 (블록 배치 후)
   // =====================================================================
   /**
-   * 특정 태스크의 잔여 시간(분)을 서버에서 조회한다.
-   * @param {string} taskId - 태스크 ID
+   * 특정 시험 절차서의 잔여 시간(분)을 서버에서 조회한다.
+   * @param {string} procedureId - 시험 절차서 ID
    * @returns {Promise<number>} 잔여 시간 (분), 오류 시 0
    */
-  function getTaskRemaining(taskId) {
-    return api('GET', '/tasks/api/' + taskId).then(function (res) {
-      return res.task ? res.task.remaining_minutes : 0;
+  function getTestProcedureRemaining(procedureId) {
+    return api('GET', '/procedures/api/' + procedureId).then(function (res) {
+      return res.procedure ? res.procedure.remaining_minutes : 0;
     }).catch(function () { return 0; });
   }
-  App.getTaskRemaining = getTaskRemaining;
+  App.getTestProcedureRemaining = getTestProcedureRemaining;
 
   /**
    * 블록 배치 후 잔여 시간이 증가했는지 확인하고, 증가 시 알림을 표시한다.
    * 잔여 시간이 증가했다는 것은 배치 시 시간이 잘린(cut) 것을 의미한다.
-   * @param {string} taskId - 태스크 ID
-   * @param {string} procedureId - 절차 식별자 (알림 표시용)
+   * @param {string} procedureId - 시험 절차서 ID
+   * @param {string} procedureId - 절차 시험 항목 (알림 표시용)
    * @param {number} prevRemaining - 배치 전 잔여 시간 (분)
    * @returns {Promise<boolean>} 알림 표시 여부
    */
-  function checkRemainingAfterPlace(taskId, procedureId, prevRemaining) {
-    return api('GET', '/tasks/api/' + taskId).then(function (res) {
-      var task = res.task;
-      if (!task) return false;
-      var remaining = task.remaining_minutes;
+  function checkRemainingAfterPlace(procedureId, procedureId, prevRemaining) {
+    return api('GET', '/procedures/api/' + procedureId).then(function (res) {
+      var procedure = res.procedure;
+      if (!procedure) return false;
+      var remaining = procedure.remaining_minutes;
       // 잔여 시간이 이전보다 증가한 경우에만 알림 (시간이 잘렸음을 의미)
       if (remaining > 0 && remaining > (prevRemaining || 0)) {
-        return showRemainingAlert(procedureId || task.doc_name || task.doc_id, remaining);
+        return showRemainingAlert(procedureId || procedure.document_name || procedure.document_id, remaining);
       }
       return false;
     }).catch(function () { return false; });
@@ -110,7 +110,7 @@ window.ScheduleApp = window.ScheduleApp || {};
   /**
    * 잔여 시간 경고 오버레이를 화면에 표시한다.
    * 사용자가 확인 버튼을 누르거나 오버레이 바깥을 클릭하면 닫힌다.
-   * @param {string} procedureId - 절차 식별자 (알림에 표시)
+   * @param {string} procedureId - 절차 시험 항목 (알림에 표시)
    * @param {number} remaining - 잔여 시간 (분)
    * @returns {Promise<boolean>} 닫힐 때 true로 resolve
    */

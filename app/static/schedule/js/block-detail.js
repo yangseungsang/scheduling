@@ -1,6 +1,6 @@
 /**
  * 블록 상세 팝업 모듈 — 블록/큐 아이템 더블클릭 시 상세 정보를 표시한다.
- * 식별자 목록, 예상 시간, 배치 정보, 메모 편집 기능을 제공한다.
+ * 시험 항목 목록, 예상 시간, 배치 정보, 메모 편집 기능을 제공한다.
  */
 (function () {
   'use strict';
@@ -16,10 +16,10 @@
   // =====================================================================
 
   /**
-   * 태스크 상세 정보 팝업을 표시한다.
-   * 서버에서 태스크 정보와 해당 태스크의 모든 블록을 조회하여
-   * 식별자별 배치 현황, 시간, 상태 등을 테이블 형태로 보여준다.
-   * @param {string} taskId - 태스크 ID
+   * 시험 절차서 상세 정보 팝업을 표시한다.
+   * 서버에서 시험 절차서 정보와 해당 시험 절차서의 모든 블록을 조회하여
+   * 시험 항목별 배치 현황, 시간, 상태 등을 테이블 형태로 보여준다.
+   * @param {string} procedureId - 시험 절차서 ID
    * @param {Object} [opts={}] - 표시 옵션
    * @param {string} [opts.blockId] - 현재 블록 ID
    * @param {string} [opts.startTime] - 블록 시작 시간
@@ -29,53 +29,53 @@
    * @param {string} [opts.memo] - 메모 내용
    * @param {string} [opts.blockStatus] - 블록 상태 ('pending'|'in_progress'|'completed'|'cancelled')
    * @param {string} [opts.color] - 블록 색상
-   * @param {Array<string>} [opts.identifierIds] - 현재 블록에 할당된 식별자 ID 목록
+   * @param {Array<string>} [opts.testItemIds] - 현재 블록에 할당된 시험 항목 ID 목록
    * @param {boolean} [opts.isQueued] - 큐 아이템 여부
    */
-  function showTaskDetailPopup(taskId, opts) {
+  function showTestProcedureDetailPopup(procedureId, opts) {
     opts = opts || {};
     var blockId = opts.blockId || null;
-    // 태스크 정보와 해당 태스크의 모든 블록을 병렬로 조회
+    // 시험 절차서 정보와 해당 시험 절차서의 모든 블록을 병렬로 조회
     Promise.all([
-      api('GET', '/tasks/api/' + taskId),
-      api('GET', '/schedule/api/blocks/by-task/' + taskId).catch(function() { return {blocks: []}; }),
+      api('GET', '/procedures/api/' + procedureId),
+      api('GET', '/schedule/api/blocks/by-procedure/' + procedureId).catch(function() { return {blocks: []}; }),
     ]).then(function (results) {
-      var task = results[0] && results[0].task;
+      var procedure = results[0] && results[0].procedure;
       var allBlocks = (results[1] && results[1].blocks) || [];
-      if (!task) { showToast('항목 정보를 불러올 수 없습니다.', 'danger'); return; }
+      if (!procedure) { showToast('항목 정보를 불러올 수 없습니다.', 'danger'); return; }
 
       // 표시할 기본 정보 구성
       var startTime = opts.startTime || '';
       var endTime = opts.endTime || '';
-      var locationName = task.location_name || opts.locationName || '';
-      var assigneeName = (task.assignee_names && task.assignee_names.length)
-        ? task.assignee_names.join(', ')
+      var locationName = procedure.location_name || opts.locationName || '';
+      var assigneeName = (procedure.assignee_names && procedure.assignee_names.length)
+        ? procedure.assignee_names.join(', ')
         : (opts.assigneeName || '-');
-      var memo = task.memo || opts.memo || '';
+      var memo = procedure.memo || opts.memo || '';
       var status = opts.blockStatus || 'pending';
       var statusLabel = { pending: '대기', in_progress: '진행', completed: '완료', cancelled: '불가' }[status] || status;
       var blockColor = opts.color || '#64748b';
       var isQueued = opts.isQueued || false;
 
-      // 현재 블록에 할당된 식별자 ID 집합 구성
-      var blockIdentifierIds = opts.identifierIds || null;
+      // 현재 블록에 할당된 시험 항목 ID 집합 구성
+      var blockTestItemIds = opts.testItemIds || null;
       var blockIdSet = {};
-      if (blockIdentifierIds) {
-        blockIdentifierIds.forEach(function(id) { blockIdSet[id] = true; });
+      if (blockTestItemIds) {
+        blockTestItemIds.forEach(function(id) { blockIdSet[id] = true; });
       }
-      // 분할 블록 여부: 현재 블록의 식별자 수 < 전체 식별자 수
-      var isSplit = blockIdentifierIds && (task.identifiers || []).length > blockIdentifierIds.length;
+      // 분할 블록 여부: 현재 블록의 시험 항목 수 < 전체 시험 항목 수
+      var isSplit = blockTestItemIds && (procedure.test_items || []).length > blockTestItemIds.length;
 
-      // 식별자 → 배치 정보 매핑 구성 (모든 블록에서)
-      var allTestList = task.identifiers || [];
-      var allTaskIds = allTestList.map(function(it) { return typeof it === 'object' ? it.id : it; });
+      // 시험 항목 → 배치 정보 매핑 구성 (모든 블록에서)
+      var allTestList = procedure.test_items || [];
+      var allTestProcedureIds = allTestList.map(function(it) { return typeof it === 'object' ? it.id : it; });
       var idScheduleMap = {};  // id → {time, status, date}
       // 블록을 날짜+시간 순으로 정렬
       allBlocks.sort(function(a,b) { return (a.date + a.start_time).localeCompare(b.date + b.start_time); });
       allBlocks.forEach(function(blk) {
-        var bids = blk.identifier_ids || allTaskIds;
+        var bids = blk.test_item_ids || allTestProcedureIds;
         bids.forEach(function(iid) {
-          // 각 식별자의 첫 번째 배치 정보만 기록
+          // 각 시험 항목의 첫 번째 배치 정보만 기록
           if (!idScheduleMap[iid]) {
             idScheduleMap[iid] = {
               time: blk.date + ' ' + blk.start_time + '–' + blk.end_time,
@@ -86,10 +86,10 @@
         });
       });
 
-      // 식별자 목록 HTML 구성 (체크박스 포함)
+      // 시험 항목 목록 HTML 구성 (체크박스 포함)
       var testListHtml = '-';
-      var idTotalMin = 0; // 식별자별 시간 합계
-      // 이 블록에 속한 식별자 목록 (체크박스 액션 대상)
+      var idTotalMin = 0; // 시험 항목별 시간 합계
+      // 이 블록에 속한 시험 항목 목록 (체크박스 액션 대상)
       var thisBlockIds = [];
       if (allTestList.length) {
         testListHtml =
@@ -100,7 +100,7 @@
           '<table style="font-size:0.78rem;border-collapse:collapse;border-spacing:0;white-space:nowrap">' +
           '<tr style="color:#9ca3af;font-size:0.68rem;border-bottom:1px solid #f3f4f6">' +
             '<td style="padding:3px 4px"></td>' +
-            '<td style="padding:3px 10px 3px 4px">식별자</td><td style="padding:3px 10px 3px 4px">시험항목</td><td style="padding:3px 10px 3px 4px">시간</td>' +
+            '<td style="padding:3px 10px 3px 4px">시험 항목</td><td style="padding:3px 10px 3px 4px">시험항목</td><td style="padding:3px 10px 3px 4px">시간</td>' +
             '<td style="padding:3px 10px 3px 4px">작성자</td>' +
             '<td style="padding:3px 10px 3px 4px">실행상태</td>' +
             '<td style="padding:3px 10px 3px 4px">배치정보</td>' +
@@ -110,11 +110,11 @@
               var mins = item.estimated_minutes || 0;
               idTotalMin += mins;
               var ow = (item.owners || []).join(', ') || '-';
-              // 이 블록에 속한 식별자인지 여부 (분할 블록이 아니면 모두 해당)
+              // 이 블록에 속한 시험 항목인지 여부 (분할 블록이 아니면 모두 해당)
               var inThisBlock = !isSplit || blockIdSet[item.id];
               if (inThisBlock) thisBlockIds.push(item.id);
               
-              // 실행 상태 (Task API에서 보강된 정보 사용)
+              // 실행 상태 (TestProcedure API에서 보강된 정보 사용)
               var execStatus = item.execution_status || 'pending';
               var execColors = {completed:'#198754', in_progress:'#0d6efd', paused:'#0ea5e9', pending:'#94a3b8'};
               var execLabels = {completed:'완료', in_progress:'진행', paused:'정지', pending:'대기'};
@@ -152,7 +152,7 @@
                 '<td style="padding:3px 10px 3px 4px">' + execHtml + '</td>' +
                 '<td style="padding:3px 10px 3px 4px">' + schedHtml + '</td>' +
                 (blockId && inThisBlock && thisBlockIds.length > 0
-                  ? '<td style="padding:3px 4px"><button type="button" class="btn btn-outline-secondary bd-row-to-queue" data-id="' + item.id + '" style="font-size:0.6rem;padding:0 4px;line-height:1.4" title="이 식별자를 큐로 되돌리기"><i class="bi bi-box-arrow-left"></i></button></td>'
+                  ? '<td style="padding:3px 4px"><button type="button" class="btn btn-outline-secondary bd-row-to-queue" data-id="' + item.id + '" style="font-size:0.6rem;padding:0 4px;line-height:1.4" title="이 시험 항목를 큐로 되돌리기"><i class="bi bi-box-arrow-left"></i></button></td>'
                   : (blockId ? '<td></td>' : '')) +
                 '</tr>';
             }
@@ -170,11 +170,11 @@
               '</div>'
             : '');
       }
-      // 분할 블록일 때 (현재 블록 식별자 수 / 전체 식별자 수) 표시
+      // 분할 블록일 때 (현재 블록 시험 항목 수 / 전체 시험 항목 수) 표시
       var splitInfo = '';
-      var totalIdCount = (task.identifiers || []).length;
-      if (blockIdentifierIds && blockIdentifierIds.length < totalIdCount) {
-        splitInfo = ' <span style="font-size:0.75rem;color:#6c757d">(분할 ' + blockIdentifierIds.length + '/' + totalIdCount + ')</span>';
+      var totalIdCount = (procedure.test_items || []).length;
+      if (blockTestItemIds && blockTestItemIds.length < totalIdCount) {
+        splitInfo = ' <span style="font-size:0.75rem;color:#6c757d">(분할 ' + blockTestItemIds.length + '/' + totalIdCount + ')</span>';
       }
 
       // 기존 팝업 제거
@@ -194,28 +194,28 @@
       // 메모 HTML 이스케이프
       var escapedMemo = memo.replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
-      // 태스크 전체 상태 (블록 상태와 별개)
-      var taskStatus = task.status || 'waiting';
-      var taskStatusLabel = { waiting: '대기', in_progress: '진행 중', completed: '완료' }[taskStatus] || taskStatus;
+      // 시험 절차서 전체 상태 (블록 상태와 별개)
+      var procedureStatus = procedure.status || 'waiting';
+      var procedureStatusLabel = { waiting: '대기', in_progress: '진행 중', completed: '완료' }[procedureStatus] || procedureStatus;
 
       // 팝업 HTML 구성
       var html =
         '<div class="bd-box">' +
           '<div class="bd-header">' +
             '<div class="bd-header-left">' +
-              '<span class="bd-id">' + (task.display_name || task.doc_name || '') + '</span>' +
+              '<span class="bd-id">' + (procedure.display_name || procedure.document_name || '') + '</span>' +
               statusBadge +
             '</div>' +
             '<button class="bd-x" id="block-detail-close">&times;</button>' +
           '</div>' +
           '<div class="bd-divider"></div>' +
           '<table class="bd-tbl">' +
-            '<tr><td class="bd-k">시험 식별자' + splitInfo + '</td><td class="bd-v">' + testListHtml + '</td></tr>' +
+            '<tr><td class="bd-k">시험 항목' + splitInfo + '</td><td class="bd-v">' + testListHtml + '</td></tr>' +
             '<tr><td class="bd-k">예상 시간</td><td class="bd-v">' +
-              (task.estimated_minutes || 0) + '분' +
-              // 식별자 합계가 태스크 예상 시간과 다르면 별도 표시
-              (idTotalMin && idTotalMin !== (task.estimated_minutes || 0) ? ' <span class="bd-sub">(식별자 합계 ' + idTotalMin + '분)</span>' : '') +
-              ' <span class="bd-sub">(잔여 ' + (task.remaining_minutes || 0) + '분)</span>' +
+              (procedure.estimated_minutes || 0) + '분' +
+              // 시험 항목 합계가 시험 절차서 예상 시간과 다르면 별도 표시
+              (idTotalMin && idTotalMin !== (procedure.estimated_minutes || 0) ? ' <span class="bd-sub">(시험 항목 합계 ' + idTotalMin + '분)</span>' : '') +
+              ' <span class="bd-sub">(잔여 ' + (procedure.remaining_minutes || 0) + '분)</span>' +
             '</td></tr>' +
             '<tr><td class="bd-k">시험장소</td><td class="bd-v">' + (locationName || '-') + '</td></tr>' +
             (startTime ? '<tr><td class="bd-k">배치 시간</td><td class="bd-v" style="white-space:nowrap">' +
@@ -224,13 +224,13 @@
               ' <span class="bd-sub" id="bd-time-dur"></span>' +
             '</td></tr>' : '') +
             '<tr><td class="bd-k">시험 담당자</td><td class="bd-v">' + (assigneeName || '-') + '</td></tr>' +
-            '<tr><td class="bd-k">상태</td><td class="bd-v">' + taskStatusLabel + '</td></tr>' +
+            '<tr><td class="bd-k">상태</td><td class="bd-v">' + procedureStatusLabel + '</td></tr>' +
             '<tr><td class="bd-k">메모</td><td class="bd-v">' +
               '<textarea class="bd-textarea" id="bd-memo" rows="2" placeholder="메모 입력...">' + escapedMemo + '</textarea>' +
             '</td></tr>' +
           '</table>' +
           '<div class="bd-foot">' +
-            '<a href="/tasks/' + taskId + '/edit">수정 페이지 &rarr;</a>' +
+            '<a href="/procedures/' + procedureId + '/edit">수정 페이지 &rarr;</a>' +
             '<button class="bd-save" id="bd-save">저장</button>' +
           '</div>' +
         '</div>';
@@ -247,7 +247,7 @@
         if (ev.target === overlay) overlay.remove();
       });
 
-      // 식별자 체크박스 전체 선택/해제
+      // 시험 항목 체크박스 전체 선택/해제
       var selectAllBtn = document.getElementById('bd-id-select-all');
       var deselectAllBtn = document.getElementById('bd-id-deselect-all');
       if (selectAllBtn) {
@@ -271,7 +271,7 @@
           if (checked.length === thisBlockIds.length) { showToast('전체를 남기면 분리되지 않습니다.', 'info'); return; }
           overlay.remove();
           api('POST', '/schedule/api/blocks/' + blockId + '/split', {
-            keep_identifier_ids: checked
+            keep_test_item_ids: checked
           }).then(function () {
             showToast('블록이 분리되었습니다.', 'success');
             App.softReload();
@@ -286,7 +286,7 @@
           var checked = [];
           overlay.querySelectorAll('.bd-id-check:checked').forEach(function (cb) { checked.push(cb.dataset.id); });
           var unchecked = thisBlockIds.filter(function (id) { return checked.indexOf(id) === -1; });
-          if (unchecked.length === 0) { showToast('큐로 보낼 식별자를 해제하세요. (체크 해제 = 큐로)', 'info'); return; }
+          if (unchecked.length === 0) { showToast('큐로 보낼 시험 항목를 해제하세요. (체크 해제 = 큐로)', 'info'); return; }
           overlay.remove();
           if (checked.length === 0) {
             // 전체 큐로 → 블록 삭제
@@ -294,8 +294,8 @@
               .then(function () { showToast('전체를 큐로 되돌렸습니다.', 'success'); App.softReload(); })
               .catch(function (err) { showToast(err.message, 'danger'); });
           } else {
-            api('POST', '/schedule/api/blocks/' + blockId + '/return-identifiers', {
-              keep_identifier_ids: checked
+            api('POST', '/schedule/api/blocks/' + blockId + '/return-test_items', {
+              keep_test_item_ids: checked
             }).then(function () {
               showToast(unchecked.length + '건을 큐로 되돌렸습니다.', 'success');
               App.softReload();
@@ -310,13 +310,13 @@
           var removeId = btn.dataset.id;
           var keepIds = thisBlockIds.filter(function (id) { return id !== removeId; });
           if (keepIds.length === 0) {
-            // 마지막 식별자 → 블록 전체 삭제
+            // 마지막 시험 항목 → 블록 전체 삭제
             api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
               .then(function () { showToast('큐로 되돌렸습니다.', 'success'); overlay.remove(); App.softReload(); })
               .catch(function (err) { showToast(err.message, 'danger'); });
           } else {
-            api('POST', '/schedule/api/blocks/' + blockId + '/return-identifiers', {
-              keep_identifier_ids: keepIds
+            api('POST', '/schedule/api/blocks/' + blockId + '/return-test_items', {
+              keep_test_item_ids: keepIds
             }).then(function () {
               showToast(removeId + '을(를) 큐로 되돌렸습니다.', 'success');
               overlay.remove();
@@ -362,7 +362,7 @@
           : Promise.resolve();
 
         // 메모 저장
-        var memoSave = api('PUT', '/tasks/api/' + taskId + '/update', Object.assign({}, task, { memo: newMemo }));
+        var memoSave = api('PUT', '/procedures/api/' + procedureId + '/update', Object.assign({}, procedure, { memo: newMemo }));
 
         Promise.all([blockSave, memoSave])
           .then(function () {
@@ -378,7 +378,7 @@
   /**
    * 스케줄 블록 및 큐 아이템에 더블클릭 이벤트를 등록하여 상세 팝업을 표시한다.
    * - 스케줄 블록(.schedule-block) / 월간 블록(.month-block-item): 블록 상세 정보 팝업
-   * - 큐 아이템(.queue-task-item): 큐 상태 팝업
+   * - 큐 아이템(.queue-procedure-item): 큐 상태 팝업
    */
   function initBlockDetail() {
     // 스케줄 블록 + 월간 블록에 더블클릭 이벤트 등록
@@ -387,12 +387,12 @@
         e.preventDefault();
         e.stopPropagation();
 
-        var taskId = block.dataset.taskId;
-        if (!taskId || taskId === 'None') return;
-        // data-identifier-ids 속성에서 식별자 ID 배열 파싱
+        var procedureId = block.dataset.procedureId;
+        if (!procedureId || procedureId === 'None') return;
+        // data-test-item-ids 속성에서 시험 항목 ID 배열 파싱
         var idIds = null;
-        try { if (block.dataset.identifierIds) idIds = JSON.parse(block.dataset.identifierIds); } catch(ex) {}
-        showTaskDetailPopup(taskId, {
+        try { if (block.dataset.testItemIds) idIds = JSON.parse(block.dataset.testItemIds); } catch(ex) {}
+        showTestProcedureDetailPopup(procedureId, {
           blockId: block.dataset.blockId || null,
           startTime: block.dataset.startTime || '',
           endTime: block.dataset.endTime || '',
@@ -401,19 +401,19 @@
           memo: block.dataset.memo || '',
           blockStatus: block.dataset.blockStatus || 'pending',
           color: block.style.backgroundColor || '#64748b',
-          identifierIds: idIds,
+          testItemIds: idIds,
         });
       });
     });
 
     // 큐 아이템에 더블클릭 이벤트 등록
-    document.querySelectorAll('.queue-task-item[data-task-id]').forEach(function (item) {
+    document.querySelectorAll('.queue-procedure-item[data-procedure-id]').forEach(function (item) {
       item.addEventListener('dblclick', function (e) {
         e.preventDefault();
         e.stopPropagation();
-        var taskId = item.dataset.taskId;
-        if (!taskId) return;
-        showTaskDetailPopup(taskId, {
+        var procedureId = item.dataset.procedureId;
+        if (!procedureId) return;
+        showTestProcedureDetailPopup(procedureId, {
           locationName: item.dataset.locationName || '',
           assigneeName: item.dataset.assigneeName || '',
           color: item.dataset.queueColor || '#64748b',
@@ -424,7 +424,7 @@
   }
 
   // App 네임스페이스에 등록
-  App.showTaskDetailPopup = showTaskDetailPopup;
+  App.showTestProcedureDetailPopup = showTestProcedureDetailPopup;
   App.initBlockDetail = initBlockDetail;
   window.ScheduleApp = App;
 })();

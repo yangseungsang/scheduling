@@ -5,7 +5,7 @@
 ## 1. 화면 진입 흐름
 
 1. 사용자가 `/schedule/week`, `/schedule/`, `/schedule/month` 중 하나에 접속한다.
-2. Flask 라우트가 Jinja2 템플릿에 task, block, location, setting 데이터를 넣어 렌더링한다.
+2. Flask 라우트가 Jinja2 템플릿에 procedure, block, location, setting 데이터를 넣어 렌더링한다.
 3. 템플릿의 `{% block scripts %}`가 `window.SCHEDULE_BREAKS`, `window.GRID_INTERVAL` 같은 화면별 설정을 먼저 주입한다.
 4. 공통 JS 모듈들이 순서대로 로드된다.
 5. `schedule-app.js`가 `DOMContentLoaded`에서 각 기능 초기화 함수를 호출한다.
@@ -21,12 +21,12 @@ app/templates/
 │   ├── views/day.html
 │   ├── views/week.html
 │   ├── views/month.html
-│   ├── views/_task_queue.html
+│   ├── views/_procedure_queue.html
 │   ├── views/_location_filter.html
 │   ├── views/_version_selector.html
-│   ├── tasks/list.html
-│   ├── tasks/detail.html
-│   ├── tasks/form.html
+│   ├── procedures/list.html
+│   ├── procedures/detail.html
+│   ├── procedures/form.html
 │   └── admin/*.html
 └── execution/
     ├── base.html
@@ -35,7 +35,7 @@ app/templates/
     └── detail.html
 ```
 
-스케줄 템플릿은 `schedule/base.html`을 기준으로 Bootstrap, vendor 파일, schedule CSS/JS를 로드한다. 현재 등록된 실행 목록(`/execution/`)은 `layouts/base.html`을 상속하고, 실행 상세(`/execution/<identifier_id>`)는 `execution/base.html`을 상속한다. `execution/day.html`과 `routes/execution_views.py`는 현재 URL 맵에 등록되지 않은 legacy 일간 실행 화면이다.
+스케줄 템플릿은 `schedule/base.html`을 기준으로 Bootstrap, vendor 파일, schedule CSS/JS를 로드한다. 현재 등록된 실행 목록(`/execution/`)은 `layouts/base.html`을 상속하고, 실행 상세(`/execution/<test_item_id>`)는 `execution/base.html`을 상속한다. `execution/day.html`은 현재 URL 맵에서 사용하지 않는 템플릿이다.
 
 ## 3. Schedule JS 모듈 로드 순서
 
@@ -74,23 +74,23 @@ window.ScheduleApp = window.ScheduleApp || {};
 | `drag-core.js` | 드래그 시작, 고스트, 드롭 타깃 탐색, 컬럼 가이드 |
 | `block-move.js` | 시간표 블록 이동, 월간 블록 이동, 큐 복귀 |
 | `block-resize.js` | 블록 상/하 리사이즈와 축소 확인 |
-| `queue-drag.js` | 큐 task 드래그, 식별자 선택 피커, 블록 생성 |
+| `queue-drag.js` | 큐 procedure 드래그, 시험 항목 선택 피커, 블록 생성 |
 | `context-menu.js` | 우클릭 메뉴, 상태 변경, 잠금, 분리, 삭제 |
-| `block-detail.js` | 더블클릭 상세 팝업, 식별자 배치 상태, 메모 저장 |
-| `schedule-features.js` | 주말 토글, 일정 이동, 단순 블록용 큐 task 생성, 큐 검색/그룹, hover 강조, 월간 더보기 |
+| `block-detail.js` | 더블클릭 상세 팝업, 시험 항목 배치 상태, 메모 저장 |
+| `schedule-features.js` | 주말 토글, 일정 이동, 단순 블록용 큐 procedure 생성, 큐 검색/그룹, hover 강조, 월간 더보기 |
 | `schedule-app.js` | 페이지별 초기화 진입점 |
 
 ## 5. 드래그앤드롭 흐름
 
 ### 5.1 큐에서 시간표로 배치
 
-1. 사용자가 `.queue-task-item`을 누른다.
-2. `queue-drag.js`가 task의 식별자 목록과 기존 배치 상태를 확인한다.
-3. 식별자가 여러 개이면 선택 피커를 연다.
+1. 사용자가 `.queue-procedure-item`을 누른다.
+2. `queue-drag.js`가 procedure의 시험 항목 목록과 기존 배치 상태를 확인한다.
+3. 시험 항목가 여러 개이면 선택 피커를 연다.
 4. 드래그 고스트는 `drag-core.js`가 만든다.
 5. 드롭 위치는 날짜, 장소, 시작 시각으로 변환된다.
 6. `POST /schedule/api/blocks` 요청을 보낸다.
-7. 백엔드는 이미 다른 블록에 있던 식별자를 필요하면 제거한다.
+7. 백엔드는 이미 다른 블록에 있던 시험 항목를 필요하면 제거한다.
 8. 성공하면 화면을 다시 로드해 큐와 블록을 최신 상태로 맞춘다.
 
 ### 5.2 기존 블록 이동
@@ -111,13 +111,13 @@ window.ScheduleApp = window.ScheduleApp || {};
 
 ## 6. 큐 표시 규칙
 
-큐는 `views/_task_queue.html`에서 렌더링된다.
+큐는 `views/_procedure_queue.html`에서 렌더링된다.
 
 | 상황 | 큐 표시 |
 | --- | --- |
-| 블록이 하나도 없는 task | 전체 task 표시 |
-| `identifier_ids=null`인 전체 블록이 있는 task | 큐에서 숨김 |
-| 일부 식별자만 배치된 task | 미배치 식별자 시간만 표시 |
+| 블록이 하나도 없는 procedure | 전체 procedure 표시 |
+| `test_item_ids=null`인 전체 블록이 있는 procedure | 큐에서 숨김 |
+| 일부 시험 항목만 배치된 procedure | 미배치 시험 항목 시간만 표시 |
 | 단순 블록 | 제목과 시간 중심으로 표시 |
 
 큐 그룹화 상태와 장소 필터 상태는 `localStorage`에 저장해 새로고침 후에도 유지한다.
@@ -134,14 +134,14 @@ window.ScheduleApp = window.ScheduleApp || {};
 
 ## 8. 블록 상세/상태 표시
 
-더블클릭 상세 팝업은 task의 전체 식별자를 보여준다.
+더블클릭 상세 팝업은 procedure의 전체 시험 항목를 보여준다.
 
 | 표시 | 의미 |
 | --- | --- |
-| 굵은 식별자 | 현재 블록에 포함됨 |
-| 흐린 식별자 + 타 블록 라벨 | 다른 블록에 포함됨 |
-| `N/M` 뱃지 | 전체 식별자 중 이 블록이 포함한 수 |
-| 빨간 분할 뱃지 | 일부 식별자가 아직 큐에 남아 있음 |
+| 굵은 시험 항목 | 현재 블록에 포함됨 |
+| 흐린 시험 항목 + 타 블록 라벨 | 다른 블록에 포함됨 |
+| `N/M` 뱃지 | 전체 시험 항목 중 이 블록이 포함한 수 |
+| 빨간 분할 뱃지 | 일부 시험 항목가 아직 큐에 남아 있음 |
 | 진행/완료/불가 색상 | execution 상태 기반 표시. 저장된 `cancelled` 블록은 수동 상태로 유지 |
 
 ## 9. Execution 화면
@@ -151,9 +151,9 @@ window.ScheduleApp = window.ScheduleApp || {};
 | 파일 | 역할 |
 | --- | --- |
 | `execution-app.js` | 실행 목록 화면, 날짜/장소/검색 필터, 열 표시 설정, 정렬, 바코드 상세 이동 |
-| `execution-detail.js` | 식별자 상세 실행 화면 |
+| `execution-detail.js` | 시험 항목 상세 실행 화면 |
 
-실행 화면은 `/execution/api/list`로 task 식별자 전체를 읽고, 날짜/장소 필터를 선택하면 배치된 block 기준으로 좁힌다. 목록 API는 화면용 view model 필드인 `execution_status`, `execution_comment`, `performer_name`, `result_counts`, `status_order`를 함께 내려준다. 프론트엔드는 이 값을 렌더링하고, nested `execution` 객체는 상세 이동 호환 데이터로만 취급한다. 동일 식별자가 여러 task에 있을 수 있으므로 상세 이동과 API 호출에는 `task_id`를 함께 사용한다. 타이머 버튼은 `/execution/api/start`, `/pause`, `/resume`, `/complete`를 호출한다.
+실행 화면은 `/execution/api/list`로 procedure 시험 항목 전체를 읽고, 날짜/장소 필터를 선택하면 배치된 block 기준으로 좁힌다. 목록 API는 화면용 view model 필드인 `execution_status`, `execution_comment`, `performer_name`, `result_counts`, `status_order`를 함께 내려준다. 프론트엔드는 이 값을 렌더링하고, nested `execution` 객체는 상세 이동 호환 데이터로만 취급한다. 동일 시험 항목가 여러 procedure에 있을 수 있으므로 상세 이동과 API 호출에는 `procedure_id`를 함께 사용한다. 타이머 버튼은 `/execution/api/start`, `/pause`, `/resume`, `/complete`를 호출한다.
 
 목록 테이블의 열 표시 설정은 `localStorage.execColVis`에 저장된다. 스케줄 편집/읽기 모드는 `localStorage.scheduleMode`, 큐 그룹/장소 필터 상태도 `localStorage`를 사용한다.
 
@@ -182,8 +182,8 @@ window.ScheduleApp = window.ScheduleApp || {};
 
 프론트엔드에서 줄여야 하는 책임:
 
-1. 큐에 남은 식별자/수행 대상 계산
-2. `identifier_ids=null` 같은 데이터 특수 규칙 해석
+1. 큐에 남은 시험 항목/수행 대상 계산
+2. `test_item_ids=null` 같은 데이터 특수 규칙 해석
 3. block 분할/복귀 규칙
 4. 휴식 시간 제외 작업 시간 계산
 5. 업무 종료 초과와 다음 근무일 자동 배치

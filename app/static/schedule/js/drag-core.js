@@ -121,7 +121,7 @@
       // 각 장소별 영역(zone) 생성
       var zone = document.createElement('div');
       zone.className = 'week-loc-guide-zone';
-      zone.dataset.locationId = locs[i].id;
+      zone.dataset.locationName = locs[i].id;
       zone.style.cssText = 'flex:1;border-right:1px dashed ' + locs[i].color + ';position:relative;';
       if (i === locs.length - 1) zone.style.borderRight = 'none'; // 마지막 영역은 우측 테두리 없음
       // 장소 이름 라벨
@@ -152,15 +152,15 @@
 
   /**
    * 주간뷰에서 마우스 X 좌표를 기준으로 해당 장소 ID를 결정한다.
-   * 슬롯에 직접 locationId가 있으면(일간뷰) 그것을 사용하고,
+   * 슬롯에 직접 locationName가 있으면(일간뷰) 그것을 사용하고,
    * 없으면(주간뷰) 장소 가이드 오버레이의 영역 위치로 결정한다.
    * @param {number} x - 마우스 clientX 좌표
    * @param {HTMLElement} slot - 대상 시간 슬롯 요소
    * @returns {string} 결정된 장소 ID (없으면 빈 문자열)
    */
   function resolveWeekLocation(x, slot) {
-    // 일간뷰는 슬롯 자체에 locationId가 있음
-    if (slot.dataset.locationId) return slot.dataset.locationId;
+    // 일간뷰는 슬롯 자체에 locationName가 있음
+    if (slot.dataset.locationName) return slot.dataset.locationName;
     var slotsEl = slot.closest('.week-day-slots');
     if (!slotsEl) return '';
     var overlay = ensureWeekGuide(slotsEl);
@@ -172,7 +172,7 @@
     var relX = x - rect.left;
     var zoneWidth = rect.width / zones.length;
     var idx = Math.max(0, Math.min(zones.length - 1, Math.floor(relX / zoneWidth)));
-    return zones[idx].dataset.locationId || '';
+    return zones[idx].dataset.locationName || '';
   }
 
   // =====================================================================
@@ -183,8 +183,8 @@
    * 시간 슬롯, 월간뷰 셀, 큐 영역 순서로 탐색한다.
    * @param {number} x - clientX 좌표
    * @param {number} y - clientY 좌표
-   * @returns {{type: string, date?: string, time?: string, locationId?: string, el: HTMLElement}|null}
-   *   - type='slot': 시간 슬롯 (date, time, locationId 포함)
+   * @returns {{type: string, date?: string, time?: string, locationName?: string, el: HTMLElement}|null}
+   *   - type='slot': 시간 슬롯 (date, time, locationName 포함)
    *   - type='month': 월간뷰 셀 (date 포함)
    *   - type='queue': 큐 영역
    *   - null: 유효한 대상 없음
@@ -195,16 +195,16 @@
     // 시간 슬롯 (일간뷰/주간뷰)
     var slot = el.closest('.time-slot');
     if (slot && slot.dataset.date && slot.dataset.time) {
-      var locId = slot.dataset.locationId || resolveWeekLocation(x, slot);
-      return { type: 'slot', date: slot.dataset.date, time: slot.dataset.time, locationId: locId, el: slot };
+      var locId = slot.dataset.locationName || resolveWeekLocation(x, slot);
+      return { type: 'slot', date: slot.dataset.date, time: slot.dataset.time, locationName: locId, el: slot };
     }
     // 월간뷰 셀
     var cell = el.closest('.month-day-cell[data-date]');
     if (cell) {
       return { type: 'month', date: cell.dataset.date, el: cell };
     }
-    // 태스크 큐 영역
-    var queue = el.closest('#task-queue');
+    // 시험 절차서 큐 영역
+    var queue = el.closest('#procedure-queue');
     if (queue) {
       return { type: 'queue', el: queue };
     }
@@ -242,7 +242,7 @@
   /**
    * 드롭 대상 요소에 하이라이트(drag-over 클래스)를 적용한다.
    * 주간뷰에서 장소 가이드 영역이 있으면 해당 영역도 하이라이트한다.
-   * @param {{type: string, locationId?: string, el: HTMLElement}|null} target - 드롭 대상 정보
+   * @param {{type: string, locationName?: string, el: HTMLElement}|null} target - 드롭 대상 정보
    * @param {number} x - 마우스 clientX 좌표
    */
   function setHighlight(target, x) {
@@ -253,14 +253,14 @@
       return;
     }
     // 주간뷰에서 장소 가이드가 있는 경우: 전체 슬롯 대신 해당 장소 영역만 하이라이트
-    if (target.type === 'slot' && target.locationId && !target.el.dataset.locationId) {
+    if (target.type === 'slot' && target.locationName && !target.el.dataset.locationName) {
       var slotsEl = target.el.closest('.week-day-slots');
       if (slotsEl) {
         var overlay = slotsEl.querySelector('.week-loc-guide-overlay');
         if (overlay) {
           var zones = overlay.querySelectorAll('.week-loc-guide-zone');
           for (var i = 0; i < zones.length; i++) {
-            if (zones[i].dataset.locationId === target.locationId) {
+            if (zones[i].dataset.locationName === target.locationName) {
               zones[i].classList.add('week-loc-guide-active');
               highlightedZone = zones[i];
               break;

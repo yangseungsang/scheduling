@@ -197,6 +197,78 @@
 }
 .exec-table thead th.sortable { cursor: pointer; }
 .exec-table thead th.sortable:hover { color: var(--exec-accent); }
+.column-filter-btn {
+  position: relative;
+  width: 24px;
+  height: 24px;
+  margin-left: 3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #94a3b8;
+  vertical-align: middle;
+}
+.column-filter-count {
+  position: absolute;
+  top: -4px;
+  right: -5px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--exec-accent);
+  color: #fff;
+  font-size: 9px;
+  line-height: 14px;
+  text-align: center;
+}
+.column-filter-btn:hover,
+.column-filter-btn.active {
+  color: var(--exec-accent);
+}
+.exec-column-filter-menu {
+  position: fixed;
+  z-index: 1080;
+  min-width: 180px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(15,23,42,.16);
+}
+.column-filter-title {
+  padding: 7px 9px;
+  color: #64748b;
+  font-size: .72rem;
+  font-weight: 700;
+}
+.column-filter-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 9px;
+  border-radius: 4px;
+  background: transparent;
+  color: #334155;
+  font-size: .8rem;
+  cursor: pointer;
+}
+.column-filter-option:hover { background: #f1f5f9; }
+.column-filter-option input { margin: 0; }
+.column-filter-actions {
+  position: sticky;
+  bottom: -6px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 6px -6px -6px;
+  padding: 8px;
+  border-top: 1px solid #e2e8f0;
+  background: #fff;
+}
 
 .exec-table tbody tr {
   cursor: pointer;
@@ -213,6 +285,19 @@
 .exec-table .td-id  { font-family: monospace; color: var(--exec-accent); font-weight: 600; white-space: nowrap; }
 .exec-table .td-name { font-weight: 500; color: #1e293b; }
 .exec-table .td-meta { color: #64748b; font-size: .8rem; white-space: nowrap; }
+.exec-table .td-datetime {
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+}
+.exec-table .td-datetime .datetime-date,
+.exec-table .td-datetime .datetime-time {
+  display: block;
+}
+.exec-table .td-datetime .datetime-time {
+  margin-top: 3px;
+  color: #334155;
+  font-weight: 500;
+}
 
 /* 상태별 행 왼쪽 강조 */
 .exec-table tbody tr[data-status="in_progress"] { border-left: 3px solid #3b82f6; }

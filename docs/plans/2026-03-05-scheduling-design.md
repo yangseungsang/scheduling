@@ -1,4 +1,4 @@
-# Task Scheduling Web Service — Design Document
+# TestProcedure Scheduling Web Service — Design Document
 Date: 2026-03-05
 
 ## Overview
@@ -37,18 +37,18 @@ scheduling/
 │   ├── __init__.py
 │   ├── db.py
 │   ├── blueprints/
-│   │   ├── tasks/          # 업무 CRUD
+│   │   ├── procedures/          # 업무 CRUD
 │   │   ├── schedule/       # 스케줄 뷰 (일/주/월)
 │   │   └── admin/          # 설정, 사용자 관리
 │   ├── repositories/
-│   │   ├── task_repo.py
+│   │   ├── procedure_repo.py
 │   │   ├── schedule_repo.py
 │   │   └── settings_repo.py
 │   ├── services/
 │   │   └── scheduler.py    # 스케줄링 추천 알고리즘
 │   ├── templates/
 │   │   ├── base.html
-│   │   ├── tasks/
+│   │   ├── procedures/
 │   │   ├── schedule/
 │   │   └── admin/
 │   └── static/
@@ -73,19 +73,19 @@ settings: id, key, value
 categories: id, name, color, created_at
 
 -- 업무
-tasks: id, title, description, category_id, priority(low/medium/high/urgent),
+procedures: id, title, description, category_id, priority(low/medium/high/urgent),
        estimated_minutes, status(pending/in_progress/completed/cancelled),
        due_date, created_by, created_at, updated_at
 
 -- 업무 담당자 (다대다)
-task_assignees: task_id, user_id
+procedure_assignees: procedure_id, user_id
 
 -- 스케줄 배치
-schedule_blocks: id, task_id, assigned_date, start_time, end_time,
+schedule_blocks: id, procedure_id, assigned_date, start_time, end_time,
                  is_draft, created_at
 
 -- 메모
-task_notes: id, task_id, user_id, content, created_at
+procedure_notes: id, procedure_id, user_id, content, created_at
 ```
 
 ---

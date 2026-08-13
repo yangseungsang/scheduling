@@ -912,7 +912,7 @@ url("./fonts/bootstrap-icons.woff?1bb88866b4085542c8ed5fb61b9393dd") format("wof
 .bi-list-nested::before { content: "\f474"; }
 .bi-list-ol::before { content: "\f475"; }
 .bi-list-stars::before { content: "\f476"; }
-.bi-list-task::before { content: "\f477"; }
+.bi-list-procedure::before { content: "\f477"; }
 .bi-list-ul::before { content: "\f478"; }
 .bi-list::before { content: "\f479"; }
 .bi-lock-fill::before { content: "\f47a"; }

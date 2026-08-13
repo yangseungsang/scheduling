@@ -9,7 +9,7 @@
   var startDrag = App.startDrag;
   var api = App.api;
   var showToast = App.showToast;
-  var getTaskRemaining = App.getTaskRemaining;
+  var getTestProcedureRemaining = App.getTestProcedureRemaining;
   var checkRemainingAfterPlace = App.checkRemainingAfterPlace;
   var softReload = function () { return App.softReload(); };
   var timeToMin = App.timeToMin;
@@ -87,7 +87,7 @@
         if (e.ctrlKey || e.metaKey || e.shiftKey) return;
 
         var blockId = block.dataset.blockId;
-        var taskId = block.dataset.taskId;
+        var procedureId = block.dataset.procedureId;
         var title = (block.querySelector('.block-title') || {}).textContent || '';
         var color = block.style.backgroundColor || '#0d6efd';
         var startTime = block.dataset.startTime;
@@ -169,7 +169,7 @@
                       start_time: minToTime(curMin),
                       end_time: minToTime(curMin + dur),
                     };
-                    if (target.locationId) moveUpdate.location_id = target.locationId;
+                    if (target.locationName) moveUpdate.location_name = target.locationName;
                     return api('PUT', '/schedule/api/blocks/' + sb.dataset.blockId, moveUpdate)
                       .then(function (res) {
                         curMin = timeToMin(res.end_time);
@@ -196,7 +196,7 @@
                   start_time: minToTime(t),
                   end_time: minToTime(t + durationMin),
                 };
-                if (target.locationId) moveUpdate.location_id = target.locationId;
+                if (target.locationName) moveUpdate.location_name = target.locationName;
                 api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate)
                   .then(function (res) {
                     if (res && res.continuation) showToast('초과분이 ' + res.continuation.date + '에 자동 배치되었습니다.', 'info');
@@ -239,7 +239,7 @@
     document.querySelectorAll('.month-block-item[data-block-id]').forEach(function (item) {
       item.addEventListener('mousedown', function (e) {
         var blockId = item.dataset.blockId;
-        var taskId = item.dataset.taskId;
+        var procedureId = item.dataset.procedureId;
         var title = item.textContent.trim();
         var color = item.style.backgroundColor || '#0d6efd';
 
@@ -257,14 +257,14 @@
             } else if (target.type === 'month') {
               var prevRem;
               // 이동 전 잔여 시간 저장 → 이동 → 잔여 시간 비교
-              (taskId ? getTaskRemaining(taskId) : Promise.resolve(0)).then(function (r) {
+              (procedureId ? getTestProcedureRemaining(procedureId) : Promise.resolve(0)).then(function (r) {
                 prevRem = r;
                 return api('PUT', '/schedule/api/blocks/' + blockId, {
                   date: target.date,
                 });
               }).then(function () {
                 // 잔여 시간이 증가했으면 경고 표시
-                if (taskId) return checkRemainingAfterPlace(taskId, title, prevRem);
+                if (procedureId) return checkRemainingAfterPlace(procedureId, title, prevRem);
               }).then(function () { softReload(); })
                 .catch(function (err) { showToast(err.message, 'danger'); });
             }

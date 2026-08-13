@@ -6,7 +6,7 @@ Flask 앱에 일괄 등록하는 함수를 제공한다.
 """
 
 from app.features.schedule.routes.calendar_views import schedule_bp
-from app.features.schedule.routes.tasks import tasks_bp
+from app.features.schedule.routes.test_procedures import procedures_bp
 from app.features.schedule.routes.admin import admin_bp
 from app.features.schedule.routes.sync import sync_bp
 
@@ -21,7 +21,7 @@ def register_schedule_routes(app):
     Args:
         app (Flask): 블루프린트를 등록할 Flask 앱 인스턴스
     """
-    app.register_blueprint(tasks_bp)
+    app.register_blueprint(procedures_bp)
     app.register_blueprint(schedule_bp)
     app.register_blueprint(admin_bp)
     app.register_blueprint(sync_bp)

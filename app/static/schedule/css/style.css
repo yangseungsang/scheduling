@@ -175,7 +175,7 @@ body {
 .badge-completed { background-color: #198754; }
 
 /* ==================================================================
-   Schedule Layout: Task Queue + Main Content
+   Schedule Layout: TestProcedure Queue + Main Content
    ================================================================== */
 .schedule-layout {
   display: flex;
@@ -245,9 +245,9 @@ body {
 }
 
 /* ==================================================================
-   Task Queue Sidebar
+   TestProcedure Queue Sidebar
    ================================================================== */
-.task-queue {
+.procedure-queue {
   width: 240px;
   flex-shrink: 0;
   background: #f8fafc;
@@ -257,23 +257,23 @@ body {
   overflow: hidden;
   transition: width 0.2s ease;
 }
-.task-queue.collapsed {
+.procedure-queue.collapsed {
   width: 40px;
 }
-.task-queue.collapsed .task-queue-body,
-.task-queue.collapsed .queue-sort-bar,
-.task-queue.collapsed .queue-header-label {
+.procedure-queue.collapsed .procedure-queue-body,
+.procedure-queue.collapsed .queue-sort-bar,
+.procedure-queue.collapsed .queue-header-label {
   display: none;
 }
-.task-queue.collapsed .task-queue-header {
+.procedure-queue.collapsed .procedure-queue-header {
   justify-content: center;
   padding: 8px 0;
 }
-.task-queue.collapsed .queue-collapse-btn i::before {
+.procedure-queue.collapsed .queue-collapse-btn i::before {
   content: "\f285";
 }
 
-.task-queue-header {
+.procedure-queue-header {
   padding: 8px 10px;
   border-bottom: 1px solid var(--color-border);
   display: flex;
@@ -349,25 +349,25 @@ body {
 .queue-search-bar input::placeholder {
   color: #cbd5e1;
 }
-.task-queue.collapsed .queue-search-bar {
+.procedure-queue.collapsed .queue-search-bar {
   display: none;
 }
 
-.task-queue-body {
+.procedure-queue-body {
   flex: 1;
   overflow-y: auto;
   padding: 6px;
 }
-.task-queue-body::-webkit-scrollbar {
+.procedure-queue-body::-webkit-scrollbar {
   width: 3px;
 }
-.task-queue-body::-webkit-scrollbar-thumb {
+.procedure-queue-body::-webkit-scrollbar-thumb {
   background: #cbd5e1;
   border-radius: 3px;
 }
 
 /* ---- Queue Card ---- */
-.queue-task-item {
+.queue-procedure-item {
   display: flex;
   background: #fff;
   border: 1px solid var(--color-border);
@@ -377,17 +377,17 @@ body {
   overflow: hidden;
   transition: all 0.15s;
 }
-.queue-task-item:hover {
+.queue-procedure-item:hover {
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   border-color: #cbd5e1;
 }
-.queue-task-item:active {
+.queue-procedure-item:active {
   cursor: grabbing;
 }
-.queue-task-item.dragging {
+.queue-procedure-item.dragging {
   opacity: 0.35;
 }
-.queue-task-item.queue-item-selected {
+.queue-procedure-item.queue-item-selected {
   outline: 2px solid #0d6efd;
   outline-offset: -2px;
   background: #e8f0fe;
@@ -1006,7 +1006,7 @@ body {
 }
 
 /* Queue drop highlight */
-#task-queue.drag-over {
+#procedure-queue.drag-over {
   background-color: #fff3cd !important;
   outline: 2px dashed #ffc107;
   outline-offset: -2px;
@@ -1431,19 +1431,19 @@ i.spin { animation: spin 0.8s linear infinite; }
 }
 
 /* ==================================================================
-   Same-task hover highlight
+   Same-procedure hover highlight
    ================================================================== */
-.schedule-block.task-linked-hover,
-.week-block.task-linked-hover {
+.schedule-block.procedure-linked-hover,
+.week-block.procedure-linked-hover {
   box-shadow: inset 0 0 0 3px #dc2626;
   filter: brightness(0.9);
   z-index: 10;
 }
-.month-block-item.task-linked-hover {
+.month-block-item.procedure-linked-hover {
   box-shadow: inset 0 0 0 3px #dc2626;
   filter: brightness(0.9);
 }
-.queue-task-item.task-linked-hover {
+.queue-procedure-item.procedure-linked-hover {
   box-shadow: inset 0 0 0 3px #dc2626;
   background-color: #fef2f2 !important;
 }
@@ -1460,7 +1460,7 @@ i.spin { animation: spin 0.8s linear infinite; }
 .readonly-mode .btn-to-queue {
   display: none !important;
 }
-.readonly-mode .queue-task-item {
+.readonly-mode .queue-procedure-item {
   cursor: default;
 }
 .readonly-mode .month-block-item {
@@ -1507,10 +1507,10 @@ i.spin { animation: spin 0.8s linear infinite; }
 }
 
 /* ==================================================================
-   Task list page
+   TestProcedure list page
    ================================================================== */
-.task-list-page { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
-.task-list-header {
+.procedure-list-page { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+.procedure-list-header {
   display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
 }
 .tl-filter {
@@ -1563,45 +1563,45 @@ i.spin { animation: spin 0.8s linear infinite; }
 .tl-chip-clear:hover {
   color: #ef4444;
 }
-.task-filter-bar .form-select { width: auto; min-width: 120px; font-size: 0.82rem; }
-.task-table-wrap {
+.procedure-filter-bar .form-select { width: auto; min-width: 120px; font-size: 0.82rem; }
+.procedure-table-wrap {
   background: #fff; border: 1px solid var(--color-border-light); border-radius: 8px; overflow: hidden;
 }
-.task-table {
+.procedure-table {
   width: 100%; border-collapse: collapse; margin: 0;
 }
-.task-table thead th {
+.procedure-table thead th {
   font-size: 0.78rem; font-weight: 600; color: #6c757d; text-transform: uppercase;
   letter-spacing: 0.03em; padding: 10px 12px;
   background: var(--color-bg-light); border-bottom: 1px solid var(--color-border-light);
   white-space: nowrap;
 }
-.task-table tbody td {
+.procedure-table tbody td {
   padding: 10px 12px; font-size: 0.88rem; color: #495057;
   border-bottom: 1px solid #f1f3f5; vertical-align: top;
   white-space: nowrap;
 }
-.task-table tbody tr:last-child td { border-bottom: none; }
-.task-row { cursor: pointer; transition: background 0.12s; }
-.task-row:hover { background: var(--color-bg-light); }
-.task-cell-title {
+.procedure-table tbody tr:last-child td { border-bottom: none; }
+.procedure-row { cursor: pointer; transition: background 0.12s; }
+.procedure-row:hover { background: var(--color-bg-light); }
+.procedure-cell-title {
   font-weight: 600; color: #212529;
   white-space: normal; word-break: keep-all;
 }
-.task-priority-dot {
+.procedure-priority-dot {
   display: inline-block; width: 9px; height: 9px; border-radius: 50%;
 }
-.task-priority-dot.priority-high { background: #dc3545; }
-.task-priority-dot.priority-medium { background: #ffc107; }
-.task-priority-dot.priority-low { background: #0dcaf0; }
-.task-status-chip {
+.procedure-priority-dot.priority-high { background: #dc3545; }
+.procedure-priority-dot.priority-medium { background: #ffc107; }
+.procedure-priority-dot.priority-low { background: #0dcaf0; }
+.procedure-status-chip {
   display: inline-block; padding: 2px 10px; border-radius: 12px;
   font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
 }
 .status-waiting { background: #f1f3f5; color: #868e96; }
 .status-progress { background: #dbeafe; color: #2563eb; }
 .status-done { background: #d1fae5; color: #059669; }
-.task-sched-chip {
+.procedure-sched-chip {
   display: inline-flex; align-items: center; gap: 3px;
   padding: 2px 10px; border-radius: 12px;
   font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em;
@@ -1610,20 +1610,20 @@ i.spin { animation: spin 0.8s linear infinite; }
 .sched-scheduled { background: #dbeafe; color: #2563eb; }
 .sched-split { background: #fef3c7; color: #b45309; }
 .sched-queue { background: #f1f3f5; color: #868e96; }
-.task-block-dropdown {
+.procedure-block-dropdown {
   margin-top: 4px; white-space: normal;
 }
-.task-block-link {
+.procedure-block-link {
   display: block;
   font-size: 0.72rem; color: #2563eb; text-decoration: none;
   padding: 2px 0; white-space: nowrap;
 }
-.task-block-link:hover { text-decoration: underline; }
-.task-block-link .task-block-ids {
+.procedure-block-link:hover { text-decoration: underline; }
+.procedure-block-link .procedure-block-ids {
   font-size: 0.65rem; color: #6c757d; margin-left: 2px;
 }
-.task-sched-chip[data-toggle-blocks] { cursor: pointer; }
-.task-empty-cell {
+.procedure-sched-chip[data-toggle-blocks] { cursor: pointer; }
+.procedure-empty-cell {
   text-align: center; padding: 40px 16px !important; color: #adb5bd; font-size: 0.9rem;
 }
 
