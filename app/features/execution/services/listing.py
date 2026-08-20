@@ -38,6 +38,7 @@ def get_total_count(test_item_id, procedure_id=''):
 
 
 def _result_counts(execution, fallback_total):
+    """Build pass/fail/block counts with a procedure item total fallback."""
     return {
         'fail_count': execution.get('fail_count', 0) if execution else 0,
         'block_count': execution.get('block_count', 0) if execution else 0,
@@ -47,6 +48,7 @@ def _result_counts(execution, fallback_total):
 
 
 def _status_order(status):
+    """Return the stable UI sort order for execution states."""
     return {
         'pending': 0,
         'in_progress': 1,
@@ -58,6 +60,7 @@ def _status_order(status):
 def _execution_items(
     date_filter='', location_filter='', status_filter='', procedure_filter='',
 ):
+    """Join plan and execution data, then apply list filters."""
     repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
     plan = repository.load_plan()
     procedures = plan.test_procedures
@@ -118,12 +121,14 @@ def _execution_items(
 
 
 def _actual_period(run):
+    """Return a concise actual start/end period for list display."""
     if not run:
         return '', ''
     return run.started_at or '', run.ended_at or ''
 
 
 def _matches_filter(value, selected):
+    """Treat an empty selected list as an unrestricted filter."""
     if isinstance(selected, str):
         selected = [selected] if selected else []
     selected = {item for item in (selected or []) if item}
@@ -131,6 +136,7 @@ def _matches_filter(value, selected):
 
 
 def _execution_response(run):
+    """Normalize a stored execution dict for API responses."""
     if not run:
         return None
     return {

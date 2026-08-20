@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 
 @dataclass(frozen=True)
 class TestItem:
+    """Smallest schedulable and executable item inside a procedure."""
     __test__ = False
     id: str
     name: str = ''
@@ -14,6 +15,7 @@ class TestItem:
 
     @classmethod
     def from_dict(cls, data):
+        """Normalize current and legacy external field names."""
         return cls(
             id=str(data.get('id', '')),
             name=data.get('name', ''),
@@ -23,6 +25,7 @@ class TestItem:
         )
 
     def to_dict(self):
+        """Serialize non-default item fields for the plan document."""
         result = {
             'id': self.id,
         }
@@ -39,6 +42,7 @@ class TestItem:
 
 @dataclass(frozen=True)
 class TestProcedure:
+    """A document/test-round aggregate containing related test items."""
     __test__ = False
     id: str
     document_id: Optional[str] = None
@@ -54,6 +58,7 @@ class TestProcedure:
 
     @classmethod
     def from_dict(cls, data):
+        """Build a procedure and derive defaults from its test items."""
         document_id = data.get('document_id')
         test_items = tuple(
             TestItem.from_dict(item) for item in data.get('test_items', [])
@@ -77,6 +82,7 @@ class TestProcedure:
         )
 
     def to_dict(self):
+        """Serialize a procedure while omitting reconstructable defaults."""
         result = {
             'id': self.id,
         }

@@ -24,14 +24,17 @@ from app.features.schedule.services.presentation import (
 
 
 def _schedule_service():
+    """Create a schedule workflow service from the current app config."""
     return ScheduleBlockService(current_app.config['DOMAIN_DATA_DIR'])
 
 
 def _schedule_error_response(exc):
+    """Translate a business validation exception into a JSON response."""
     return jsonify({'error': str(exc)}), exc.status_code
 
 
 def _schedule_settings():
+    """Load settings and apply calendar defaults for command calculations."""
     settings = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR']).load_settings()
     return schedule_settings(settings)
 
@@ -264,6 +267,7 @@ def api_export():
     )
 
     def _content_disposition(filename):
+        """Build an RFC-compatible attachment header for non-ASCII filenames."""
         encoded = quote(filename, safe='')
         ascii_name = filename.encode('ascii', errors='ignore').decode()
         return f"attachment; filename=\"{ascii_name}\"; filename*=UTF-8''{encoded}"

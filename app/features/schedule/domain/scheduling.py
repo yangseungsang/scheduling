@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 
 @dataclass(frozen=True)
 class ScheduleBlock:
+    """Immutable calendar placement for test work or a simple event."""
     id: str
     procedure_id: Optional[str] = None
     test_item_ids: Tuple[str, ...] = ()
@@ -22,6 +23,7 @@ class ScheduleBlock:
 
     @classmethod
     def from_dict(cls, data):
+        """Create a block and infer its kind from procedure ownership."""
         return cls(
             id=data['id'],
             procedure_id=data.get('procedure_id'),
@@ -40,6 +42,7 @@ class ScheduleBlock:
         )
 
     def to_dict(self):
+        """Serialize fields required to restore the calendar placement."""
         result = {
             'id': self.id,
             'date': self.date,
@@ -69,16 +72,19 @@ class ScheduleBlock:
 
 @dataclass(frozen=True)
 class Schedule:
+    """Immutable collection of calendar blocks."""
     blocks: Tuple[ScheduleBlock, ...] = ()
 
     @classmethod
     def from_dict(cls, data):
+        """Deserialize a possibly empty schedule payload."""
         data = data or {}
         return cls(
             blocks=tuple(ScheduleBlock.from_dict(item) for item in data.get('blocks', [])),
         )
 
     def to_dict(self):
+        """Serialize all blocks in display-independent form."""
         return {
             'blocks': [item.to_dict() for item in self.blocks],
         }

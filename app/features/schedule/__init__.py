@@ -5,15 +5,6 @@
 진입점 함수를 제공한다.
 """
 
-from app.features.schedule.routes import (
-    schedule_bp,
-    procedures_bp,
-    admin_bp,
-    sync_bp,
-    register_schedule_routes,
-)
-
-
 def register_blueprints(app):
     """스케줄 관련 모든 블루프린트를 Flask 앱에 등록한다.
 
@@ -23,4 +14,7 @@ def register_blueprints(app):
     Args:
         app (Flask): 블루프린트를 등록할 Flask 앱 인스턴스
     """
+    # Domain 모듈을 import할 때 Flask route가 초기화되지 않도록 지연 import한다.
+    from app.features.schedule.routes import register_schedule_routes
+
     register_schedule_routes(app)

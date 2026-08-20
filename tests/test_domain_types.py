@@ -1,6 +1,7 @@
 """Contract tests for shared domain types."""
 
-from app.domain import ExecutionRun, Executions, TestItem, Schedule, ScheduleBlock, TestProcedure
+from app.features.execution.domain import ExecutionRun, Executions
+from app.features.schedule.domain import Schedule, ScheduleBlock, TestItem, TestProcedure
 
 
 def _domain_sections():

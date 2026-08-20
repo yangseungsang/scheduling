@@ -4,6 +4,7 @@ def build_execution_list_items(
     procedures, schedule, executions,
     date_filter='', location_filter='',
 ):
+    """Join procedure items with placement and execution data for list views."""
     runs = {(item.procedure_id, item.test_item_id): item for item in executions.runs}
     scheduled = _scheduled_test_items(schedule)
     rows = []
@@ -50,6 +51,7 @@ def build_execution_list_items(
 
 
 def build_unscheduled_attempts(procedures, schedule, executions):
+    """Return active work that is neither scheduled nor completed."""
     scheduled = set(_scheduled_test_items(schedule))
     runs = {(item.procedure_id, item.test_item_id): item for item in executions.runs}
     rows = []
@@ -83,6 +85,7 @@ def build_schedule_export_rows(
     procedures, schedule, executions,
     start_date='', end_date='',
 ):
+    """Build flat export rows from schedule placements and execution results."""
     procedures_by_id = {item.id: item for item in procedures}
     runs = {(item.procedure_id, item.test_item_id): item for item in executions.runs}
     rows = []
@@ -114,6 +117,7 @@ def build_schedule_export_rows(
 
 
 def _scheduled_test_items(schedule):
+    """Index each scheduled procedure/item pair to its block."""
     result = {}
     for block in schedule.blocks:
         if not block.procedure_id:
@@ -127,6 +131,7 @@ def _scheduled_test_items(schedule):
 
 
 def _selected_test_items(procedure, test_item_ids):
+    """Resolve explicit block items or the full procedure for legacy blocks."""
     if procedure is None:
         return []
     selected = set(test_item_ids)
@@ -134,6 +139,7 @@ def _selected_test_items(procedure, test_item_ids):
 
 
 def _block_status(block, runs):
+    """Derive one export status from manual and execution state."""
     if block.manual_status == 'cancelled':
         return 'cancelled'
     if block.kind == 'simple':
@@ -151,10 +157,12 @@ def _block_status(block, runs):
 
 
 def _split_label(procedure, selected):
+    """Describe partial procedure placement as selected/total."""
     if procedure is None or not procedure.test_items or len(selected) == len(procedure.test_items):
         return ''
     return f'{len(selected)}/{len(procedure.test_items)}'
 
 
 def _display_name(document_name, test_round):
+    """Return a human-readable document and round label."""
     return f'{document_name} ({test_round}차)' if test_round not in (None, 1) else document_name

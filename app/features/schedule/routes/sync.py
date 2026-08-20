@@ -8,8 +8,8 @@ DynReady 연동에서 시험 데이터를 가져와 로컬 데이터와
 
 from flask import Blueprint, current_app, jsonify, request
 from app.repositories import JsonDomainRepository
-from app.domain.execution import Executions
-from app.domain.scheduling import Schedule
+from app.features.execution.domain import Executions
+from app.features.schedule.domain import Schedule
 from app.features.schedule.integrations.dyn_ready import DynReadyClient
 from app.features.schedule.services.sync import SyncService
 

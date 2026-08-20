@@ -8,6 +8,7 @@ from app.domain.common import SCHEMA_VERSION
 
 @dataclass(frozen=True)
 class AppSettings:
+    """Optional work-hour and calendar presentation settings."""
     schema_version: str = SCHEMA_VERSION
     work_start: Optional[str] = None
     work_end: Optional[str] = None
@@ -22,6 +23,7 @@ class AppSettings:
 
     @classmethod
     def from_dict(cls, data):
+        """Create settings while preserving absent optional values as None."""
         data = data or {}
         breaks = data.get('breaks')
         return cls(
@@ -39,6 +41,7 @@ class AppSettings:
         )
 
     def to_dict(self):
+        """Serialize only configured values plus the schema version."""
         result = {'schema_version': self.schema_version}
         for key in (
             'work_start', 'work_end', 'actual_work_start', 'actual_work_end',

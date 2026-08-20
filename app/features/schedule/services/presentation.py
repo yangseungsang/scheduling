@@ -13,6 +13,7 @@ from app.services.read_models import build_schedule_export_rows
 
 
 def build_day_payload(procedures, schedule, executions, current_date, settings, time_slots, break_slots):
+    """Build the complete JSON payload consumed by the day view."""
     return {
         'blocks': build_ui_blocks(
             procedures, schedule, executions,
@@ -26,6 +27,7 @@ def build_day_payload(procedures, schedule, executions, current_date, settings, 
 
 
 def schedule_settings(settings):
+    """Merge optional AppSettings with stable calendar defaults."""
     result = {
         'work_start': '08:00', 'work_end': '17:00',
         'actual_work_start': '', 'actual_work_end': '',
@@ -50,6 +52,7 @@ def build_location_options(procedures, schedule):
 
 
 def build_export_blocks(procedures, schedule, executions, start_date, end_date):
+    """Build enriched blocks for CSV/XLSX serialization."""
     rows = build_schedule_export_rows(
         procedures, schedule, executions, start_date, end_date,
     )
@@ -77,6 +80,7 @@ def build_export_blocks(procedures, schedule, executions, start_date, end_date):
 
 
 def build_ui_blocks(procedures, schedule, executions, start_date='', end_date='', settings=None):
+    """Join blocks with procedure/execution data for calendar rendering."""
     procedures_by_id = {item.id: item for item in procedures}
     runs = {(item.procedure_id, item.test_item_id): item for item in executions.runs}
     placed = _placed_test_items(schedule)
@@ -128,6 +132,7 @@ def build_ui_blocks(procedures, schedule, executions, start_date='', end_date=''
 
 
 def build_queue_procedures(procedures, schedule, executions):
+    """Return unscheduled procedure work and remaining item durations."""
     runs = {(item.procedure_id, item.test_item_id): item for item in executions.runs}
     placed = _placed_test_items(schedule)
     queue = []
@@ -168,6 +173,7 @@ def build_queue_procedures(procedures, schedule, executions):
 
 
 def _placed_test_items(schedule):
+    """Index placed item IDs by procedure."""
     result = {}
     for block in schedule.blocks:
         if block.procedure_id:
@@ -176,6 +182,7 @@ def _placed_test_items(schedule):
 
 
 def _test_item_dict(test_item):
+    """Convert one immutable test item to a template-friendly dictionary."""
     return {
         'id': test_item.id, 'name': test_item.name,
         'estimated_minutes': test_item.estimated_minutes,
@@ -184,6 +191,7 @@ def _test_item_dict(test_item):
 
 
 def _block_status(block, runs):
+    """Derive a block status from manual state and item execution states."""
     if block.manual_status == 'cancelled':
         return 'cancelled'
     if block.kind == 'simple':
@@ -201,6 +209,7 @@ def _block_status(block, runs):
 
 
 def _block_color(block, color_by):
+    """Choose a deterministic block color using the configured dimension."""
     if color_by == 'status':
         return STATUS_COLORS.get(block['block_status'], STATUS_COLORS['pending'])
     if color_by == 'location':
@@ -209,14 +218,17 @@ def _block_color(block, color_by):
 
 
 def _assignee_color(names):
+    """Generate a stable color from sorted assignee names."""
     return _section_color(names[0]) if names else '#6c757d'
 
 
 def _location_color(name):
+    """Generate a stable color from a location name."""
     return _section_color(name) if name else '#6c757d'
 
 
 def _display_name(name, test_round):
+    """Append a test-round suffix when needed."""
     return f'{name} ({test_round}차)' if test_round not in (None, 1) else name
 
 
@@ -229,6 +241,7 @@ STATUS_COLORS = {
 
 
 def _section_color(value):
+    """Map arbitrary text to a readable deterministic HSL color."""
     if not value:
         return '#94a3b8'
     hue = int(hashlib.md5(value.encode()).hexdigest()[:8], 16) % 360
@@ -236,6 +249,7 @@ def _section_color(value):
 
 
 def get_break_slots(settings):
+    """Return time-slot labels that fall inside configured breaks."""
     return {
         slot for slot in generate_time_slots(settings)
         if is_break_slot(slot, settings)
@@ -243,12 +257,14 @@ def get_break_slots(settings):
 
 
 def build_month_nav(year, month):
+    """Build previous/current/next month navigation metadata."""
     previous = date(year - 1, 12, 1) if month == 1 else date(year, month - 1, 1)
     following = date(year + 1, 1, 1) if month == 12 else date(year, month + 1, 1)
     return previous, following
 
 
 def group_blocks_by_date(blocks):
+    """Index UI blocks by ISO date while preserving input order."""
     result = {}
     for block in blocks:
         result.setdefault(block['date'], []).append(block)
@@ -256,6 +272,7 @@ def group_blocks_by_date(blocks):
 
 
 def build_month_weeks(year, month, blocks_by_date):
+    """Build weekday cells and attached blocks for the month template."""
     weeks = []
     for week in calendar.Calendar(firstweekday=0).monthdayscalendar(year, month):
         weeks.append([
@@ -272,6 +289,7 @@ def build_month_weeks(year, month, blocks_by_date):
 
 
 def parse_date(value):
+    """Parse an ISO date and fall back to today for missing values."""
     if value:
         try:
             return datetime.strptime(value, '%Y-%m-%d').date()

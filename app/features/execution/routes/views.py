@@ -1,3 +1,5 @@
+"""Server-rendered execution list and detail views."""
+
 from flask import Blueprint, current_app, render_template, request
 
 from app.repositories import JsonDomainRepository
@@ -7,6 +9,7 @@ views_bp = Blueprint('execution', __name__, url_prefix='/execution')
 
 
 def _index_context():
+    """Build initial filters and rows required by the execution list page."""
     repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
     plan = repository.load_plan()
     procedures = plan.test_procedures
@@ -45,11 +48,13 @@ def _index_context():
 
 @views_bp.route('/')
 def index():
+    """Render the execution list screen."""
     return render_template('execution/index.html', **_index_context())
 
 
 @views_bp.route('/<test_item_id>')
 def detail(test_item_id):
+    """Render one test item, disambiguated by the optional procedure ID."""
     procedure_id = request.args.get('procedure_id', '')
     return render_template('execution/detail.html', test_item_id=test_item_id,
                            procedure_id=procedure_id,

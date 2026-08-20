@@ -7,6 +7,7 @@ from typing import Optional, Tuple
 
 @dataclass(frozen=True)
 class ExecutionRun:
+    """Immutable execution state for one procedure and test-item pair."""
     procedure_id: str
     test_item_id: str
     status: str = 'pending'
@@ -23,6 +24,7 @@ class ExecutionRun:
 
     @classmethod
     def from_dict(cls, data):
+        """Create an execution record from a tolerant JSON-compatible mapping."""
         return cls(
             procedure_id=data.get('procedure_id', ''),
             test_item_id=data.get('test_item_id', ''),
@@ -40,6 +42,7 @@ class ExecutionRun:
         )
 
     def to_dict(self):
+        """Serialize non-default fields for compact JSON persistence."""
         result = {
             'procedure_id': self.procedure_id,
             'test_item_id': self.test_item_id,
@@ -66,6 +69,7 @@ class ExecutionRun:
 
     @property
     def elapsed_seconds(self):
+        """Return persisted time plus the currently active interval, if any."""
         elapsed = self.actual_seconds
         if self.status == 'in_progress' and self.active_started_at:
             active_start = datetime.fromisoformat(self.active_started_at)
@@ -75,16 +79,19 @@ class ExecutionRun:
 
 @dataclass(frozen=True)
 class Executions:
+    """Immutable collection stored in `test_executions.json`."""
     runs: Tuple[ExecutionRun, ...] = ()
 
     @classmethod
     def from_dict(cls, data):
+        """Deserialize a collection while accepting an empty payload."""
         data = data or {}
         return cls(
             runs=tuple(ExecutionRun.from_dict(item) for item in data.get('runs', [])),
         )
 
     def to_dict(self):
+        """Return the public domain representation of all execution runs."""
         return {
             'runs': [item.to_dict() for item in self.runs],
         }

@@ -10,10 +10,10 @@ SEED_VERSION_ID = 'TEST-CYCLE-2026-08'
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from app.domain.execution import ExecutionRun, Executions
-from app.domain.scheduling import Schedule, ScheduleBlock
-from app.domain.settings import AppSettings
-from app.domain.test_procedures import TestItem, TestProcedure
+from app.features.execution.domain import ExecutionRun, Executions
+from app.features.schedule.domain import (
+    AppSettings, Schedule, ScheduleBlock, TestItem, TestProcedure,
+)
 from app.repositories import JsonDomainRepository
 
 

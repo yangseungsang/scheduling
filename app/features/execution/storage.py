@@ -2,24 +2,32 @@
 
 from math import ceil
 
-from app.domain.execution import ExecutionRun, Executions
+from app.features.execution.domain import ExecutionRun, Executions
 from app.repositories import JsonDomainRepository
 
 
 class ExecutionStorage:
+    """Adapter between dictionary-based workflows and typed execution records."""
+
     def __init__(self, data_dir):
+        """Bind storage to the shared domain repository."""
         self.repository = JsonDomainRepository(data_dir)
         self.repository.initialize()
 
     def get_all(self):
+        """Return every run in the compatibility dictionary shape."""
         return [_run_to_dict(item) for item in self.repository.load_executions().runs]
 
     def save_all(self, items):
+        """Replace all execution records from dictionaries."""
         self.repository.replace_executions(Executions(runs=_runs(items)))
 
     def update_all(self, operation):
+        """Apply a dict-level callback inside a typed repository update."""
         result = []
+
         def update(executions):
+            # 상태 전이 코드는 dict를 사용하지만 저장 경계에서는 domain 타입을 유지한다.
             items = [_run_to_dict(item) for item in executions.runs]
             updated_items = operation(items)
             result.extend(updated_items)
@@ -28,6 +36,7 @@ class ExecutionStorage:
         return result
 
 def _runs(items):
+    """Normalize dictionary records into immutable ExecutionRun objects."""
     return tuple(ExecutionRun.from_dict({
             'procedure_id': item.get('procedure_id', ''),
             'test_item_id': item.get('test_item_id', ''),
@@ -45,10 +54,12 @@ def _runs(items):
         }) for item in items or [])
 
 def get_execution_storage(config):
+    """Create storage from Flask-style configuration."""
     return ExecutionStorage(config['DOMAIN_DATA_DIR'])
 
 
 def _run_to_dict(run):
+    """Expose persisted and calculated timing fields to execution services."""
     elapsed_seconds = run.elapsed_seconds
     return {
         'test_item_id': run.test_item_id,

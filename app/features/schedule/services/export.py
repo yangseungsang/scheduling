@@ -48,6 +48,7 @@ def _block_label(b):
 
 
 def _test_item_label(test_item):
+    """Render one test item as a compact spreadsheet label."""
     if isinstance(test_item, dict):
         test_item_id = test_item.get('id', '')
         test_item_name = test_item.get('name', '')
@@ -58,6 +59,7 @@ def _test_item_label(test_item):
 
 
 def _block_test_items(b):
+    """Normalize enriched block item data for export helpers."""
     test_items = b.get('test_items') or []
     selected_ids = b.get('test_item_ids')
     if selected_ids is None:
@@ -75,6 +77,7 @@ def _block_test_items(b):
 
 
 def _practitioner_rows(enriched_blocks):
+    """Build the flat date/location/item rows used by field operators."""
     rows = [PRACTITIONER_HEADERS]
     sorted_blocks = sorted(
         enriched_blocks,
@@ -105,10 +108,12 @@ def _practitioner_rows(enriched_blocks):
 
 
 def _sheet_xml(rows, styled_rows=None, col_width=None, merged_ranges=None):
+    """Generate minimal worksheet XML for the no-openpyxl fallback."""
     styled_rows = styled_rows or {}
     merged_ranges = merged_ranges or []
 
     def col_name(index):
+        """Convert a one-based column index to an Excel column label."""
         name = ''
         while index:
             index, rem = divmod(index - 1, 26)

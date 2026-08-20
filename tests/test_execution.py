@@ -123,7 +123,7 @@ class TestExecutionRepository:
 
     def test_paused_elapsed_seconds_is_accumulated_value(self, exec_app):
         with exec_app.app_context():
-            from app.domain.execution import ExecutionRun
+            from app.features.execution.domain import ExecutionRun
             run = ExecutionRun(
                 procedure_id='t_001', test_item_id='TC-006',
                 status='paused', actual_seconds=2700,

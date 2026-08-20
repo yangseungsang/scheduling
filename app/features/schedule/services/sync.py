@@ -84,6 +84,7 @@ class SyncService:
 
 
 def _sync_test_data_orm(external):
+    """Merge normalized provider rows using the procedure service API."""
     service = TestProcedureService(current_app.config['DOMAIN_DATA_DIR'])
     synced_combos = set()
     added = updated = deleted = 0

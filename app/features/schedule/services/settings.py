@@ -2,7 +2,7 @@
 
 from flask import current_app
 
-from app.domain.settings import AppSettings
+from app.features.schedule.domain import AppSettings
 from app.repositories import JsonDomainRepository
 
 
@@ -28,11 +28,13 @@ def _repository():
 
 
 def get():
+    """Return configured settings merged with display defaults."""
     saved = _repository().load_settings().to_dict()
     return {**DEFAULTS, **saved}
 
 
 def update(values):
+    """Merge supplied fields into the current settings document."""
     updated = {**get(), **values}
     _repository().replace_settings(AppSettings.from_dict(updated))
     return updated

@@ -128,7 +128,8 @@ def api_project_reset():
         JSON: 성공 메시지
     """
     from app.repositories import JsonDomainRepository
-    from app.domain import Executions, Schedule
+    from app.features.execution.domain import Executions
+    from app.features.schedule.domain import Schedule
 
     repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
     repository.replace_all(

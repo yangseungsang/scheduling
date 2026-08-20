@@ -1,7 +1,9 @@
 import json
+from dataclasses import replace
 
 from app.repositories import JsonDomainRepository
-from app.domain import AppSettings, Executions, Schedule, TestProcedure
+from app.features.execution.domain import Executions
+from app.features.schedule.domain import AppSettings, Schedule, TestProcedure
 from app.features.schedule.services._block_commands import ScheduleCommandService
 from app.services.read_models import build_execution_list_items, build_schedule_export_rows
 from app.features.schedule.services.sync import SyncService
@@ -149,6 +151,54 @@ def test_json_repository_round_trips_domain_sections(tmp_path):
 
     export_rows = build_schedule_export_rows(*sections[:3], '2026-05-13', '2026-05-14')
     assert [row['execution_status'] for row in export_rows] == ['in_progress', 'cancelled']
+
+
+def test_loads_specific_procedure_information_from_json(tmp_path):
+    """로드한 domain 객체에서 원하는 procedure의 일부 정보만 선택한다."""
+    # 실제 app/data 대신 테스트 전용 임시 디렉터리를 사용한다.
+    repository = JsonDomainRepository(tmp_path / 'domain-data')
+    repository.initialize(reset=True)
+    _replace_domain_data(repository)
+
+    # JSON 전체를 직접 열지 않고 repository를 통해 domain 객체를 로드한다.
+    procedures = repository.load_test_procedures()
+
+    # 로드된 목록에서 필요한 ID의 procedure 하나만 찾는다.
+    procedure = next(
+        (item for item in procedures if item.id == 't_alpha'),
+        None,
+    )
+
+    # 찾은 객체에서 필요한 필드만 속성으로 조회한다.
+    assert procedure is not None
+    assert procedure.document_name == '절차 A'
+    assert procedure.location_name == 'loc_1'
+
+
+def test_updates_specific_procedure_information_in_json(tmp_path):
+    """특정 procedure만 변경하고 JSON에 저장된 결과를 다시 확인한다."""
+    # 실제 app/data를 건드리지 않도록 테스트 전용 저장소를 준비한다.
+    repository = JsonDomainRepository(tmp_path / 'domain-data')
+    repository.initialize(reset=True)
+    _replace_domain_data(repository)
+
+    # TestProcedure는 불변 객체이므로 replace()로 변경된 복사본을 만든다.
+    # update_test_procedures()는 변경 결과를 잠금 안에서 JSON에 저장한다.
+    repository.update_test_procedures(lambda procedures: tuple(
+        replace(item, location_name='loc_updated')
+        if item.id == 't_alpha'
+        else item
+        for item in procedures
+    ))
+
+    # 저장소에서 다시 로드하여 변경 내용이 실제로 반영됐는지 확인한다.
+    procedures = repository.load_test_procedures()
+    updated = next(item for item in procedures if item.id == 't_alpha')
+    unchanged = next(item for item in procedures if item.id == 't_retry')
+
+    # 대상 procedure만 수정되고 나머지 데이터는 유지되어야 한다.
+    assert updated.location_name == 'loc_updated'
+    assert unchanged.location_name == 'loc_2'
 
 
 def test_concurrent_operations_preserve_unrelated_procedure_changes(tmp_path):

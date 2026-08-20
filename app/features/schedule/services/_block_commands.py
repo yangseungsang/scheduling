@@ -3,7 +3,7 @@
 import uuid
 from dataclasses import replace
 
-from app.domain.scheduling import Schedule, ScheduleBlock
+from app.features.schedule.domain import Schedule, ScheduleBlock
 from app.repositories import JsonDomainRepository
 
 BLOCK_FIELDS = {
@@ -14,11 +14,15 @@ BLOCK_FIELDS = {
 
 
 class ScheduleCommandService:
+    """Apply validated block mutations to the latest immutable test plan."""
+
     def __init__(self, data_dir):
+        """Create a command service backed by one JSON data directory."""
         self.repository = JsonDomainRepository(data_dir)
         self.repository.initialize()
 
     def get_block(self, block_id):
+        """Return one block as an API-compatible dictionary."""
         block = next(
             (item for item in self.repository.load_schedule().blocks if item.id == block_id),
             None,
@@ -26,6 +30,7 @@ class ScheduleCommandService:
         return _block_dict(block) if block else None
 
     def test_item_ids_for_procedure(self, procedure_id, selected_ids=None):
+        """Validate selected IDs against a procedure, or return every item ID."""
         procedure = next(
             (item for item in self.repository.load_test_procedures() if item.id == procedure_id),
             None,
@@ -45,6 +50,7 @@ class ScheduleCommandService:
         location_name='', assignee_names=None, kind='test', title='', memo='',
         is_locked=False, manual_status='', overflow_minutes=0, block_id='',
     ):
+        """Append a new block while holding the plan lock."""
         block_id = block_id or f'blk_{uuid.uuid4().hex[:12]}'
         result = []
         def create(operations):
@@ -104,6 +110,7 @@ class ScheduleCommandService:
         return _block_dict(block)
 
     def update_block(self, block_id, **fields):
+        """Replace allowed fields on one block inside the current plan."""
         updates = {key: value for key, value in fields.items() if key in BLOCK_FIELDS}
         if 'assignee_names' in updates:
             updates['assignee_names'] = tuple(updates['assignee_names'] or [])
@@ -131,6 +138,7 @@ class ScheduleCommandService:
         return _block_dict(result[0]) if result else None
 
     def replace_test_items(self, block_id, test_item_ids):
+        """Validate and replace the item membership of a test block."""
         block = self.get_block(block_id)
         if block is None:
             return None
@@ -138,6 +146,7 @@ class ScheduleCommandService:
         return self.update_block(block_id, test_item_ids=test_items)
 
     def delete_block(self, block_id):
+        """Remove one block and report whether it existed."""
         deleted = []
         def delete(operations):
             if not any(item.id == block_id for item in operations.schedule_blocks):
@@ -152,6 +161,7 @@ class ScheduleCommandService:
 
 
 def _block_dict(block):
+    """Convert an immutable block into the legacy API dictionary shape."""
     data = {
         'id': block.id,
         'procedure_id': block.procedure_id,

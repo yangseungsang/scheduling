@@ -49,6 +49,7 @@ def _notify_timing(test_item_id: str, procedure_id: str, elapsed_seconds: int):
         return
 
     def _send():
+        """Run the optional provider notification outside the request thread."""
         try:
             repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
             ofp_id = repository.load_plan().version_id
@@ -321,6 +322,7 @@ def reset():
 
 
 def _execution_key(body):
+    """Read and normalize the composite execution key from a request body."""
     return (
         str(body.get('procedure_id') or '').strip(),
         str(body.get('test_item_id') or '').strip(),

@@ -8,8 +8,10 @@ _ENDPOINT = '/dyn_ready/std-list/grouped'
 
 
 class DynReadyClient:
+    """HTTP adapter that converts DynReady responses into internal input data."""
 
     def __init__(self):
+        """Read the provider base URL once for this client instance."""
         self.base_url = os.environ.get('DYN_READY_URL', 'http://127.0.0.1:5000').rstrip('/')
 
     def get_test_data_all(self):

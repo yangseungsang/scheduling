@@ -1,6 +1,29 @@
 # Frontend 기술 문서
 
-이 프로젝트의 프론트엔드는 Jinja2 서버 렌더링, Bootstrap 5, 바닐라 JavaScript로 구성된다. 번들러는 없으며 스케줄 화면은 `window.ScheduleApp` 네임스페이스에 기능을 등록한다.
+이 프로젝트의 프론트엔드는 Jinja2 서버 렌더링, Bootstrap 5, 바닐라 JavaScript로 구성된다. 번들러는 없으며 스케줄 화면은 `window.ScheduleApp` 네임스페이스에 기능을 등록한다. 서버가 업무 규칙과 최종 상태를 소유하고, 브라우저는 화면 상태와 사용자 조작을 담당한다.
+
+## 0. 폴더 상호작용
+
+```text
+routes/*_views.py
+  -> services/presentation.py 또는 execution/services/listing.py
+  -> templates/**/*.html
+      -> static/**/*.css
+      -> static/**/*.js
+          -> routes/*_api.py
+              -> service/repository
+              -> JSON 저장
+```
+
+| 폴더 | 역할 |
+| --- | --- |
+| `app/templates/layouts/` | 전체 페이지 공통 HTML 골격 |
+| `app/templates/schedule/` | 일/주/월 캘린더, procedure, 설정 화면 |
+| `app/templates/execution/` | 실행 목록과 상세 화면 |
+| `app/static/schedule/js/` | drag/drop, resize, modal, 필터와 캘린더 API 호출 |
+| `app/static/execution/js/` | 실행 목록 필터와 실행 상태 API 호출 |
+| `app/static/*/css/` | feature별 화면 스타일 |
+| `app/static/schedule/vendor/` | 로컬 Bootstrap과 Bootstrap Icons; 직접 수정하지 않음 |
 
 ## 1. 화면 진입 흐름
 
@@ -23,11 +46,10 @@ app/templates/
 │   ├── views/month.html
 │   ├── views/_procedure_queue.html
 │   ├── views/_location_filter.html
-│   ├── views/_version_selector.html
 │   ├── procedures/list.html
 │   ├── procedures/detail.html
 │   ├── procedures/form.html
-│   └── admin/*.html
+│   └── admin/settings.html
 └── execution/
     ├── base.html
     ├── index.html

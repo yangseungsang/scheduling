@@ -14,18 +14,24 @@ VALID_BLOCK_STATUSES = {'pending', 'in_progress', 'completed', 'cancelled'}
 
 
 class ScheduleBlockError(Exception):
+    """Business validation error carrying the HTTP status expected by routes."""
+
     def __init__(self, message, status_code=400):
         super().__init__(message)
         self.status_code = status_code
 
 
 class ScheduleBlockService:
+    """Validate and coordinate schedule-block workflows."""
+
     def __init__(self, data_dir):
+        """Bind validation and low-level commands to the same data directory."""
         self.data_dir = data_dir
         self.repository = JsonDomainRepository(data_dir)
         self.commands = ScheduleCommandService(data_dir)
 
     def create(self, data):
+        """Create a simple or procedure-backed block after validation."""
         _require(data, ('date', 'start_time', 'end_time'))
         settings = schedule_settings(self.repository.load_settings())
         end_time = adjust_end_for_breaks(data['start_time'], data['end_time'], settings)
@@ -70,6 +76,7 @@ class ScheduleBlockService:
         return _api_block(block)
 
     def update(self, block_id, data):
+        """Update allowed block fields and reject schedule collisions."""
         current = self.commands.get_block(block_id)
         if current is None:
             raise ScheduleBlockError('블록을 찾을 수 없습니다.', 404)
@@ -97,6 +104,7 @@ class ScheduleBlockService:
         return _api_block(self.commands.get_block(block_id))
 
     def delete(self, block_id, restore=False):
+        """Delete a block and optionally clear its procedure's default location."""
         block = self.commands.get_block(block_id)
         if block is None:
             raise ScheduleBlockError('블록을 찾을 수 없습니다.', 404)
@@ -110,18 +118,22 @@ class ScheduleBlockService:
         return {'success': True}
 
     def toggle_lock(self, block_id):
+        """Toggle the edit lock on an existing block."""
         block = self._required_block(block_id)
         return _api_block(self.commands.update_block(block_id, is_locked=not block['is_locked']))
 
     def set_status(self, block_id, status):
+        """Set a manual block status used ahead of derived execution status."""
         self._required_block(block_id)
         return _api_block(self.commands.update_block(block_id, manual_status=status))
 
     def set_memo(self, block_id, memo):
+        """Replace a block memo without changing its placement."""
         self._required_block(block_id)
         return _api_block(self.commands.update_block(block_id, memo=memo))
 
     def list_by_procedure(self, procedure_id):
+        """Return chronologically sorted blocks belonging to one procedure."""
         blocks = [
             _api_block(item.to_dict())
             for item in self.repository.load_schedule().blocks
@@ -131,6 +143,7 @@ class ScheduleBlockService:
         return {'blocks': blocks}
 
     def shift(self, from_date, direction=1):
+        """Move unlocked blocks on/after a date while skipping weekends."""
         if not from_date:
             raise ScheduleBlockError('from_date는 필수입니다.')
         direction = int(direction or 1)
@@ -152,6 +165,7 @@ class ScheduleBlockService:
         return {'success': True, 'shifted_count': shifted}
 
     def split(self, block_id, keep_ids, settings):
+        """Split unselected test items into a following block."""
         block = self._required_block(block_id)
         if not block.get('procedure_id'):
             raise ScheduleBlockError('간단 블록은 분리할 수 없습니다.')
@@ -180,6 +194,7 @@ class ScheduleBlockService:
         return {'success': True, 'new_block': _api_block(new_block)}
 
     def return_test_items(self, block_id, keep_ids, settings):
+        """Keep selected items in a resized block and return the rest to the queue."""
         block = self._required_block(block_id)
         if not keep_ids:
             self.commands.delete_block(block_id)
@@ -193,6 +208,7 @@ class ScheduleBlockService:
         return {'success': True}
 
     def _replace_test_items(self, block_id, block, test_item_ids):
+        """Move valid items from any old blocks into the target block."""
         if not block or not block.get('procedure_id'):
             raise ScheduleBlockError('간단 블록에는 test_item_ids를 설정할 수 없습니다.')
         try:
@@ -205,6 +221,7 @@ class ScheduleBlockService:
             raise ScheduleBlockError(str(exc)) from exc
 
     def _test_item_details(self, procedure_id, test_item_ids):
+        """Resolve selected item IDs and their estimated durations."""
         procedure = self._procedure(procedure_id)
         selected = set(test_item_ids)
         return [
@@ -213,6 +230,7 @@ class ScheduleBlockService:
         ]
 
     def _unassign_test_items(self, procedure_id, test_item_ids, exclude_block_id=None):
+        """Remove selected items from other blocks and discard empty test blocks."""
         selected = set(test_item_ids)
         def update(schedule):
             blocks = []
@@ -229,22 +247,26 @@ class ScheduleBlockService:
         self.repository.update_schedule(update)
 
     def _procedure(self, procedure_id):
+        """Load one required procedure or raise a route-friendly 404 error."""
         procedure = next((item for item in self.repository.load_test_procedures() if item.id == procedure_id), None)
         if procedure is None:
             raise ScheduleBlockError('시험 절차서를 찾을 수 없습니다.', 404)
         return procedure
 
     def _required_block(self, block_id):
+        """Load one required block or raise a route-friendly 404 error."""
         block = self.commands.get_block(block_id)
         if block is None:
             raise ScheduleBlockError('블록을 찾을 수 없습니다.', 404)
         return block
 
     def _reject_overlap(self, date_str, start_time, end_time, location_name, exclude_block_id=None):
+        """Raise a conflict when another block occupies the same place and time."""
         if self._check_overlap(date_str, start_time, end_time, location_name, exclude_block_id):
             raise ScheduleBlockError('같은 장소의 일정과 시간이 겹칩니다.', 409)
 
     def _check_overlap(self, date_str, start_time, end_time, location_name, exclude_block_id=None):
+        """Return the first overlapping block, or None when placement is valid."""
         if not location_name:
             return None
         start_min = time_to_minutes(start_time)
@@ -258,12 +280,14 @@ class ScheduleBlockService:
 
 
 def _require(data, fields):
+    """Validate required truthy request fields."""
     for field in fields:
         if not data.get(field):
             raise ScheduleBlockError(f'{field}은(는) 필수 항목입니다.')
 
 
 def _api_block(block):
+    """Add stable response defaults and compatibility fields to a block dict."""
     data = {
         'procedure_id': None,
         'test_item_ids': [],
@@ -283,32 +307,39 @@ def _api_block(block):
 
 
 def _sum_minutes(items):
+    """Sum estimated durations from item dictionaries."""
     return sum(int(item.get('estimated_minutes') or 0) for item in items)
 
 
 def _end_after_minutes(start_time, minutes, settings):
+    """Calculate an end time while accounting for configured breaks."""
     raw_end = minutes_to_time(time_to_minutes(start_time) + max(minutes, 1))
     return adjust_end_for_breaks(start_time, raw_end, settings)
 
 
 def _service():
+    """Create a request-scoped service from Flask configuration."""
     return ScheduleBlockService(current_app.config['DOMAIN_DATA_DIR'])
 
 
 def get_all():
+    """Return all blocks in API-compatible dictionary form."""
     repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
     return [_api_block(item.to_dict()) for item in repository.load_schedule().blocks]
 
 
 def get_by_id(block_id):
+    """Find one API block by ID."""
     return next((item for item in get_all() if item['id'] == block_id), None)
 
 
 def get_by_date(date_str):
+    """Return blocks placed on one date."""
     return [item for item in get_all() if item['date'] == date_str]
 
 
 def get_by_date_range(start_date, end_date):
+    """Return blocks in an inclusive ISO date range."""
     return [
         item for item in get_all()
         if start_date <= item['date'] <= end_date
@@ -316,6 +347,7 @@ def get_by_date_range(start_date, end_date):
 
 
 def get_by_assignee(name):
+    """Return blocks assigned to the given display name."""
     return [
         item for item in get_all()
         if name in item.get('assignee_names', [])
@@ -323,6 +355,7 @@ def get_by_assignee(name):
 
 
 def get_by_location_and_date(location_name, date_str):
+    """Return blocks matching one location and date."""
     return [
         item for item in get_all()
         if item.get('location_name') == location_name
@@ -335,6 +368,7 @@ def create(
     is_locked=False, block_status='pending', test_item_ids=None,
     title='', is_simple=False, overflow_minutes=0, **kwargs,
 ):
+    """Compatibility facade for creating a block in the current Flask app."""
     return _service().create({
         'procedure_id': procedure_id,
         'assignee_names': assignee_names or [],
@@ -353,10 +387,12 @@ def create(
 
 
 def update(block_id, **updates):
+    """Compatibility facade for updating a block."""
     return _service().update(block_id, updates)
 
 
 def delete(block_id):
+    """Delete a block and convert a missing block into False."""
     try:
         _service().delete(block_id)
         return True

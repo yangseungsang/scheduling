@@ -1,15 +1,16 @@
-"""In-memory read model joining the plan and execution records."""
+"""Persistence read model joining schedule and execution records."""
 
 from dataclasses import dataclass
 from typing import Tuple
 
-from app.domain.execution import ExecutionRun, Executions
-from app.domain.scheduling import Schedule, ScheduleBlock
-from app.domain.test_procedures import TestProcedure
+from app.features.execution.domain import ExecutionRun, Executions
+from app.features.schedule.domain.procedures import TestProcedure
+from app.features.schedule.domain.scheduling import Schedule, ScheduleBlock
 
 
 @dataclass(frozen=True)
 class TestOperations:
+    """Temporary joined model used for cross-feature atomic workflows."""
     __test__ = False
     version_id: str = ''
     test_procedures: Tuple[TestProcedure, ...] = ()
@@ -18,6 +19,7 @@ class TestOperations:
 
     @classmethod
     def from_dict(cls, data):
+        """Deserialize a joined representation used by tests and migration tools."""
         data = data or {}
         return cls(
             version_id=data.get('version_id', ''),
@@ -34,13 +36,16 @@ class TestOperations:
 
     @property
     def schedule(self):
+        """Expose joined blocks as the schedule feature's collection type."""
         return Schedule(blocks=self.schedule_blocks)
 
     @property
     def executions(self):
+        """Expose joined runs as the execution feature's collection type."""
         return Executions(runs=self.execution_runs)
 
     def to_dict(self):
+        """Serialize the joined in-memory representation."""
         return {
             'version_id': self.version_id,
             'test_procedures': [item.to_dict() for item in self.test_procedures],

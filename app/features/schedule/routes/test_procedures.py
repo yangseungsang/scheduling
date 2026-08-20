@@ -22,10 +22,12 @@ procedures_bp = Blueprint('procedures', __name__, url_prefix='/procedures')
 
 
 def _procedure_service():
+    """Create a request-scoped procedure service."""
     return TestProcedureService(current_app.config['DOMAIN_DATA_DIR'])
 
 
 def _location_options():
+    """Build location choices from existing procedures and schedule blocks."""
     names = sorted(
         {item.get('location_name', '') for item in procedure.get_all()}
         | {item.get('location_name', '') for item in schedule_block.get_all()}
@@ -34,10 +36,12 @@ def _location_options():
 
 
 def _procedure_error_response(exc):
+    """Translate a procedure business error into JSON."""
     return jsonify({'error': str(exc)}), exc.status_code
 
 
 def _procedure_payload_from_form(existing=None):
+    """Normalize HTML form fields into service input data."""
     test_items = _parse_test_items_from_form()
     estimated_minutes = (
         _compute_estimated_minutes(test_items)
@@ -78,6 +82,7 @@ def _parse_test_items_from_form():
 
 
 def _parse_assignee_names(values):
+    """Normalize repeated and comma-separated assignee form values."""
     return list(dict.fromkeys(
         name.strip()
         for value in values or []

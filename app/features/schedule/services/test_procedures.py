@@ -1,15 +1,17 @@
 """TestProcedure application service."""
 
-from app.domain.test_procedures import TestItem, TestProcedure
+from app.features.schedule.domain import TestItem, TestProcedure
 from dataclasses import replace
 
 from flask import current_app
 
-from app.domain.identity import stable_id
+from app.domain.common.identity import stable_id
 from app.repositories import JsonDomainRepository
 
 
 class TestProcedureError(Exception):
+    """Procedure validation error carrying a route-level status code."""
+
     __test__ = False
     def __init__(self, message, status_code=400):
         super().__init__(message)
@@ -17,12 +19,16 @@ class TestProcedureError(Exception):
 
 
 class TestProcedureService:
+    """Own procedure lifecycle rules and related cross-feature cleanup."""
+
     __test__ = False
     def __init__(self, data_dir):
+        """Create the service and ensure its JSON documents exist."""
         self.repository = JsonDomainRepository(data_dir)
         self.repository.initialize()
 
     def create_procedure(self, data):
+        """Validate and append a new procedure to the current plan."""
         procedure_id = data.get('id') or _new_procedure_id(data)
         test_items = _test_items(data.get('test_items', []))
         if not data.get('is_simple') and not test_items:
@@ -37,6 +43,7 @@ class TestProcedureService:
         return _procedure_dict(procedure)
 
     def update_procedure(self, procedure_id, data):
+        """Merge updates, validate uniqueness, and replace one procedure."""
         current = self._find(procedure_id)
         if current is None:
             raise TestProcedureError('시험 항목을 찾을 수 없습니다.', 404)
@@ -59,6 +66,7 @@ class TestProcedureService:
         return _procedure_dict(updated)
 
     def delete_procedure(self, procedure_id):
+        """Delete a procedure and all related blocks and execution records."""
         if self._find(procedure_id) is None:
             raise TestProcedureError('시험 항목을 찾을 수 없습니다.', 404)
         self.repository.update_operations(lambda operations: replace(
@@ -76,10 +84,12 @@ class TestProcedureService:
         return True
 
     def get_procedure(self, procedure_id):
+        """Return one procedure in the API dictionary shape."""
         procedure = self._find(procedure_id)
         return _procedure_dict(procedure) if procedure else None
 
     def _find(self, procedure_id):
+        """Find the immutable procedure owned by the current plan."""
         return next(
             (item for item in self.repository.load_test_procedures() if item.id == procedure_id),
             None,
@@ -88,6 +98,7 @@ class TestProcedureService:
     def _validate_unique(
         self, test_items, test_round, exclude_procedure_id=None, test_procedures=None,
     ):
+        """Reject item IDs already used by another procedure in the same round."""
         new_ids = {item.id for item in test_items}
         duplicates = {
             test_item.id
@@ -105,6 +116,7 @@ class TestProcedureService:
 
 
 def _procedure(procedure_id, data, test_items):
+    """Normalize service input into an immutable TestProcedure."""
     estimated = int(data.get('estimated_minutes') or 0)
     if not estimated:
         estimated = sum(item.estimated_minutes for item in test_items)
@@ -124,6 +136,7 @@ def _procedure(procedure_id, data, test_items):
 
 
 def _test_items(items):
+    """Normalize item dictionaries and legacy scalar IDs."""
     result = []
     for item in items or []:
         if isinstance(item, dict) and item.get('id'):
@@ -134,6 +147,7 @@ def _test_items(items):
 
 
 def _procedure_dict(procedure):
+    """Convert a procedure into the stable route/service response shape."""
     return {
         'id': procedure.id,
         'document_id': procedure.document_id,
@@ -160,18 +174,22 @@ def _procedure_dict(procedure):
 
 
 def _new_procedure_id(data):
+    """Generate a repeatable ID from the external document and test round."""
     return stable_id('tp_', data.get('document_id'), data.get('test_round'))
 
 
 def _document_id(value):
+    """Normalize an optional external document ID to text."""
     return None if value in (None, '') else str(value)
 
 
 def _service():
+    """Build a request-scoped service from Flask configuration."""
     return TestProcedureService(current_app.config['DOMAIN_DATA_DIR'])
 
 
 def get_all():
+    """Return sorted procedures with schedule-derived remaining minutes."""
     repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
     operations = repository.load_plan()
     scheduled_minutes = {}
@@ -200,6 +218,7 @@ def get_all():
 
 
 def get_by_id(procedure_id):
+    """Find one public procedure dictionary by internal ID."""
     return next((item for item in get_all() if item['id'] == procedure_id), None)
 
 
@@ -207,6 +226,7 @@ def create(
     document_id, assignee_names, location_name, document_name, test_items,
     estimated_minutes, memo='', test_round=None, **kwargs,
 ):
+    """Compatibility facade for procedure creation."""
     return _service().create_procedure({
         'document_id': document_id,
         'test_round': test_round,
@@ -221,6 +241,7 @@ def create(
 
 
 def patch(procedure_id, **updates):
+    """Apply a partial update to an existing public procedure."""
     current = get_by_id(procedure_id)
     if current is None:
         return None
@@ -231,6 +252,7 @@ def update(
     procedure_id, document_id, assignee_names, location_name, document_name, test_items,
     estimated_minutes, memo='',
 ):
+    """Compatibility facade for the legacy full-update call shape."""
     return patch(
         procedure_id,
         document_id=document_id,
@@ -244,6 +266,7 @@ def update(
 
 
 def delete(procedure_id):
+    """Delete a procedure and convert not-found errors into False."""
     try:
         return _service().delete_procedure(procedure_id)
     except TestProcedureError:
@@ -251,14 +274,17 @@ def delete(procedure_id):
 
 
 def get_by_document_id(document_id):
+    """Find the first procedure with an external document ID."""
     return _get_by_document_and_round(document_id)
 
 
 def get_by_document_and_round(document_id, test_round):
+    """Find a procedure by its external business key."""
     return _get_by_document_and_round(document_id, test_round, match_round=True)
 
 
 def _get_by_document_and_round(document_id, test_round=None, match_round=False):
+    """Shared tolerant lookup for external document identifiers."""
     try:
         target = int(document_id)
     except (TypeError, ValueError):
@@ -273,6 +299,7 @@ def _get_by_document_and_round(document_id, test_round=None, match_round=False):
 def validate_unique_test_items(
     test_items, exclude_procedure_id=None, test_round=None,
 ):
+    """Return duplicate item IDs without raising, for form/API preflight checks."""
     new_ids = {
         item['id'] for item in test_items if isinstance(item, dict)
     }
@@ -286,12 +313,14 @@ def validate_unique_test_items(
 
 
 def display_name(procedure):
+    """Append a round suffix when a procedure represents a retry."""
     name = procedure.get('document_name', '')
     test_round = procedure.get('test_round')
     return f'{name} ({test_round}차)' if test_round not in (None, 1) else name
 
 
 def _time_minutes(value):
+    """Convert HH:MM to minutes and return zero for malformed legacy values."""
     try:
         hours, minutes = value.split(':', 1)
         return int(hours) * 60 + int(minutes)
