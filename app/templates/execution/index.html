@@ -19,55 +19,18 @@
     <span class="exec-item-count" id="item-count"></span>
     <span class="exec-status-summary" id="status-summary"></span>
   </div>
-  <button class="btn btn-sm btn-outline-secondary" onclick="loadList()" title="새로고침">
-    <i class="bi bi-arrow-clockwise"></i>
-  </button>
-</div>
-
-<!-- 필터 바 -->
-<div class="exec-filter-bar">
-  <select id="filter-document" class="form-select form-select-sm" style="width:auto;max-width:240px">
-    <option value="">전체 문서</option>
-    {% for document in documents %}
-    <option value="{{ document.id }}">{{ document.name }}</option>
-    {% endfor %}
-  </select>
-  <select id="filter-date" class="form-select form-select-sm" style="width:auto">
-    <option value="">전체 날짜</option>
-    {% for d in dates %}
-    <option value="{{ d }}">{{ d }}</option>
-    {% endfor %}
-  </select>
-  <select id="filter-location" class="form-select form-select-sm" style="width:auto">
-    <option value="">전체 장소</option>
-    {% for loc in locations %}
-    <option value="{{ loc.id }}">{{ loc.name }}</option>
-    {% endfor %}
-  </select>
-  <select id="filter-status" class="form-select form-select-sm" style="width:auto">
-    <option value="">전체 상태</option>
-    <option value="pending">대기</option>
-    <option value="in_progress">진행 중</option>
-    <option value="paused">일시정지</option>
-    <option value="completed">완료</option>
-  </select>
-  <div class="input-group input-group-sm" style="width:250px">
-    <span class="input-group-text bg-white border-end-0" style="border-radius:8px 0 0 8px">
-      <i class="bi bi-search text-muted" style="font-size:.8rem"></i>
-    </span>
-    <input id="search-input" type="search" class="form-control border-start-0" style="border-radius:0 8px 8px 0"
-           placeholder="시험 항목 / 시험항목 / 작성자 검색…">
-  </div>
-  <button id="reset-filters" class="btn btn-sm btn-outline-secondary" type="button" title="필터 초기화">
-    <i class="bi bi-x-circle"></i>
-  </button>
-  <div class="dropdown ms-auto">
+  <div class="exec-page-actions">
+    <button class="btn btn-sm btn-outline-secondary" onclick="loadList()" title="새로고침">
+      <i class="bi bi-arrow-clockwise"></i>
+    </button>
+    <div class="dropdown">
     <button class="btn btn-sm btn-outline-secondary" type="button"
             id="col-settings-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside"
             title="열 표시 설정">
       <i class="bi bi-layout-three-columns"></i>
     </button>
     <ul class="dropdown-menu dropdown-menu-end" id="col-toggle-menu" style="min-width:140px"></ul>
+    </div>
   </div>
 </div>
 

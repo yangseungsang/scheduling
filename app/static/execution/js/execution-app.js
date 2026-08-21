@@ -35,19 +35,6 @@ let _sortCol = null;
 /** 정렬 방향. 'asc' 또는 'desc'. */
 let _sortDir = 'asc';
 
-/** 실시간 텍스트 검색어. test_item_id·test_item_name·owners 대상. */
-let _searchText = '';
-
-const FILTER_PARAM_BY_TARGET = {
-  'filter-document': 'procedure_id',
-  'filter-date': 'date',
-  'filter-location': 'location',
-  'filter-status': 'status',
-};
-const _columnFilters = {
-  procedure_id: [], date: [], location: [], status: [],
-};
-
 /**
  * 상태 정렬 순서 정의.
  * 상태(status) → 한글 레이블 매핑.
@@ -59,6 +46,55 @@ const STATUS_CFG = {
   paused: '일시정지',
   completed: '완료',
 };
+
+const FILTER_CFG = {
+  doc: {
+    label: '문서',
+    values: item => [{ value: item.procedure_id, label: item.display_name || item.document_name || item.procedure_id }],
+  },
+  test_item: {
+    label: '시험 식별자',
+    values: item => [{ value: item.test_item_id, label: item.test_item_id }],
+  },
+  name: {
+    label: '시험 항목',
+    values: item => [{ value: item.test_item_name, label: item.test_item_name || '-' }],
+  },
+  assignee: {
+    label: '작성자',
+    values: item => (item.owners || []).map(name => ({ value: name, label: name })),
+  },
+  location: {
+    label: '장소',
+    values: item => [{ value: item.location_name || '-', label: item.location_name || '-' }],
+  },
+  date: {
+    label: '날짜',
+    values: item => {
+      const values = [];
+      if (item.scheduled_date) values.push({ value: item.scheduled_date, label: item.scheduled_date });
+      const actualDate = actualStartDate(item);
+      if (actualDate) values.push({ value: actualDate, label: actualDate });
+      return values;
+    },
+  },
+  performer: {
+    label: '수행자',
+    values: item => [{ value: item.performer_name || '-', label: item.performer_name || '-' }],
+  },
+  status: {
+    label: '상태',
+    values: item => {
+      const status = item.execution_status || 'pending';
+      return [{ value: status, label: STATUS_CFG[status] || status }];
+    },
+  },
+};
+
+const _columnFilters = Object.keys(FILTER_CFG).reduce((acc, key) => {
+  acc[key] = [];
+  return acc;
+}, {});
 
 // ── 열 정의 및 가시성 ─────────────────────────────────────────────────────────
 
@@ -152,6 +188,10 @@ function renderActualPeriod(item) {
   return renderDateTimeCell(startDate, `${startTime}–${endTime}`);
 }
 
+function actualStartDate(item) {
+  return item.actual_start_at ? String(item.actual_start_at).replace('T', ' ').slice(0, 10) : '';
+}
+
 /** HTML 특수문자를 엔티티로 이스케이프한다. XSS 방지용. */
 function escHtml(s) {
   return String(s)
@@ -202,34 +242,47 @@ function toggleCol(key, visible) {
   applyAndRender();
 }
 
-function columnFilterButton(targetId, label) {
-  const selected = _columnFilters[FILTER_PARAM_BY_TARGET[targetId]] || [];
+function columnFilterButton(filterKey) {
+  const cfg = FILTER_CFG[filterKey];
+  const selected = _columnFilters[filterKey] || [];
   const active = selected.length ? ' active' : '';
   const count = selected.length > 1 ? `<span class="column-filter-count">${selected.length}</span>` : '';
   return `<button type="button" class="column-filter-btn${active}" ` +
-    `data-filter-target="${targetId}" data-filter-label="${label}" ` +
-    `title="${label} 필터"><i class="bi bi-funnel-fill"></i>${count}</button>`;
+    `data-filter-key="${filterKey}" data-filter-label="${cfg.label}" ` +
+    `title="${cfg.label} 필터"><i class="bi bi-funnel-fill"></i>${count}</button>`;
 }
 
 function closeColumnFilter() {
   document.getElementById('column-filter-menu')?.remove();
 }
 
-/** 상단 select의 항목을 재사용해 헤더 필터 메뉴를 연다. */
-function openColumnFilter(button) {
-  closeColumnFilter();
-  const source = document.getElementById(button.dataset.filterTarget);
-  if (!source) return;
-  const param = FILTER_PARAM_BY_TARGET[button.dataset.filterTarget];
-  const selected = new Set(_columnFilters[param]);
-  const menu = document.createElement('div');
-  menu.id = 'column-filter-menu';
-  menu.className = 'exec-column-filter-menu';
-  const title = document.createElement('div');
-  title.className = 'column-filter-title';
-  title.textContent = button.dataset.filterLabel;
-  menu.appendChild(title);
-  Array.from(source.options).filter(option => option.value).forEach(option => {
+function uniqueFilterOptions(filterKey) {
+  const cfg = FILTER_CFG[filterKey];
+  const byValue = new Map();
+  _allItems.forEach(item => {
+    cfg.values(item).forEach(option => {
+      if (!option.value || byValue.has(option.value)) return;
+      byValue.set(option.value, option.label || option.value);
+    });
+  });
+  return Array.from(byValue, ([value, label]) => ({ value, label }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'ko'));
+}
+
+function renderFilterOptions(menu, filterKey, query = '') {
+  const selected = menu._selectedValues || new Set(_columnFilters[filterKey]);
+  const normalized = query.trim().toLowerCase();
+  const list = menu.querySelector('.column-filter-options');
+  const options = uniqueFilterOptions(filterKey).filter(option =>
+    !normalized ||
+    option.label.toLowerCase().includes(normalized) ||
+    option.value.toLowerCase().includes(normalized));
+  if (!options.length) {
+    list.innerHTML = '<div class="column-filter-empty">항목 없음</div>';
+    return;
+  }
+  list.innerHTML = '';
+  options.forEach(option => {
     const item = document.createElement('label');
     item.className = 'column-filter-option';
     const checkbox = document.createElement('input');
@@ -237,10 +290,42 @@ function openColumnFilter(button) {
     checkbox.value = option.value;
     checkbox.checked = selected.has(option.value);
     const text = document.createElement('span');
-    text.textContent = option.textContent;
+    text.textContent = option.label;
+    checkbox.addEventListener('change', () => {
+      if (checkbox.checked) selected.add(option.value);
+      else selected.delete(option.value);
+      menu._selectedValues = selected;
+    });
     item.append(checkbox, text);
-    menu.appendChild(item);
+    list.appendChild(item);
   });
+}
+
+function selectedFilterValues(menu) {
+  return Array.from(menu._selectedValues || []);
+}
+
+/** 현재 목록 데이터에서 고유값을 수집해 검색 가능한 헤더 필터 메뉴를 연다. */
+function openColumnFilter(button) {
+  closeColumnFilter();
+  const filterKey = button.dataset.filterKey;
+  if (!FILTER_CFG[filterKey]) return;
+  const menu = document.createElement('div');
+  menu.id = 'column-filter-menu';
+  menu.className = 'exec-column-filter-menu';
+  menu._selectedValues = new Set(_columnFilters[filterKey]);
+  const title = document.createElement('div');
+  title.className = 'column-filter-title';
+  title.textContent = button.dataset.filterLabel;
+  menu.appendChild(title);
+  const search = document.createElement('input');
+  search.type = 'search';
+  search.className = 'column-filter-search';
+  search.placeholder = '검색';
+  menu.appendChild(search);
+  const optionList = document.createElement('div');
+  optionList.className = 'column-filter-options';
+  menu.appendChild(optionList);
   const actions = document.createElement('div');
   actions.className = 'column-filter-actions';
   const clear = document.createElement('button');
@@ -248,24 +333,25 @@ function openColumnFilter(button) {
   clear.className = 'btn btn-sm btn-outline-secondary';
   clear.textContent = '전체';
   clear.addEventListener('click', () => {
-    menu.querySelectorAll('input[type="checkbox"]').forEach(input => { input.checked = false; });
+    _columnFilters[filterKey] = [];
+    closeColumnFilter();
+    applyAndRender();
   });
   const apply = document.createElement('button');
   apply.type = 'button';
   apply.className = 'btn btn-sm btn-primary';
   apply.textContent = '적용';
   apply.addEventListener('click', () => {
-    _columnFilters[param] = Array.from(
-      menu.querySelectorAll('input[type="checkbox"]:checked'),
-      input => input.value,
-    );
-    source.value = _columnFilters[param].length === 1 ? _columnFilters[param][0] : '';
+    _columnFilters[filterKey] = selectedFilterValues(menu);
     closeColumnFilter();
-    loadList();
+    applyAndRender();
   });
   actions.append(clear, apply);
   menu.appendChild(actions);
   document.body.appendChild(menu);
+  renderFilterOptions(menu, filterKey);
+  search.addEventListener('input', () => renderFilterOptions(menu, filterKey, search.value));
+  search.focus();
   const rect = button.getBoundingClientRect();
   const left = Math.min(rect.left, window.innerWidth - menu.offsetWidth - 12);
   menu.style.left = `${Math.max(12, left)}px`;
@@ -282,17 +368,17 @@ function openColumnFilter(button) {
  */
 function buildTableHeader() {
   const cols = [];
-  if (colVisible('doc'))        cols.push(`<th style="width:250px">문서 ${columnFilterButton('filter-document', '문서')}</th>`);
-  if (colVisible('test_item')) cols.push('<th style="width:180px">시험 항목</th>');
-  if (colVisible('name'))       cols.push('<th>시험항목</th>');
-  if (colVisible('assignee'))   cols.push('<th style="width:100px">작성자</th>');
-  if (colVisible('location'))   cols.push(`<th class="sortable" data-sort="location" style="width:90px">장소 <i class="bi bi-arrow-down-up ms-1 text-muted"></i> ${columnFilterButton('filter-location', '장소')}</th>`);
-  if (colVisible('scheduled_time')) cols.push(`<th class="sortable" data-sort="scheduled_time" style="width:135px">예정 날짜(시간) <i class="bi bi-arrow-down-up ms-1 text-muted"></i> ${columnFilterButton('filter-date', '예정 날짜')}</th>`);
-  if (colVisible('actual_time')) cols.push('<th class="sortable" data-sort="actual_time" style="width:150px">실제 수행 날짜(시간) <i class="bi bi-arrow-down-up ms-1 text-muted"></i></th>');
-  if (colVisible('estimated'))  cols.push('<th style="width:75px">예상</th>');
-  if (colVisible('performer'))  cols.push('<th style="width:80px">수행자</th>');
+  if (colVisible('doc'))        cols.push(`<th style="width:250px">문서 ${columnFilterButton('doc')}</th>`);
+  if (colVisible('test_item')) cols.push(`<th style="width:180px">시험 식별자 ${columnFilterButton('test_item')}</th>`);
+  if (colVisible('name'))       cols.push(`<th>시험 항목 ${columnFilterButton('name')}</th>`);
+  if (colVisible('assignee'))   cols.push(`<th style="width:100px">작성자 ${columnFilterButton('assignee')}</th>`);
+  if (colVisible('location'))   cols.push(`<th class="sortable" data-sort="location" style="width:90px">장소 <i class="bi bi-arrow-down-up ms-1 text-muted"></i> ${columnFilterButton('location')}</th>`);
+  if (colVisible('scheduled_time')) cols.push(`<th class="sortable" data-sort="scheduled_time" style="width:135px">예정 날짜(시간) <i class="bi bi-arrow-down-up ms-1 text-muted"></i> ${columnFilterButton('date')}</th>`);
+  if (colVisible('actual_time')) cols.push(`<th class="sortable" data-sort="actual_time" style="width:150px">실제 수행 날짜(시간) <i class="bi bi-arrow-down-up ms-1 text-muted"></i> ${columnFilterButton('date')}</th>`);
+  if (colVisible('estimated'))  cols.push('<th style="width:75px">예상 시간</th>');
+  if (colVisible('performer'))  cols.push(`<th style="width:80px">수행자 ${columnFilterButton('performer')}</th>`);
   if (colVisible('result'))     cols.push('<th style="width:130px">결과</th>');
-  if (colVisible('status'))     cols.push(`<th class="sortable" data-sort="status" style="width:120px">상태 <i class="bi bi-arrow-down-up ms-1 text-muted"></i> ${columnFilterButton('filter-status', '상태')}</th>`);
+  if (colVisible('status'))     cols.push(`<th class="sortable" data-sort="status" style="width:120px">상태 <i class="bi bi-arrow-down-up ms-1 text-muted"></i> ${columnFilterButton('status')}</th>`);
   return cols.join('');
 }
 
@@ -337,18 +423,13 @@ function refreshTableHeader() {
  * 로드 실패 시: 오류 메시지 행 표시
  */
 async function loadList() {
-  const params = new URLSearchParams();
-  Object.entries(_columnFilters).forEach(([key, values]) => {
-    values.forEach(value => params.append(key, value));
-  });
-
   // 가시 열 수만큼 colspan을 설정해 로딩 행이 전체 너비를 차지하게 한다.
   const visibleCount = COL_DEFS.filter(c => colVisible(c.key)).length;
   document.getElementById('exec-tbody').innerHTML =
     `<tr><td colspan="${visibleCount}" class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>로딩 중…</td></tr>`;
 
   try {
-    _allItems = await apiFetch('/execution/api/list?' + params.toString());
+    _allItems = await apiFetch('/execution/api/list');
     renderStatusSummary();
     applyAndRender();
   } catch {
@@ -383,11 +464,11 @@ function setSort(col) {
 // ── 필터 + 정렬 → 렌더 ───────────────────────────────────────────────────────
 
 /**
- * _allItems에 텍스트 검색과 정렬을 적용한 뒤 renderTable()을 호출한다.
+ * _allItems에 컬럼 필터와 정렬을 적용한 뒤 renderTable()을 호출한다.
  *
  * 필터:
- *   - 텍스트 검색(_searchText): test_item_id·test_item_name·owners 포함 검색
- *   - 날짜·장소 필터는 loadList() 단계에서 서버에 파라미터로 전달하므로 여기서는 처리 안 함
+ *   - 각 헤더 필터에서 선택한 값과 행 값을 비교한다.
+ *   - 날짜 필터는 예정 날짜와 실제 수행 시작 날짜에 함께 적용한다.
  *
  * 정렬:
  *   - 'scheduled_time': 예정 날짜와 시작 시각 비교
@@ -397,11 +478,11 @@ function setSort(col) {
  */
 function applyAndRender() {
   let items = [..._allItems];
-  const q = _searchText.toLowerCase();
-  if (q) items = items.filter(i =>
-    i.test_item_id.toLowerCase().includes(q) ||
-    i.test_item_name.toLowerCase().includes(q) ||
-    (i.owners || []).some(a => a.toLowerCase().includes(q)));
+  items = items.filter(item => Object.entries(_columnFilters).every(([key, selected]) => {
+    if (!selected.length) return true;
+    const selectedSet = new Set(selected);
+    return FILTER_CFG[key].values(item).some(option => selectedSet.has(option.value));
+  }));
   if (_sortCol) {
     items.sort((a, b) => {
       let va, vb;
@@ -630,31 +711,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fsBtn = document.getElementById('btn-fullscreen');
   if (fsBtn) fsBtn.addEventListener('click', toggleFullscreen);
-
-  // 문서/날짜/장소/상태 필터 변경 시 서버에서 다시 목록을 가져온다.
-  Object.entries(FILTER_PARAM_BY_TARGET).forEach(([targetId, param]) => {
-    document.getElementById(targetId).addEventListener('change', event => {
-      _columnFilters[param] = event.target.value ? [event.target.value] : [];
-      loadList();
-    });
-  });
-
-  document.getElementById('reset-filters').addEventListener('click', () => {
-    document.getElementById('filter-document').value = '';
-    document.getElementById('filter-date').value = '';
-    document.getElementById('filter-location').value = '';
-    document.getElementById('filter-status').value = '';
-    Object.keys(_columnFilters).forEach(key => { _columnFilters[key] = []; });
-    document.getElementById('search-input').value = '';
-    _searchText = '';
-    loadList();
-  });
-
-  // 텍스트 검색은 서버 호출 없이 _allItems를 로컬 필터링만 한다.
-  document.getElementById('search-input').addEventListener('input', e => {
-    _searchText = e.target.value.trim();
-    applyAndRender();
-  });
 
   // 초기 목록 로드
   loadList();

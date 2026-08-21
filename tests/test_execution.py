@@ -520,7 +520,9 @@ class TestExecutionAPI:
     def test_execution_page(self, exec_client):
         r = exec_client.get('/execution/')
         assert r.status_code == 200
-        assert 'id="filter-document"' in r.get_data(as_text=True)
+        html = r.get_data(as_text=True)
+        assert 'id="filter-document"' not in html
+        assert 'id="col-toggle-menu"' in html
 
     def test_detail_count_inputs_only_cap_when_total_count_is_known(self):
         js_path = os.path.join(
