@@ -35,6 +35,11 @@ class TestPageRoutes:
         r = client.get('/schedule/week')
         assert r.status_code == 200
 
+    def test_week_view_without_locations_keeps_default_column_header(self, client):
+        r = client.get('/schedule/week')
+        assert r.status_code == 200
+        assert '미지정' in r.data.decode()
+
     def test_week_view_with_date(self, client):
         r = client.get('/schedule/week?date=2026-03-10')
         assert r.status_code == 200

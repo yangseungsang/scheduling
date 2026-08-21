@@ -89,18 +89,18 @@ window.ScheduleApp = window.ScheduleApp || {};
    * 블록 배치 후 잔여 시간이 증가했는지 확인하고, 증가 시 알림을 표시한다.
    * 잔여 시간이 증가했다는 것은 배치 시 시간이 잘린(cut) 것을 의미한다.
    * @param {string} procedureId - 시험 절차서 ID
-   * @param {string} procedureId - 절차 시험 항목 (알림 표시용)
+   * @param {string} procedureTitle - 절차 시험 항목 (알림 표시용)
    * @param {number} prevRemaining - 배치 전 잔여 시간 (분)
    * @returns {Promise<boolean>} 알림 표시 여부
    */
-  function checkRemainingAfterPlace(procedureId, procedureId, prevRemaining) {
+  function checkRemainingAfterPlace(procedureId, procedureTitle, prevRemaining) {
     return api('GET', '/procedures/api/' + procedureId).then(function (res) {
       var procedure = res.procedure;
       if (!procedure) return false;
       var remaining = procedure.remaining_minutes;
       // 잔여 시간이 이전보다 증가한 경우에만 알림 (시간이 잘렸음을 의미)
       if (remaining > 0 && remaining > (prevRemaining || 0)) {
-        return showRemainingAlert(procedureId || procedure.document_name || procedure.document_id, remaining);
+        return showRemainingAlert(procedureTitle || procedure.document_name || procedure.document_id, remaining);
       }
       return false;
     }).catch(function () { return false; });

@@ -45,6 +45,8 @@ def build_location_options(procedures, schedule):
         {procedure.location_name for procedure in procedures if procedure.location_name}
         | {block.location_name for block in schedule.blocks if block.location_name}
     )
+    if not names:
+        return [{'id': '', 'name': '미지정', 'color': _location_color('미지정')}]
     return [
         {'id': name, 'name': name, 'color': _location_color(name)}
         for name in names
