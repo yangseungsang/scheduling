@@ -12,6 +12,9 @@ from app.features.schedule.services.time import (
 from app.services.read_models import build_schedule_export_rows
 
 
+FIXED_LOCATIONS = ('STE1', 'STE2', 'STE3')
+
+
 def build_day_payload(procedures, schedule, executions, current_date, settings, time_slots, break_slots):
     """Build the complete JSON payload consumed by the day view."""
     return {
@@ -40,13 +43,14 @@ def schedule_settings(settings):
 
 
 def build_location_options(procedures, schedule):
-    """Build UI options from location names already stored on procedures and blocks."""
-    names = sorted(
+    """Build UI options with fixed STE locations plus stored legacy names."""
+    stored_names = sorted(
         {procedure.location_name for procedure in procedures if procedure.location_name}
         | {block.location_name for block in schedule.blocks if block.location_name}
     )
-    if not names:
-        return [{'id': '', 'name': '미지정', 'color': _location_color('미지정')}]
+    names = list(FIXED_LOCATIONS) + [
+        name for name in stored_names if name not in FIXED_LOCATIONS
+    ]
     return [
         {'id': name, 'name': name, 'color': _location_color(name)}
         for name in names

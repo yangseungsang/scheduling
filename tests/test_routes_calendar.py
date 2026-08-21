@@ -35,10 +35,13 @@ class TestPageRoutes:
         r = client.get('/schedule/week')
         assert r.status_code == 200
 
-    def test_week_view_without_locations_keeps_default_column_header(self, client):
+    def test_week_view_without_locations_keeps_fixed_location_headers(self, client):
         r = client.get('/schedule/week')
         assert r.status_code == 200
-        assert '미지정' in r.data.decode()
+        html = r.data.decode()
+        assert 'STE1' in html
+        assert 'STE2' in html
+        assert 'STE3' in html
 
     def test_week_view_with_date(self, client):
         r = client.get('/schedule/week?date=2026-03-10')
