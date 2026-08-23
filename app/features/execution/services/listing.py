@@ -1,9 +1,107 @@
 """Read services for execution list and detail responses."""
 
+from collections import defaultdict
+from datetime import date, timedelta
+
 from flask import current_app
 
 from app.repositories import JsonDomainRepository
 from app.services.read_models import build_execution_list_items
+
+
+def build_daily_procedure_metrics(start_date='', end_date=''):
+    """Aggregate planned and current execution outcomes by unique procedure ID."""
+    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
+    plan = repository.load_plan()
+    executions = repository.load_executions()
+
+    planned = defaultdict(set)
+    started = defaultdict(set)
+    completed = defaultdict(set)
+    failed = defaultdict(set)
+    blocked = defaultdict(set)
+
+    for block in plan.schedule.blocks:
+        if block.procedure_id and block.date:
+            planned[block.date].add(block.procedure_id)
+
+    runs_by_procedure = defaultdict(list)
+    for run in executions.runs:
+        runs_by_procedure[run.procedure_id].append(run)
+
+    for procedure in plan.test_procedures:
+        procedure_runs = runs_by_procedure.get(procedure.id, [])
+        started_dates = [
+            _date_part(run.started_at)
+            for run in procedure_runs
+            if run.status != 'pending' and _date_part(run.started_at)
+        ]
+        if started_dates:
+            started[min(started_dates)].add(procedure.id)
+
+        # 호출 시점에 완료 상태인 실행 항목이 하나라도 있으면 해당 절차서를
+        # 실제 수행한 것으로 본다. 아직 배치·실행하지 않은 형제 항목 때문에
+        # 이미 끝낸 procedure_id가 집계에서 누락되지 않도록 한다.
+        completed_runs = [
+            run for run in procedure_runs
+            if run.status == 'completed' and _date_part(run.ended_at)
+        ]
+        if not completed_runs:
+            continue
+        completion_date = max(_date_part(run.ended_at) for run in completed_runs)
+        completed[completion_date].add(procedure.id)
+        if any(run.fail_count > 0 for run in completed_runs):
+            failed[completion_date].add(procedure.id)
+        if any(run.block_count > 0 for run in completed_runs):
+            blocked[completion_date].add(procedure.id)
+
+    available_dates = set().union(planned, started, completed, failed, blocked)
+    range_start = start_date or (min(available_dates) if available_dates else '')
+    range_end = end_date or (max(available_dates) if available_dates else '')
+    if range_start and range_end and range_start > range_end:
+        raise ValueError('시작일은 종료일보다 늦을 수 없습니다.')
+
+    days = []
+    if range_start and range_end:
+        current = date.fromisoformat(range_start)
+        last = date.fromisoformat(range_end)
+        while current <= last:
+            value = current.isoformat()
+            fail_ids = failed[value]
+            block_ids = blocked[value]
+            days.append({
+                'date': value,
+                'planned_count': len(planned[value]),
+                'started_count': len(started[value]),
+                'completed_count': len(completed[value]),
+                'failed_count': len(fail_ids),
+                'blocked_count': len(block_ids),
+                'failed_or_blocked_count': len(fail_ids | block_ids),
+                'planned_procedure_ids': sorted(planned[value]),
+                'started_procedure_ids': sorted(started[value]),
+                'completed_procedure_ids': sorted(completed[value]),
+                'failed_procedure_ids': sorted(fail_ids),
+                'blocked_procedure_ids': sorted(block_ids),
+            })
+            current += timedelta(days=1)
+
+    return {
+        'start_date': range_start,
+        'end_date': range_end,
+        'days': days,
+        'summary': {
+            'planned_count': sum(item['planned_count'] for item in days),
+            'started_count': sum(item['started_count'] for item in days),
+            'completed_count': sum(item['completed_count'] for item in days),
+            'failed_count': sum(item['failed_count'] for item in days),
+            'blocked_count': sum(item['blocked_count'] for item in days),
+        },
+    }
+
+
+def _date_part(value):
+    """Return the ISO date portion of a stored datetime string."""
+    return str(value)[:10] if value else ''
 
 
 def build_execution_items(

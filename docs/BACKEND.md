@@ -69,8 +69,7 @@ Domain 타입은 `@dataclass(frozen=True)`다. 변경은 기존 객체를 직접
 
 ```python
 repository.update_test_procedures(lambda procedures: tuple(
-    replace(item, location_name='QA Lab')
-    if item.id == target_id
+    replace(item, memo='수정됨') if item.id == target_id
     else item
     for item in procedures
 ))

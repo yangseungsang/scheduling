@@ -29,7 +29,6 @@ class TestTestProcedureModel:
             t = procedure.create(
                 document_id=1001,
                 assignee_names=['홍길동', '김민수'],
-                location_name='loc_test1234',
                 document_name='통신 기능',
 
                 test_items=['TC-001', 'TC-002'],
@@ -39,7 +38,7 @@ class TestTestProcedureModel:
             assert t['id'].startswith('tp_')
             assert t['document_id'] == '1001'
             assert t['assignee_names'] == ['홍길동', '김민수']
-            assert t['location_name'] == 'loc_test1234'
+            assert 'location_name' not in t
             assert t['document_name'] == '통신 기능'
             assert True
             assert [item['id'] for item in t['test_items']] == ['TC-001', 'TC-002']
@@ -51,7 +50,7 @@ class TestTestProcedureModel:
             from app.features.schedule.services import test_procedures as procedure
             t = procedure.create(
                 document_id=1001,
-                assignee_names=['홍길동'], location_name='loc_1',
+                assignee_names=['홍길동'],
                 document_name='sec',
                 test_items=['TC-001'], estimated_minutes=240,
                 memo='',
@@ -59,7 +58,7 @@ class TestTestProcedureModel:
             updated = procedure.update(
                 t['id'],
                 document_id=1002,
-                assignee_names=['이지은', '박준혁'], location_name='loc_2',
+                assignee_names=['이지은', '박준혁'],
                 document_name='new sec',
                 test_items=['TC-003'], estimated_minutes=360,
                 memo='updated',
@@ -73,7 +72,7 @@ class TestTestProcedureModel:
             from app.features.schedule.services import test_procedures as procedure
             t = procedure.create(
                 document_id=1001,
-                assignee_names=['홍길동'], location_name='loc_1',
+                assignee_names=['홍길동'],
                 document_name='sec',
                 test_items=['TC-001'], estimated_minutes=240,
                 memo='',
@@ -91,29 +90,29 @@ class TestScheduleBlockModel:
         with app.app_context():
             from app.features.schedule.services import blocks as schedule_block
             schedule_block.create(
-                procedure_id=None, assignee_names=['A'], location_name='loc_1',
+                procedure_id=None, assignee_names=['A'], location_name='STE1',
                 date='2026-04-01',
                 start_time='08:30', end_time='10:00',
                 is_simple=True, title='A',
             )
             schedule_block.create(
-                procedure_id=None, assignee_names=['B'], location_name='loc_2',
+                procedure_id=None, assignee_names=['B'], location_name='STE2',
                 date='2026-04-01',
                 start_time='08:30', end_time='10:00',
                 is_simple=True, title='B',
             )
-            loc1 = schedule_block.get_by_location_and_date('loc_1', '2026-04-01')
+            loc1 = schedule_block.get_by_location_and_date('STE1', '2026-04-01')
             assert len(loc1) == 1
 
     def test_update_block_allowed_fields(self, app):
         with app.app_context():
             from app.features.schedule.services import blocks as schedule_block
             block = schedule_block.create(
-                procedure_id=None, assignee_names=['A'], location_name='loc_1',
+                procedure_id=None, assignee_names=['A'], location_name='STE1',
                 date='2026-04-01',
                 start_time='08:30', end_time='10:00',
                 is_simple=True, title='A',
             )
-            updated = schedule_block.update(block['id'], location_name='loc_2', start_time='09:00')
-            assert updated['location_name'] == 'loc_2'
+            updated = schedule_block.update(block['id'], location_name='STE2', start_time='09:00')
+            assert updated['location_name'] == 'STE2'
             assert updated['start_time'] == '09:00'

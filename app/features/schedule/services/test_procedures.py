@@ -128,7 +128,6 @@ def _procedure(procedure_id, data, test_items):
         test_items=tuple(test_items),
         estimated_minutes=estimated,
         assignee_names=tuple(data.get('assignee_names', [])),
-        location_name=data.get('location_name', ''),
         memo=data.get('memo', ''),
         state='cancelled' if data.get('status') == 'cancelled' else 'active',
         kind='simple' if data.get('is_simple') else 'test',
@@ -154,7 +153,6 @@ def _procedure_dict(procedure):
         'document_name': procedure.document_name,
         'test_round': procedure.test_round,
         'assignee_names': list(procedure.assignee_names),
-        'location_name': procedure.location_name,
         'test_items': [
             {
                 'id': item.id,
@@ -223,7 +221,7 @@ def get_by_id(procedure_id):
 
 
 def create(
-    document_id, assignee_names, location_name, document_name, test_items,
+    document_id, assignee_names, document_name, test_items,
     estimated_minutes, memo='', test_round=None, **kwargs,
 ):
     """Compatibility facade for procedure creation."""
@@ -231,7 +229,6 @@ def create(
         'document_id': document_id,
         'test_round': test_round,
         'assignee_names': assignee_names or [],
-        'location_name': location_name,
         'document_name': document_name,
         'test_items': test_items or [],
         'estimated_minutes': estimated_minutes,
@@ -249,15 +246,14 @@ def patch(procedure_id, **updates):
 
 
 def update(
-    procedure_id, document_id, assignee_names, location_name, document_name, test_items,
-    estimated_minutes, memo='',
+    procedure_id, document_id, assignee_names, document_name, test_items,
+    estimated_minutes, memo='', **kwargs,
 ):
     """Compatibility facade for the legacy full-update call shape."""
     return patch(
         procedure_id,
         document_id=document_id,
         assignee_names=assignee_names or [],
-        location_name=location_name,
         document_name=document_name,
         test_items=test_items or [],
         estimated_minutes=estimated_minutes,

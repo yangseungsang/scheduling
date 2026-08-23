@@ -32,12 +32,20 @@ class TestBlockCreate:
 
     def test_create_overlap_rejected(self, client):
         uid = _assignee_name(client)
-        lid = _create_location(client, name='Lab1')
-        tid = _create_procedure(client, uid, loc_id=lid)
-        _create_block(client, tid, uid, start='09:00', end='10:00')
+        tid = _create_procedure(client, uid)
+        _create_block(client, tid, uid, start='09:00', end='10:00', location_name='STE1')
         # Same procedure, same location, overlapping time
-        _, status = _create_block(client, tid, uid, start='09:30', end='10:30')
+        _, status = _create_block(client, tid, uid, start='09:30', end='10:30', location_name='STE1')
         assert status == 409
+
+    def test_create_rejects_unknown_location(self, client):
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
+        data, status = _create_block(
+            client, tid, uid, location_name='QA Lab A',
+        )
+        assert status == 400
+        assert 'STE1, STE2, STE3' in data['error']
 
     def test_create_block_with_test_item_ids(self, client):
         uid = _assignee_name(client)
@@ -48,6 +56,7 @@ class TestBlockCreate:
             'date': '2026-03-10',
             'start_time': '09:00',
             'end_time': '11:00',
+            'location_name': 'STE1',
             'test_item_ids': ['TC-001'],
         }
         r = client.post('/schedule/api/blocks', json=payload)
@@ -97,17 +106,15 @@ class TestBlockDelete:
         assert r.status_code == 200
         assert r.get_json()['success'] is True
 
-    def test_restore_clears_location_name(self, client):
+    def test_restore_does_not_add_location_to_procedure(self, client):
         uid = _assignee_name(client)
-        lid = _create_location(client, name='RestoreLab')
-        tid = _create_procedure(client, uid, loc_id=lid)
-        block, _ = _create_block(client, tid, uid)
+        tid = _create_procedure(client, uid)
+        block, _ = _create_block(client, tid, uid, location_name='STE1')
         # Delete with restore flag
         r = client.delete(f'/schedule/api/blocks/{block["id"]}?restore=1')
         assert r.status_code == 200
-        # TestProcedure's location_name should be cleared
         procedure_data = client.get(f'/procedures/api/{tid}').get_json()['procedure']
-        assert procedure_data['location_name'] == ''
+        assert 'location_name' not in procedure_data
 
 
 class TestBlockSplit:
@@ -139,6 +146,7 @@ class TestBlockSplit:
             'date': '2026-03-10',
             'start_time': '13:00',
             'end_time': '15:00',
+            'location_name': 'STE1',
         })
 
         assert response.status_code == 400
@@ -214,7 +222,7 @@ class TestBlocksByTestProcedure:
             test_item_ids=['TC-001'],
         )
         _create_block(
-            client, tid, uid, start='10:00', end='11:00',
+            client, tid, uid, start='10:15', end='11:15',
             test_item_ids=['TC-002'],
         )
         r = client.get(f'/schedule/api/blocks/by-procedure/{tid}')
@@ -232,6 +240,7 @@ def test_manual_block_status_does_not_write_procedure_status(app, client):
         'date': '2026-03-10',
         'start_time': '09:00',
         'end_time': '10:00',
+        'location_name': 'STE1',
     })
     assert block_r.status_code == 201
     block_id = block_r.get_json()['id']

@@ -85,11 +85,10 @@ class TestSyncTestData:
                 ]
 
         with self.app.app_context():
-            # Pre-create a procedure with assignee and location set
+            # Pre-create a procedure with an assignee.
             procedure.create(
                 document_id=1,
                 assignee_names=['홍길동'],
-                location_name='loc_xyz',
                 document_name='시스템',
                 test_items=[{'id': 'TC-OLD', 'estimated_minutes': 60, 'owners': []}],
                 estimated_minutes=60,
@@ -104,9 +103,9 @@ class TestSyncTestData:
             assert len(t['test_items']) == 1
             assert t['test_items'][0]['id'] == 'TC-001'
             assert t['estimated_minutes'] == 300
-            # assignee_names and location_name should be preserved
+            # Procedure-owned fields are preserved; location belongs to blocks.
             assert t['assignee_names'] == ['홍길동']
-            assert t['location_name'] == 'loc_xyz'
+            assert 'location_name' not in t
 
     def test_sync_deletes_removed_unscheduled_procedure(self):
         class MockProvider:
@@ -117,7 +116,7 @@ class TestSyncTestData:
             procedure.create(
                 document_id=1,
                 assignee_names=[],
-                location_name='',
+                location_name='STE1',
                 document_name='시스템',
                 test_items=[{'id': 'TC-EMPTY', 'estimated_minutes': 0}],
                 estimated_minutes=0,
@@ -137,7 +136,6 @@ class TestSyncTestData:
             t = procedure.create(
                 document_id=1,
                 assignee_names=[],
-                location_name='',
                 document_name='시스템',
                 test_items=[{'id': 'TC-001', 'estimated_minutes': 60, 'owners': []}],
                 estimated_minutes=60,
@@ -145,7 +143,7 @@ class TestSyncTestData:
             schedule_block.create(
                 procedure_id=t['id'],
                 assignee_names=[],
-                location_name='',
+                location_name='STE1',
                 date='2026-07-07',
                 start_time='09:00',
                 end_time='10:00',
@@ -201,7 +199,6 @@ class TestSyncTestData:
             t = procedure.create(
                 document_id=1,
                 assignee_names=[],
-                location_name='',
                 document_name='시스템',
                 test_items=[
                     {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
@@ -212,7 +209,7 @@ class TestSyncTestData:
             schedule_block.create(
                 procedure_id=t['id'],
                 assignee_names=[],
-                location_name='',
+                location_name='STE1',
                 date='2026-07-07',
                 start_time='09:00',
                 end_time='10:00',
@@ -260,3 +257,26 @@ class TestSyncAPI:
             assert resp.status_code == 200
             data = resp.get_json()
             assert 'test_procedures' in data
+
+    def test_reset_and_sync_fetch_failure_preserves_existing_data(self, client):
+        from unittest.mock import Mock, patch
+
+        with self.app.app_context():
+            existing = procedure.create(
+                document_id=1,
+                assignee_names=[],
+                document_name='기존 절차서',
+                test_items=[{'id': 'TC-001', 'estimated_minutes': 30}],
+                estimated_minutes=30,
+            )
+
+        integration = Mock()
+        integration.get_test_data_all.side_effect = RuntimeError('provider unavailable')
+        with patch(
+            'app.features.schedule.routes.sync.DynReadyClient',
+            return_value=integration,
+        ), pytest.raises(RuntimeError, match='provider unavailable'):
+            client.post('/api/sync/reset-and-sync')
+
+        with self.app.app_context():
+            assert procedure.get_by_id(existing['id']) is not None

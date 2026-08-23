@@ -51,7 +51,6 @@ class TestProcedure:
     test_items: Tuple[TestItem, ...] = ()
     estimated_minutes: int = 0
     assignee_names: Tuple[str, ...] = ()
-    location_name: str = ''
     memo: str = ''
     state: str = 'active'
     kind: str = 'test'
@@ -75,7 +74,6 @@ class TestProcedure:
                 else sum(item.estimated_minutes for item in test_items)
             ),
             assignee_names=tuple(data.get('assignee_names', [])),
-            location_name=data.get('location_name', ''),
             memo=data.get('memo', ''),
             state=data.get('state', 'active'),
             kind='simple' if not test_items else 'test',
@@ -101,8 +99,6 @@ class TestProcedure:
             result['estimated_minutes'] = self.estimated_minutes
         if self.assignee_names:
             result['assignee_names'] = list(self.assignee_names)
-        if self.location_name:
-            result['location_name'] = self.location_name
         if self.memo:
             result['memo'] = self.memo
         if self.state != 'active':

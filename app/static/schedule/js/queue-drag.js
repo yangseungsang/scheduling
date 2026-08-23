@@ -48,33 +48,49 @@
               if (target.type === 'queue') return;
               if (target.type !== 'slot' && target.type !== 'month') return;
 
-              var dropDate = target.date;
-              var curMin = target.type === 'slot' ? App.snapToBlockEdge(target.el) : timeToMin('08:30');
-              var dropLocId = (target.type === 'slot' ? target.locationName : '') || '';
-
-              var chain = Promise.resolve();
-              selectedItems.forEach(function (si) {
-                chain = chain.then(function () {
-                  var rem = Math.round(parseFloat(si.dataset.remainingMinutes) || 1);
-                  var payload = {
-                    procedure_id: si.dataset.procedureId,
-                    assignee_names: si.dataset.assigneeNames ? si.dataset.assigneeNames.split(',').filter(Boolean) : [],
-                    location_name: dropLocId || si.dataset.locationName || '',
-                    date: dropDate,
-                    start_time: minToTime(curMin),
-                    end_time: minToTime(curMin + rem),
-                  };
-                  curMin += rem;
-                  return api('POST', '/schedule/api/blocks', payload);
+              function placeSelected(dropLocId, initialMin) {
+                var curMin = initialMin;
+                var workEnd = App.getWorkEndMin();
+                var totalEnd = curMin + Math.round(totalMin);
+                var chain = App.confirmWorkEndClamp(curMin, totalEnd);
+                var placedCount = 0;
+                selectedItems.forEach(function (si) {
+                  chain = chain.then(function (confirmed) {
+                    if (!confirmed || curMin >= workEnd) return false;
+                    var rem = Math.round(parseFloat(si.dataset.remainingMinutes) || 1);
+                    var payload = {
+                      procedure_id: si.dataset.procedureId,
+                      assignee_names: si.dataset.assigneeNames ? si.dataset.assigneeNames.split(',').filter(Boolean) : [],
+                      location_name: dropLocId,
+                      date: target.date,
+                      start_time: minToTime(curMin),
+                      end_time: minToTime(curMin + rem),
+                    };
+                    return api('POST', '/schedule/api/blocks', payload).then(function (res) {
+                      placedCount++;
+                      curMin = timeToMin(res.end_time);
+                      return true;
+                    });
+                  });
                 });
-              });
-              chain.then(function () {
-                showToast(selectedItems.length + '건 일괄 배치 완료', 'success');
-                App.softReload();
-              }).catch(function (err) {
-                showToast(err.message, 'danger');
-                App.softReload();
-              });
+                chain.then(function () {
+                  if (!placedCount) return;
+                  var skipped = selectedItems.length - placedCount;
+                  showToast(placedCount + '건 배치 완료' + (skipped ? ', ' + skipped + '건은 큐에 남았습니다.' : ''), skipped ? 'info' : 'success');
+                  App.softReload();
+                }).catch(function (err) {
+                  showToast(err.message, 'danger');
+                  App.softReload();
+                });
+              }
+
+              if (target.type === 'month') {
+                showMonthPlacePicker('', function (result) {
+                  if (result) placeSelected(result.locationName, timeToMin(result.startTime));
+                });
+              } else {
+                placeSelected(target.locationName, App.snapToBlockEdge(target.el));
+              }
             },
           });
           return; // 다중 드래그 처리 완료
@@ -84,7 +100,6 @@
         var procedureId = item.dataset.procedureId;
         // 담당자 이름 배열 파싱 (쉼표 구분 문자열)
         var assigneeNames = item.dataset.assigneeNames ? item.dataset.assigneeNames.split(',').filter(Boolean) : [];
-        var locationName = item.dataset.locationName || '';
         // 잔여 시간(분) — 블록 길이 결정에 사용
         var remaining = parseFloat(item.dataset.remainingMinutes) || 1;
         var title = (item.querySelector('.queue-card-section-title') || item.querySelector('.queue-card-id') || {}).textContent || '';
@@ -111,21 +126,6 @@
             if (target.type === 'queue') return;
 
             /**
-             * 현재 뷰의 업무 종료 시간(분)을 계산한다.
-             * 시간 슬롯 중 가장 늦은 시간을 찾는다.
-             * @returns {number} 업무 종료 시간 (분)
-             */
-            function getWorkEndMin() {
-              var slots = document.querySelectorAll('.time-slot[data-time]');
-              var max = 0;
-              slots.forEach(function (s) {
-                var t2 = timeToMin(s.dataset.time);
-                if (t2 > max) max = t2;
-              });
-              return max || timeToMin('17:00'); // 기본 17:00
-            }
-
-            /**
              * 실제 블록을 생성하는 핵심 함수.
              * 분할 배치 시 선택된 시험 항목만, 전체 배치 시 null을 전달한다.
              * @param {Array<string>|null} selectedIds - 선택된 시험 항목 ID 목록 (null이면 전체)
@@ -146,7 +146,7 @@
               function doCreate(startMin, endMin, overflowMin, locOverride) {
                 var prevRem;
                 // 드롭 위치의 장소 결정 (오버라이드 > 슬롯 장소 > 시험 절차서 기본 장소 > 활성 필터 장소)
-                var dropLocationId = locOverride || (target.type === 'slot' ? (target.locationName || locationName) : locationName);
+                var dropLocationId = locOverride || (target.type === 'slot' ? target.locationName : '');
                 // 장소가 여전히 비어있으면 활성 장소 필터에서 추론
                 if (!dropLocationId) {
                   var activeLocs = [];
@@ -182,12 +182,6 @@
                   if (overflowMin > 0) payload.overflow_minutes = overflowMin;
                   return api('POST', '/schedule/api/blocks', payload);
                 }).then(function (res) {
-                  // 다음날 연속 블록 생성 알림
-                  if (res && res.continuation) {
-                    showToast('당일 초과분이 ' + res.continuation.date + '에 자동 배치되었습니다.', 'info');
-                  } else if (res && res.continuation_failed) {
-                    showToast(res.continuation_failed, 'danger');
-                  }
                   // 전체 배치일 때만 잔여 시간 경고 확인
                   if (!isPartial) return checkRemainingAfterPlace(procedureId, title.trim(), prevRem);
                 }).then(function () { return App.softReload(); })
@@ -202,24 +196,9 @@
                */
               function clampAndCreate(startMin, duration, locOverride) {
                 var endMin = startMin + duration;
-                var workEnd = getWorkEndMin();
-                if (endMin > workEnd) {
-                  // 업무 종료 시간 초과 시 사용자 확인
-                  var overflow = endMin - workEnd;
-                  var clampedMin = workEnd - startMin;
-                  if (clampedMin <= 0) {
-                    showToast('업무 종료 시간 이후에는 배치할 수 없습니다.', 'danger');
-                    return;
-                  }
-                  if (!confirm('종료 시간이 ' + minToTime(workEnd) + '을 초과합니다.\n' +
-                    '당일 배치 후, 초과분은 다음 근무일에 자동 배치됩니다.\n계속하시겠습니까?')) {
-                    return;
-                  }
-                  // 원래 종료 시간 그대로 전송 — 백엔드가 클램핑 + 다음날 넘김 처리
-                  doCreate(startMin, endMin, 0, locOverride);
-                } else {
-                  doCreate(startMin, endMin, 0, locOverride);
-                }
+                App.confirmWorkEndClamp(startMin, endMin).then(function (confirmed) {
+                  if (confirmed) doCreate(startMin, endMin, 0, locOverride);
+                });
               }
 
               if (target.type === 'slot') {
@@ -228,7 +207,7 @@
                 clampAndCreate(t, bMin);
               } else if (target.type === 'month') {
                 // 월간뷰에 드롭: 장소/시간 선택 피커 표시 후 배치
-                showMonthPlacePicker(locationName, function (result) {
+                showMonthPlacePicker('', function (result) {
                   if (!result) return;
                   var st = timeToMin(result.startTime);
                   clampAndCreate(st, bMin, result.locationName);

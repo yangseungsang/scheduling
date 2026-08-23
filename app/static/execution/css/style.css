@@ -529,3 +529,119 @@
   transform: scale(1.05);
   transition: transform .15s ease;
 }
+
+/* 날짜별 절차서 실적 모달 */
+.exec-metrics-modal {
+  border: 0;
+  border-radius: 16px;
+  overflow: hidden;
+}
+.exec-metrics-subtitle {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: .78rem;
+}
+.exec-metrics-controls {
+  display: flex;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.exec-metrics-controls label {
+  color: #475569;
+  font-size: .76rem;
+  font-weight: 700;
+}
+.exec-metrics-controls input { margin-top: 4px; }
+.exec-metrics-summary {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.exec-metrics-summary-item {
+  padding: 9px 12px;
+  border: 1px solid var(--exec-border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.exec-metrics-summary-label {
+  color: #64748b;
+  font-size: .7rem;
+  font-weight: 700;
+}
+.exec-metrics-summary-value {
+  margin-top: 2px;
+  color: var(--exec-slate);
+  font-size: 1.3rem;
+  font-weight: 800;
+}
+.exec-metrics-legend {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  margin: 0 6px 5px;
+  color: #475569;
+  font-size: .75rem;
+  font-weight: 600;
+}
+.exec-metrics-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend-swatch {
+  width: 11px;
+  height: 11px;
+  border-radius: 2px;
+}
+.legend-swatch.planned { background: #818cf8; }
+.legend-swatch.completed { background: #34d399; }
+.legend-line {
+  width: 15px;
+  height: 0;
+  border-top: 3px solid;
+}
+.legend-line.planned { border-color: #6366f1; }
+.legend-line.completed { border-color: #10b981; }
+.legend-line.failed { border-color: #ef4444; }
+.legend-line.blocked { border-color: #f59e0b; }
+.exec-metrics-chart-title {
+  margin: 22px 6px 5px;
+  color: var(--exec-slate);
+  font-size: .86rem;
+  font-weight: 800;
+}
+.exec-metrics-chart {
+  min-height: 340px;
+  overflow-x: auto;
+  border: 1px solid var(--exec-border);
+  border-radius: 12px;
+  background: #fff;
+}
+.exec-metrics-chart svg { display: block; }
+.exec-metrics-grid { stroke: #e2e8f0; stroke-width: 1; }
+.exec-metrics-axis-label { fill: #64748b; font-size: 11px; }
+.exec-metrics-bar-planned { fill: #818cf8; }
+.exec-metrics-bar-completed { fill: #34d399; }
+.exec-metrics-line-failed,
+.exec-metrics-line-blocked,
+.exec-metrics-line-planned,
+.exec-metrics-line-completed {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.exec-metrics-line-planned { stroke: #6366f1; }
+.exec-metrics-line-completed { stroke: #10b981; }
+.exec-metrics-line-failed { stroke: #ef4444; }
+.exec-metrics-line-blocked { stroke: #f59e0b; }
+.exec-metrics-point-planned { fill: #6366f1; }
+.exec-metrics-point-completed { fill: #10b981; }
+.exec-metrics-point-failed { fill: #ef4444; }
+.exec-metrics-point-blocked { fill: #f59e0b; }
+
+@media (max-width: 767px) {
+  .exec-metrics-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .exec-metrics-controls { align-items: stretch; flex-wrap: wrap; }
+  .exec-metrics-controls label { flex: 1 1 130px; }
+  .exec-metrics-controls button { align-self: end; }
+  .exec-metrics-legend { justify-content: flex-start; flex-wrap: wrap; }
+}

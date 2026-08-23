@@ -266,6 +266,43 @@ window.ScheduleApp = window.ScheduleApp || {};
   App.workMinutes = workMinutes;
   App.adjustedDuration = adjustedDuration;
 
+  /** 현재 화면의 설정된 업무 종료 시간을 분 단위로 반환한다. */
+  function getWorkEndMin() {
+    var explicit = window.SCHEDULE_WORK_END;
+    if (explicit) return timeToMin(explicit);
+    var slots = document.querySelectorAll('.time-slot[data-time]');
+    var max = 0;
+    slots.forEach(function (slot) {
+      var value = timeToMin(slot.dataset.time);
+      if (value > max) max = value;
+    });
+    return max || timeToMin('17:00');
+  }
+
+  /**
+   * 종료 시각이 업무 종료를 넘으면, 당일 종료 시각으로 자르는 것에 동의받는다.
+   * 서버도 같은 상한을 적용하므로 이 함수는 사용자 확인을 담당한다.
+   * @returns {Promise<boolean>} 계속 진행할지 여부
+   */
+  function confirmWorkEndClamp(startMin, endMin) {
+    var workEnd = getWorkEndMin();
+    var adjustedEnd = startMin + adjustedDuration(startMin, Math.max(0, endMin - startMin));
+    if (startMin >= workEnd) {
+      showToast('업무 종료 시간(' + minToTime(workEnd) + ') 이후에는 배치할 수 없습니다.', 'danger');
+      return Promise.resolve(false);
+    }
+    if (adjustedEnd <= workEnd) return Promise.resolve(true);
+    return App.showConfirmModal(
+      '예상 종료 시간이 업무 종료 시각을 초과합니다.<br>' +
+      '이 블록은 다음 날로 넘기지 않고 <strong>당일 ' + minToTime(workEnd) + '</strong>에 종료됩니다.<br>' +
+      '계속하시겠습니까?',
+      { title: '종료 시간 확인', icon: 'exclamation-triangle-fill', okText: minToTime(workEnd) + '에 종료' }
+    );
+  }
+
+  App.getWorkEndMin = getWorkEndMin;
+  App.confirmWorkEndClamp = confirmWorkEndClamp;
+
   // =====================================================================
   // 소프트 리로드 — 전체 페이지 새로고침 없이 메인 콘텐츠만 교체
   // =====================================================================

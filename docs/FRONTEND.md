@@ -208,7 +208,7 @@ window.ScheduleApp = window.ScheduleApp || {};
 2. `test_item_ids=null` 같은 데이터 특수 규칙 해석
 3. block 분할/복귀 규칙
 4. 휴식 시간 제외 작업 시간 계산
-5. 업무 종료 초과와 다음 근무일 자동 배치
+5. 업무 종료 초과 확인과 당일 업무 종료 시각 제한
 6. block 충돌 검사
 7. execution 상태와 결과 카운트 계산
 8. 재시험 차수 구분과 외부 동기화 병합 규칙

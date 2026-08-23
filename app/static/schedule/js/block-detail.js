@@ -47,7 +47,7 @@
       // 표시할 기본 정보 구성
       var startTime = opts.startTime || '';
       var endTime = opts.endTime || '';
-      var locationName = procedure.location_name || opts.locationName || '';
+      var locationName = opts.locationName || '';
       var assigneeName = (procedure.assignee_names && procedure.assignee_names.length)
         ? procedure.assignee_names.join(', ')
         : (opts.assigneeName || '-');
@@ -353,19 +353,23 @@
         // resize:true 플래그로 백엔드가 사용자가 입력한 start/end를 그대로 적용하도록 지시
         // (기본 분기는 드래그-이동용이라 end_time을 원래 duration으로 재계산함)
         var timeChanged = blockId && newStart && newEnd && (newStart !== startTime || newEnd !== endTime);
-        var blockSave = timeChanged
-          ? api('PUT', '/schedule/api/blocks/' + blockId, {
-              start_time: newStart,
-              end_time: newEnd,
-              resize: true,
-            })
-          : Promise.resolve();
+        var confirmation = timeChanged
+          ? App.confirmWorkEndClamp(App.timeToMin(newStart), App.timeToMin(newEnd))
+          : Promise.resolve(true);
 
-        // 메모 저장
-        var memoSave = api('PUT', '/procedures/api/' + procedureId + '/update', Object.assign({}, procedure, { memo: newMemo }));
-
-        Promise.all([blockSave, memoSave])
-          .then(function () {
+        confirmation.then(function (confirmed) {
+          if (!confirmed) return false;
+          var blockSave = timeChanged
+            ? api('PUT', '/schedule/api/blocks/' + blockId, {
+                start_time: newStart,
+                end_time: newEnd,
+                resize: true,
+              })
+            : Promise.resolve();
+          var memoSave = api('PUT', '/procedures/api/' + procedureId + '/update', Object.assign({}, procedure, { memo: newMemo }));
+          return Promise.all([blockSave, memoSave]).then(function () { return true; });
+        }).then(function (saved) {
+            if (!saved) return;
             showToast('저장되었습니다.', 'success');
             overlay.remove();
             App.softReload();

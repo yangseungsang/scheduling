@@ -630,6 +630,275 @@ function renderTable(items) {
   });
 }
 
+// ── 날짜별 절차서 실적 ────────────────────────────────────────────────────────
+
+let _procedureMetrics = null;
+let _cumulativeMetricsDays = [];
+let _procedureMetricsModal = null;
+let _metricsResizeTimer = null;
+
+/** 실적 모달을 열고 저장된 전체 기간의 날짜별 집계를 불러온다. */
+function openProcedureMetricsModal() {
+  const modalElement = document.getElementById('procedureMetricsModal');
+  if (!modalElement) return;
+  _procedureMetricsModal = bootstrap.Modal.getOrCreateInstance(modalElement);
+  _procedureMetricsModal.show();
+  loadProcedureMetrics();
+}
+
+/** 선택 기간의 procedure_id 단위 집계를 조회한다. */
+async function loadProcedureMetrics() {
+  const startInput = document.getElementById('metrics-start-date');
+  const endInput = document.getElementById('metrics-end-date');
+  const chart = document.getElementById('metrics-chart');
+  const lineChart = document.getElementById('metrics-line-chart');
+  const summary = document.getElementById('metrics-summary');
+  if (!startInput || !endInput || !chart || !lineChart || !summary) return;
+
+  const startDate = startInput.value;
+  const endDate = endInput.value;
+  if ((startDate && !endDate) || (!startDate && endDate)) {
+    alert('시작일과 종료일을 모두 입력해 주세요.');
+    return;
+  }
+  if (startDate && endDate && startDate > endDate) {
+    alert('시작일은 종료일보다 늦을 수 없습니다.');
+    return;
+  }
+
+  chart.innerHTML = '<div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>데이터를 불러오는 중입니다.</div>';
+  lineChart.innerHTML = '<div class="text-center text-muted py-5"><div class="spinner-border spinner-border-sm me-2"></div>데이터를 불러오는 중입니다.</div>';
+  summary.innerHTML = '';
+  const params = new URLSearchParams();
+  if (startDate) params.set('start_date', startDate);
+  if (endDate) params.set('end_date', endDate);
+
+  try {
+    const query = params.toString();
+    _procedureMetrics = await apiFetch(`/execution/api/analytics/daily-procedures${query ? `?${query}` : ''}`);
+    if (!startDate && !endDate) {
+      startInput.value = _procedureMetrics.start_date || '';
+      endInput.value = _procedureMetrics.end_date || '';
+    }
+    _cumulativeMetricsDays = cumulativeProcedureMetricDays(_procedureMetrics.days || []);
+    const cumulativeSummary = _cumulativeMetricsDays.length
+      ? _cumulativeMetricsDays[_cumulativeMetricsDays.length - 1]
+      : {};
+    renderProcedureMetricsSummary(cumulativeSummary);
+    requestAnimationFrame(() => {
+      renderProcedureMetricsChart(_cumulativeMetricsDays);
+      renderAllProcedureMetricsLineChart(_cumulativeMetricsDays);
+    });
+  } catch (error) {
+    console.error(error);
+    chart.innerHTML = '<div class="text-center text-danger py-5">실적 데이터를 불러오지 못했습니다.</div>';
+    lineChart.innerHTML = '<div class="text-center text-danger py-5">실적 데이터를 불러오지 못했습니다.</div>';
+  }
+}
+
+/** 기간 시작일부터 각 날짜까지의 고유 procedure_id 누적값을 만든다. */
+function cumulativeProcedureMetricDays(days) {
+  const idFields = {
+    planned: 'planned_procedure_ids',
+    started: 'started_procedure_ids',
+    completed: 'completed_procedure_ids',
+    failed: 'failed_procedure_ids',
+    blocked: 'blocked_procedure_ids',
+  };
+  const accumulated = Object.fromEntries(
+    Object.keys(idFields).map(key => [key, new Set()]),
+  );
+  return days.map(day => {
+    Object.entries(idFields).forEach(([key, field]) => {
+      (day[field] || []).forEach(procedureId => accumulated[key].add(procedureId));
+    });
+    return {
+      ...day,
+      planned_count: accumulated.planned.size,
+      started_count: accumulated.started.size,
+      completed_count: accumulated.completed.size,
+      failed_count: accumulated.failed.size,
+      blocked_count: accumulated.blocked.size,
+      failed_or_blocked_count: new Set([
+        ...accumulated.failed, ...accumulated.blocked,
+      ]).size,
+    };
+  });
+}
+
+function renderProcedureMetricsSummary(summary) {
+  const element = document.getElementById('metrics-summary');
+  if (!element) return;
+  const values = [
+    ['예정', summary.planned_count || 0],
+    ['시작', summary.started_count || 0],
+    ['완료', summary.completed_count || 0],
+    ['Fail 절차서', summary.failed_count || 0],
+    ['Block 절차서', summary.blocked_count || 0],
+  ];
+  element.innerHTML = values.map(([label, value]) => `
+    <div class="exec-metrics-summary-item">
+      <div class="exec-metrics-summary-label">${label}</div>
+      <div class="exec-metrics-summary-value">${value}</div>
+    </div>`).join('');
+}
+
+function _metricsSvgElement(tag, attributes = {}, text = '') {
+  const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+  if (text) element.textContent = text;
+  return element;
+}
+
+function _appendMetricsLineSeries(svg, days, xCenter, y, series) {
+  series.forEach(([key, lineClass, pointClass, label]) => {
+    const points = days.map((day, index) => `${xCenter(index)},${y(day[key])}`).join(' ');
+    svg.appendChild(_metricsSvgElement('polyline', { points, class: lineClass }));
+    days.forEach((day, index) => {
+      const point = _metricsSvgElement('circle', {
+        cx: xCenter(index), cy: y(day[key]), r: 3.5, class: pointClass,
+      });
+      point.appendChild(_metricsSvgElement('title', {}, `${day.date} ${label} ${day[key]}개`));
+      svg.appendChild(point);
+    });
+  });
+}
+
+/** 예정·완료 막대와 Fail·Block 선을 하나의 SVG 좌표계에 그린다. */
+function renderProcedureMetricsChart(days) {
+  const container = document.getElementById('metrics-chart');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!days.length) {
+    container.innerHTML = '<div class="text-center text-muted py-5">표시할 실적 데이터가 없습니다.</div>';
+    return;
+  }
+
+  const height = 340;
+  const margin = { top: 22, right: 24, bottom: 58, left: 48 };
+  const width = Math.max(container.clientWidth || 720, days.length * 58 + margin.left + margin.right);
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const values = days.flatMap(day => [
+    day.planned_count, day.completed_count, day.failed_count, day.blocked_count,
+  ]);
+  const maxValue = Math.max(1, ...values);
+  const tickStep = Math.max(1, Math.ceil(maxValue / 4));
+  const axisMax = Math.max(tickStep * 4, Math.ceil(maxValue / tickStep) * tickStep);
+  const bandWidth = plotWidth / days.length;
+  const barWidth = Math.max(5, Math.min(18, bandWidth * .28));
+  const xCenter = index => margin.left + bandWidth * (index + .5);
+  const y = value => margin.top + plotHeight - (value / axisMax) * plotHeight;
+
+  const svg = _metricsSvgElement('svg', {
+    width, height, viewBox: `0 0 ${width} ${height}`,
+    'aria-label': '날짜별 절차서 예정, 완료, Fail, Block 수',
+  });
+
+  for (let value = 0; value <= axisMax; value += tickStep) {
+    const yPosition = y(value);
+    svg.appendChild(_metricsSvgElement('line', {
+      x1: margin.left, y1: yPosition, x2: width - margin.right, y2: yPosition,
+      class: 'exec-metrics-grid',
+    }));
+    svg.appendChild(_metricsSvgElement('text', {
+      x: margin.left - 9, y: yPosition + 4, 'text-anchor': 'end',
+      class: 'exec-metrics-axis-label',
+    }, value));
+  }
+
+  days.forEach((day, index) => {
+    const center = xCenter(index);
+    const plannedHeight = plotHeight - (y(day.planned_count) - margin.top);
+    const completedHeight = plotHeight - (y(day.completed_count) - margin.top);
+    const plannedBar = _metricsSvgElement('rect', {
+      x: center - barWidth - 2, y: y(day.planned_count), width: barWidth,
+      height: plannedHeight, rx: 2, class: 'exec-metrics-bar-planned',
+    });
+    plannedBar.appendChild(_metricsSvgElement('title', {}, `${day.date} 누적 예정 ${day.planned_count}개`));
+    svg.appendChild(plannedBar);
+    const completedBar = _metricsSvgElement('rect', {
+      x: center + 2, y: y(day.completed_count), width: barWidth,
+      height: completedHeight, rx: 2, class: 'exec-metrics-bar-completed',
+    });
+    completedBar.appendChild(_metricsSvgElement('title', {}, `${day.date} 누적 완료 ${day.completed_count}개`));
+    svg.appendChild(completedBar);
+
+    const label = _metricsSvgElement('text', {
+      x: center, y: height - 22, 'text-anchor': 'middle',
+      class: 'exec-metrics-axis-label',
+    }, day.date.slice(5));
+    if (days.length > 14) label.setAttribute('transform', `rotate(-40 ${center} ${height - 22})`);
+    svg.appendChild(label);
+  });
+
+  const series = [
+    ['failed_count', 'exec-metrics-line-failed', 'exec-metrics-point-failed', '누적 Fail'],
+    ['blocked_count', 'exec-metrics-line-blocked', 'exec-metrics-point-blocked', '누적 Block'],
+  ];
+  _appendMetricsLineSeries(svg, days, xCenter, y, series);
+
+  container.appendChild(svg);
+}
+
+/** 예정·완료·Fail·Block 네 항목을 동일 축의 꺾은선으로 비교한다. */
+function renderAllProcedureMetricsLineChart(days) {
+  const container = document.getElementById('metrics-line-chart');
+  if (!container) return;
+  container.innerHTML = '';
+  if (!days.length) {
+    container.innerHTML = '<div class="text-center text-muted py-5">표시할 실적 데이터가 없습니다.</div>';
+    return;
+  }
+
+  const height = 340;
+  const margin = { top: 22, right: 24, bottom: 58, left: 48 };
+  const width = Math.max(container.clientWidth || 720, days.length * 58 + margin.left + margin.right);
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const keys = ['planned_count', 'completed_count', 'failed_count', 'blocked_count'];
+  const maxValue = Math.max(1, ...days.flatMap(day => keys.map(key => day[key])));
+  const tickStep = Math.max(1, Math.ceil(maxValue / 4));
+  const axisMax = Math.max(tickStep * 4, Math.ceil(maxValue / tickStep) * tickStep);
+  const bandWidth = plotWidth / days.length;
+  const xCenter = index => margin.left + bandWidth * (index + .5);
+  const y = value => margin.top + plotHeight - (value / axisMax) * plotHeight;
+  const svg = _metricsSvgElement('svg', {
+    width, height, viewBox: `0 0 ${width} ${height}`,
+    'aria-label': '날짜별 절차서 예정, 완료, Fail, Block 수 꺾은선 그래프',
+  });
+
+  for (let value = 0; value <= axisMax; value += tickStep) {
+    const yPosition = y(value);
+    svg.appendChild(_metricsSvgElement('line', {
+      x1: margin.left, y1: yPosition, x2: width - margin.right, y2: yPosition,
+      class: 'exec-metrics-grid',
+    }));
+    svg.appendChild(_metricsSvgElement('text', {
+      x: margin.left - 9, y: yPosition + 4, 'text-anchor': 'end',
+      class: 'exec-metrics-axis-label',
+    }, value));
+  }
+
+  days.forEach((day, index) => {
+    const center = xCenter(index);
+    const label = _metricsSvgElement('text', {
+      x: center, y: height - 22, 'text-anchor': 'middle',
+      class: 'exec-metrics-axis-label',
+    }, day.date.slice(5));
+    if (days.length > 14) label.setAttribute('transform', `rotate(-40 ${center} ${height - 22})`);
+    svg.appendChild(label);
+  });
+
+  _appendMetricsLineSeries(svg, days, xCenter, y, [
+    ['planned_count', 'exec-metrics-line-planned', 'exec-metrics-point-planned', '누적 예정'],
+    ['completed_count', 'exec-metrics-line-completed', 'exec-metrics-point-completed', '누적 완료'],
+    ['failed_count', 'exec-metrics-line-failed', 'exec-metrics-point-failed', '누적 Fail'],
+    ['blocked_count', 'exec-metrics-line-blocked', 'exec-metrics-point-blocked', '누적 Block'],
+  ]);
+  container.appendChild(svg);
+}
+
 // ── 바코드 스캐너 ─────────────────────────────────────────────────────────────
 
 /**
@@ -715,6 +984,16 @@ document.addEventListener('DOMContentLoaded', () => {
   // 초기 목록 로드
   loadList();
 
+  const metricsModal = document.getElementById('procedureMetricsModal');
+  if (metricsModal) {
+    metricsModal.addEventListener('shown.bs.modal', () => {
+      if (_procedureMetrics) {
+        renderProcedureMetricsChart(_cumulativeMetricsDays);
+        renderAllProcedureMetricsLineChart(_cumulativeMetricsDays);
+      }
+    });
+  }
+
   // 바코드 OPEN 명령 감지 (#78): OPEN-<시험 항목> 스캔 시 해당 상세 페이지로 이동
   _initBarcodeListener(code => {
     console.log('[barcode] onScan:', JSON.stringify(code), 'startsWith OPEN-:', code.startsWith('OPEN-'));
@@ -725,4 +1004,15 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.href = `/execution/${encodeURIComponent(testItemId)}?autostart=1`;
     }
   });
+});
+
+window.addEventListener('resize', () => {
+  clearTimeout(_metricsResizeTimer);
+  _metricsResizeTimer = setTimeout(() => {
+    const modal = document.getElementById('procedureMetricsModal');
+    if (_procedureMetrics && modal && modal.classList.contains('show')) {
+      renderProcedureMetricsChart(_cumulativeMetricsDays);
+      renderAllProcedureMetricsLineChart(_cumulativeMetricsDays);
+    }
+  }, 150);
 });

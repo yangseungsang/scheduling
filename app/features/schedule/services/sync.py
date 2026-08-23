@@ -76,11 +76,16 @@ class SyncService:
             dict: {'added': int, 'updated': int, 'deleted': int,
                    'cancelled': int, 'warnings': list}
         """
+        return SyncService.sync_test_rows(client.get_test_data_all(), version_id)
+
+    @staticmethod
+    def sync_test_rows(external, version_id=None):
+        """Synchronize already-fetched provider rows without another network call."""
         if version_id is not None:
             JsonDomainRepository(
                 current_app.config['DOMAIN_DATA_DIR'],
             ).set_version_id(version_id)
-        return _sync_test_data_orm(client.get_test_data_all())
+        return _sync_test_data_orm(external)
 
 
 def _sync_test_data_orm(external):
@@ -126,7 +131,6 @@ def _sync_test_data_orm(external):
                     'document_id': document_id,
                     'test_round': test_round,
                     'assignee_names': [],
-                    'location_name': '',
                     'document_name': document_name,
                     'test_items': idents,
                     'estimated_minutes': sum(

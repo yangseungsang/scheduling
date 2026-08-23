@@ -43,7 +43,6 @@ Feature와 route는 이 파일을 직접 열지 않는다. `JsonDomainRepository
         }
       ],
       "assignee_names": ["이시험"],
-      "location_name": "QA Lab",
       "memo": "회귀 시험"
     }
   ],
@@ -55,7 +54,7 @@ Feature와 route는 이 파일을 직접 열지 않는다. `JsonDomainRepository
       "date": "2026-08-21",
       "start_time": "09:00",
       "end_time": "10:00",
-      "location_name": "QA Lab",
+      "location_name": "STE1",
       "assignee_names": ["이시험"],
       "is_locked": true
     }
@@ -77,9 +76,9 @@ Feature와 route는 이 파일을 직접 열지 않는다. `JsonDomainRepository
 - 시험 block은 `procedure_id`를 가진다.
 - 단순 block은 `procedure_id` 없이 `title`을 가진다.
 - `test_item_ids`가 없으면 해당 procedure 전체를 포함하는 기존 데이터로 해석한다.
-- 장소는 별도 master ID가 아니라 `location_name` 문자열로 저장한다.
+- 장소는 시험절차서가 아니라 배치된 일정 블록에만 `location_name`으로 저장하며, 값은 `STE1`, `STE2`, `STE3` 중 하나다.
 - `manual_status`는 사용자가 지정한 cancelled 등의 상태다.
-- `overflow_minutes`는 근무 종료를 넘긴 시간 표현에 사용한다.
+- `overflow_minutes`는 과거 데이터 호환을 위해 읽을 수 있지만, 신규 배치는 근무 종료 시각에서 제한한다.
 
 ## 3. `test_executions.json`
 

@@ -86,6 +86,7 @@ class TestScheduleBlockAPI:
                 'date': '2026-03-10',
                 'start_time': '09:00',
                 'end_time': '10:00',
+                'location_name': 'STE1',
             },
         )
         assert r.status_code == 201
@@ -95,11 +96,11 @@ class TestScheduleBlockAPI:
         uid = _assignee_name(client)
         tid = _create_procedure(client, uid)
         _create_block(
-            client, tid, uid, start='09:00', end='10:00', location_name='loc_test'
+            client, tid, uid, start='09:00', end='10:00', location_name='STE1'
         )
         # Overlapping block at same location
         _, status = _create_block(
-            client, tid, uid, start='09:30', end='10:30', location_name='loc_test'
+            client, tid, uid, start='09:30', end='10:30', location_name='STE1'
         )
         assert status == 409
 
@@ -133,6 +134,26 @@ class TestScheduleBlockAPI:
         # 3h work: 11:00-12:00 (1h) + skip lunch + 13:00-15:00 (2h) = end at 15:00
         assert data['end_time'] >= '15:00'
 
+    def test_create_block_is_clamped_to_work_end(self, client):
+        """An overflowing block stays on the same day and ends at work_end."""
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid, hours='4')
+        data, status = _create_block(
+            client, tid, uid, start='16:00', end='19:00',
+        )
+        assert status == 201
+        assert data['date'] == '2026-03-10'
+        assert data['end_time'] == '17:00'
+
+    def test_create_block_at_or_after_work_end_is_rejected(self, client):
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
+        data, status = _create_block(
+            client, tid, uid, start='17:00', end='18:00',
+        )
+        assert status == 400
+        assert '업무 종료 시간' in data['error']
+
     def test_update_block_move(self, client):
         uid = _assignee_name(client)
         tid = _create_procedure(client, uid)
@@ -146,6 +167,17 @@ class TestScheduleBlockAPI:
         )
         assert r.status_code == 200
         assert r.get_json()['start_time'] == '10:00'
+
+    def test_update_block_is_clamped_to_work_end(self, client):
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid)
+        block, _ = _create_block(client, tid, uid)
+        r = client.put(
+            f'/schedule/api/blocks/{block["id"]}',
+            json={'start_time': '16:00', 'end_time': '19:00'},
+        )
+        assert r.status_code == 200
+        assert r.get_json()['end_time'] == '17:00'
 
     def test_update_block_change_date(self, client):
         uid = _assignee_name(client)
@@ -240,7 +272,7 @@ class TestScheduleBlockAPI:
                 'date': '2026-03-10',
                 'start_time': '10:00',
                 'end_time': '11:00',
-                'location_name': 'loc_test',
+                'location_name': 'STE1',
                 'title': 'A',
             },
         )
@@ -251,7 +283,7 @@ class TestScheduleBlockAPI:
                 'date': '2026-03-10',
                 'start_time': '11:00',
                 'end_time': '11:30',
-                'location_name': 'loc_test',
+                'location_name': 'STE1',
                 'title': 'B',
             },
         )
@@ -441,8 +473,8 @@ class TestExportAPI:
 
     def test_export_xlsx(self, client):
         uid = _assignee_name(client)
-        loc_id = _create_location(client, name='A 시험실')
-        tid = _create_procedure(client, uid, loc_id=loc_id)
+        loc_id = 'STE1'
+        tid = _create_procedure(client, uid)
         _create_block(
             client,
             tid,
@@ -488,7 +520,7 @@ class TestExportAPI:
             '날짜', '장소', '시작', '종료', '절차서', '시험 항목',
         )
         flattened = [str(value) for row in practitioner_values for value in row if value]
-        assert 'A 시험실' in flattened
+        assert 'STE1' in flattened
         assert sum('시스템' in value for value in flattened) == 2
         assert any('TC-001' in value for value in flattened)
         assert any('TC-002' in value for value in flattened)

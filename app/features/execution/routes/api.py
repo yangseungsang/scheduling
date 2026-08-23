@@ -25,6 +25,7 @@ from flask import Blueprint, current_app, jsonify, request, session
 from app.features.execution.repository import ExecutionRepository
 from app.repositories import JsonDomainRepository
 from app.features.execution.services.listing import (
+    build_daily_procedure_metrics,
     build_execution_item,
     build_execution_items,
     get_total_count,
@@ -33,6 +34,18 @@ from app.features.execution.services.listing import (
 api_bp = Blueprint('execution_api', __name__, url_prefix='/execution/api')
 
 logger = logging.getLogger(__name__)
+
+
+@api_bp.route('/analytics/daily-procedures')
+def daily_procedure_metrics():
+    """Return daily unique-procedure plan and execution metrics for charting."""
+    try:
+        return jsonify(build_daily_procedure_metrics(
+            request.args.get('start_date', ''),
+            request.args.get('end_date', ''),
+        ))
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
 
 
 def _notify_timing(test_item_id: str, procedure_id: str, elapsed_seconds: int):

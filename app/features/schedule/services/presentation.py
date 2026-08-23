@@ -43,14 +43,8 @@ def schedule_settings(settings):
 
 
 def build_location_options(procedures, schedule):
-    """Build UI options with fixed STE locations plus stored legacy names."""
-    stored_names = sorted(
-        {procedure.location_name for procedure in procedures if procedure.location_name}
-        | {block.location_name for block in schedule.blocks if block.location_name}
-    )
-    names = list(FIXED_LOCATIONS) + [
-        name for name in stored_names if name not in FIXED_LOCATIONS
-    ]
+    """Build the three supported physical STE location options."""
+    names = FIXED_LOCATIONS
     return [
         {'id': name, 'name': name, 'color': _location_color(name)}
         for name in names
@@ -164,8 +158,8 @@ def build_queue_procedures(procedures, schedule, executions):
             'test_round': procedure.test_round, 'assignee_names': assignees,
             'assignee_name': ', '.join(assignees) if assignees else '(미배정)',
             'assignee_color': _assignee_color(assignees),
-            'location_name': procedure.location_name,
-            'location_color': _location_color(procedure.location_name),
+            'location_name': '',
+            'location_color': _location_color(''),
             'test_items': [_test_item_dict(item) for item in shown_test_items],
             'estimated_minutes': procedure.estimated_minutes,
             'remaining_unscheduled_minutes': (

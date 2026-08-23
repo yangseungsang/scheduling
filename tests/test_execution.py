@@ -449,12 +449,11 @@ class TestExecutionAPI:
             from app.features.schedule.services import blocks as block_repo
             from app.features.schedule.services import test_procedures as procedure_repo
 
-            loc_a = '시험실A'
-            loc_b = '시험실B'
+            loc_a = 'STE1'
+            loc_b = 'STE2'
             procedure1 = procedure_repo.create(
                 document_id=3,
                 assignee_names=[],
-                location_name=loc_a,
                 document_name='원본',
                 test_items=[{'id': 'TC-SAME', 'name': '원본 시험', 'estimated_minutes': 10}],
                 estimated_minutes=10,
@@ -462,7 +461,6 @@ class TestExecutionAPI:
             procedure2 = procedure_repo.create(
                 document_id=4,
                 assignee_names=[],
-                location_name=loc_a,
                 document_name='재시험',
                 test_items=[{'id': 'TC-SAME', 'name': '재시험', 'estimated_minutes': 10}],
                 estimated_minutes=10,
@@ -489,8 +487,8 @@ class TestExecutionAPI:
 
         r = exec_client.get('/execution/api/list')
         items = {i['procedure_id']: i for i in r.get_json() if i['test_item_id'] == 'TC-SAME'}
-        assert items[procedure1['id']]['location_name'] == '시험실A'
-        assert items[procedure2['id']]['location_name'] == '시험실B'
+        assert items[procedure1['id']]['location_name'] == 'STE1'
+        assert items[procedure2['id']]['location_name'] == 'STE2'
         assert items[procedure1['id']]['scheduled_date'] == '2026-07-01'
         assert items[procedure1['id']]['scheduled_start_time'] == '09:00'
         assert items[procedure1['id']]['scheduled_end_time'] == '10:15'
@@ -499,7 +497,7 @@ class TestExecutionAPI:
 
         filtered = exec_client.get(
             f'/execution/api/list?procedure_id={procedure2["id"]}'
-            '&location=시험실B&status=pending'
+            '&location=STE2&status=pending'
         ).get_json()
         same_items = [i for i in filtered if i['test_item_id'] == 'TC-SAME']
         assert [item['procedure_id'] for item in same_items] == [procedure2['id']]
@@ -507,7 +505,7 @@ class TestExecutionAPI:
         multi_filtered = exec_client.get(
             f'/execution/api/list?procedure_id={procedure1["id"]}'
             f'&procedure_id={procedure2["id"]}'
-            '&location=시험실A&location=시험실B&status=pending'
+            '&location=STE1&location=STE2&status=pending'
         ).get_json()
         same_items = [
             item for item in multi_filtered
@@ -523,6 +521,92 @@ class TestExecutionAPI:
         html = r.get_data(as_text=True)
         assert 'id="filter-document"' not in html
         assert 'id="col-toggle-menu"' in html
+        assert 'openProcedureMetricsModal()' in html
+        assert 'id="procedureMetricsModal"' in html
+
+    def test_daily_procedure_metrics_use_unique_procedure_and_completion_date(
+        self, exec_app, exec_client,
+    ):
+        with exec_app.app_context():
+            from app.features.execution.domain import ExecutionRun, Executions
+            from app.features.schedule.services.blocks import ScheduleBlockService
+            from app.features.schedule.services.test_procedures import TestProcedureService
+            from app.repositories import JsonDomainRepository
+
+            TestProcedureService(exec_app.config['DOMAIN_DATA_DIR']).create_procedure({
+                'id': 't_metrics', 'document_id': 20, 'document_name': '실적 집계',
+                'test_items': [{'id': 'TC-M1'}, {'id': 'TC-M2'}],
+            })
+            TestProcedureService(exec_app.config['DOMAIN_DATA_DIR']).create_procedure({
+                'id': 't_partial', 'document_id': 21, 'document_name': '일부 실행',
+                'test_items': [{'id': 'TC-P1'}, {'id': 'TC-P2'}],
+            })
+            blocks = ScheduleBlockService(exec_app.config['DOMAIN_DATA_DIR'])
+            blocks.create({
+                'procedure_id': 't_metrics', 'test_item_ids': ['TC-M1'],
+                'date': '2026-08-10',
+                'start_time': '09:00', 'end_time': '10:00', 'location_name': 'STE1',
+            })
+            # 같은 날짜에 같은 절차서가 여러 블록이어도 예정 수는 한 건이다.
+            blocks.create({
+                'procedure_id': 't_metrics', 'test_item_ids': ['TC-M2'],
+                'date': '2026-08-10',
+                'start_time': '10:00', 'end_time': '11:00', 'location_name': 'STE3',
+            })
+            blocks.create({
+                'procedure_id': 't_bob', 'date': '2026-08-10',
+                'start_time': '09:00', 'end_time': '10:00', 'location_name': 'STE2',
+            })
+            JsonDomainRepository(exec_app.config['DOMAIN_DATA_DIR']).replace_executions(
+                Executions(runs=(
+                    ExecutionRun(
+                        procedure_id='t_metrics', test_item_id='TC-M1',
+                        status='completed', started_at='2026-08-11T09:00:00',
+                        ended_at='2026-08-12T15:00:00', fail_count=1,
+                    ),
+                    ExecutionRun(
+                        procedure_id='t_metrics', test_item_id='TC-M2',
+                        status='completed', started_at='2026-08-11T09:30:00',
+                        ended_at='2026-08-12T16:00:00',
+                        block_count=1,
+                    ),
+                    # 다음 날 재개하여 끝난 절차서는 실제 종료일에 완료로 집계한다.
+                    ExecutionRun(
+                        procedure_id='t_bob', test_item_id='TC-BOB',
+                        status='completed', started_at='2026-08-11T10:00:00',
+                        ended_at='2026-08-13T11:00:00',
+                    ),
+                    # 형제 항목이 미실행이어도 완료된 실행이 있으면 절차서를 집계한다.
+                    ExecutionRun(
+                        procedure_id='t_partial', test_item_id='TC-P1',
+                        status='completed', started_at='2026-08-12T10:00:00',
+                        ended_at='2026-08-13T12:00:00', fail_count=1,
+                    ),
+                ))
+            )
+
+        response = exec_client.get(
+            '/execution/api/analytics/daily-procedures'
+            '?start_date=2026-08-10&end_date=2026-08-13'
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        by_date = {day['date']: day for day in data['days']}
+        assert by_date['2026-08-10']['planned_count'] == 2
+        assert by_date['2026-08-11']['started_count'] == 2
+        assert by_date['2026-08-12']['completed_procedure_ids'] == ['t_metrics']
+        assert by_date['2026-08-12']['failed_count'] == 1
+        assert by_date['2026-08-12']['blocked_count'] == 1
+        assert by_date['2026-08-12']['failed_or_blocked_count'] == 1
+        assert by_date['2026-08-13']['completed_procedure_ids'] == ['t_bob', 't_partial']
+        assert by_date['2026-08-13']['failed_procedure_ids'] == ['t_partial']
+
+    def test_daily_procedure_metrics_reject_reversed_range(self, exec_client):
+        response = exec_client.get(
+            '/execution/api/analytics/daily-procedures'
+            '?start_date=2026-08-13&end_date=2026-08-10'
+        )
+        assert response.status_code == 400
 
     def test_detail_count_inputs_only_cap_when_total_count_is_known(self):
         js_path = os.path.join(

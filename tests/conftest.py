@@ -106,6 +106,7 @@ def _create_block(client, tid, uid_list, date_str='2026-03-10',
     payload = {
         'procedure_id': tid, 'assignee_names': uid_list,
         'date': date_str, 'start_time': start, 'end_time': end,
+        'location_name': 'STE1',
     }
     payload.update(kwargs)
     r = client.post('/schedule/api/blocks', json=payload)

@@ -11,6 +11,7 @@ from flask import current_app
 from app.repositories import JsonDomainRepository
 
 VALID_BLOCK_STATUSES = {'pending', 'in_progress', 'completed', 'cancelled'}
+VALID_LOCATIONS = {'STE1', 'STE2', 'STE3'}
 
 
 class ScheduleBlockError(Exception):
@@ -35,7 +36,9 @@ class ScheduleBlockService:
         _require(data, ('date', 'start_time', 'end_time'))
         settings = schedule_settings(self.repository.load_settings())
         end_time = adjust_end_for_breaks(data['start_time'], data['end_time'], settings)
+        end_time = _clamp_to_work_end(data['start_time'], end_time, settings)
         if data.get('is_simple', False):
+            _validate_location(data.get('location_name', ''), required=True)
             self._reject_overlap(data['date'], data['start_time'], end_time, data.get('location_name', ''))
             return _api_block(self.commands.create_block(
                 date=data['date'], start_time=data['start_time'], end_time=end_time,
@@ -57,7 +60,8 @@ class ScheduleBlockService:
             if requested_ids is not None and not test_item_ids:
                 raise ScheduleBlockError('연결할 시험 항목를 찾을 수 없습니다.')
             procedure = self._procedure(data['procedure_id'])
-            location_name = data.get('location_name') or procedure.location_name
+            location_name = data.get('location_name', '')
+            _validate_location(location_name, required=True)
             assignee_names = data.get('assignee_names') or list(procedure.assignee_names)
             self._reject_overlap(data['date'], data['start_time'], end_time, location_name)
             if requested_ids is not None:
@@ -91,9 +95,11 @@ class ScheduleBlockService:
         end_time = updates.get('end_time', current['end_time'])
         date_str = updates.get('date', current['date'])
         location_name = updates.get('location_name', current.get('location_name', ''))
+        _validate_location(location_name)
         if 'start_time' in updates or 'end_time' in updates:
             settings = schedule_settings(self.repository.load_settings())
             end_time = adjust_end_for_breaks(start_time, end_time, settings)
+            end_time = _clamp_to_work_end(start_time, end_time, settings)
             updates['end_time'] = end_time
         self._reject_overlap(date_str, start_time, end_time, location_name, block_id)
         if 'block_status' in data:
@@ -104,17 +110,11 @@ class ScheduleBlockService:
         return _api_block(self.commands.get_block(block_id))
 
     def delete(self, block_id, restore=False):
-        """Delete a block and optionally clear its procedure's default location."""
+        """Delete a block; restore is retained as an API compatibility flag."""
         block = self.commands.get_block(block_id)
         if block is None:
             raise ScheduleBlockError('블록을 찾을 수 없습니다.', 404)
         self.commands.delete_block(block_id)
-        if restore and block.get('procedure_id'):
-            from app.features.schedule.services.test_procedures import TestProcedureService
-            service = TestProcedureService(self.data_dir)
-            procedure = service.get_procedure(block['procedure_id'])
-            if procedure:
-                service.update_procedure(block['procedure_id'], {**procedure, 'location_name': ''})
         return {'success': True}
 
     def toggle_lock(self, block_id):
@@ -286,6 +286,14 @@ def _require(data, fields):
             raise ScheduleBlockError(f'{field}은(는) 필수 항목입니다.')
 
 
+def _validate_location(location_name, required=False):
+    """Reject location names outside the three physical STE columns."""
+    if required and not location_name:
+        raise ScheduleBlockError('배치 장소를 선택해주세요.')
+    if location_name and location_name not in VALID_LOCATIONS:
+        raise ScheduleBlockError('장소는 STE1, STE2, STE3 중 하나여야 합니다.')
+
+
 def _api_block(block):
     """Add stable response defaults and compatibility fields to a block dict."""
     data = {
@@ -314,7 +322,16 @@ def _sum_minutes(items):
 def _end_after_minutes(start_time, minutes, settings):
     """Calculate an end time while accounting for configured breaks."""
     raw_end = minutes_to_time(time_to_minutes(start_time) + max(minutes, 1))
-    return adjust_end_for_breaks(start_time, raw_end, settings)
+    adjusted_end = adjust_end_for_breaks(start_time, raw_end, settings)
+    return _clamp_to_work_end(start_time, adjusted_end, settings)
+
+
+def _clamp_to_work_end(start_time, end_time, settings):
+    """Keep a block on the same day and cap it at the configured work end."""
+    work_end = settings.get('work_end', '17:00')
+    if time_to_minutes(start_time) >= time_to_minutes(work_end):
+        raise ScheduleBlockError(f'업무 종료 시간({work_end}) 이후에는 배치할 수 없습니다.')
+    return work_end if time_to_minutes(end_time) > time_to_minutes(work_end) else end_time
 
 
 def _service():

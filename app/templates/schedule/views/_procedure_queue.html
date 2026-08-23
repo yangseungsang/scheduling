@@ -26,15 +26,13 @@
   <div class="procedure-queue-body" id="procedure-queue-body">
     {% if queue_procedures %}
     {% for procedure in queue_procedures %}
-    {% set queue_color = procedure.location_color if settings.block_color_by == 'location' else procedure.assignee_color %}
+    {% set queue_color = procedure.assignee_color %}
     <div class="queue-procedure-item"
          data-procedure-id="{{ procedure.id }}"
          data-assignee-names="{{ procedure.assignee_names|join(',') }}"
-         data-location-name="{{ procedure.location_name }}"
          data-remaining-minutes="{{ procedure.remaining_unscheduled_minutes }}"
          data-estimated-minutes="{{ procedure.estimated_minutes }}"
          data-title="{{ procedure.display_name or procedure.document_id }}"
-         data-location-name="{{ procedure.location_name }}"
          data-assignee-name="{{ procedure.assignee_name }}"
          data-queue-color="{{ queue_color }}"
          data-test_items='{{ procedure.test_items|tojson }}'>

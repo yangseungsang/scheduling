@@ -45,19 +45,19 @@ def _domain_sections():
         'blocks': [
             {
                 'id': 'blk_1', 'date': '2026-05-13', 'start_time': '09:00',
-                'end_time': '10:00', 'location_name': 'loc_1',
+                'end_time': '10:00', 'location_name': 'STE1',
                 'assignee_names': ['홍길동'], 'procedure_id': 't_alpha',
                 'test_item_ids': ['TC-001', 'TC-002'],
             },
             {
                 'id': 'blk_2', 'date': '2026-05-14', 'start_time': '11:00',
-                'end_time': '12:00', 'location_name': 'loc_2',
+                'end_time': '12:00', 'location_name': 'STE2',
                 'assignee_names': ['홍길동'], 'manual_status': 'cancelled',
                 'procedure_id': 't_retry', 'test_item_ids': ['TC-001'],
             },
             {
                 'id': 'blk_3', 'date': '2026-05-15', 'start_time': '13:00',
-                'end_time': '14:00', 'location_name': 'loc_1',
+                'end_time': '14:00', 'location_name': 'STE1',
                 'title': '회의',
             },
         ],
@@ -172,7 +172,8 @@ def test_loads_specific_procedure_information_from_json(tmp_path):
     # 찾은 객체에서 필요한 필드만 속성으로 조회한다.
     assert procedure is not None
     assert procedure.document_name == '절차 A'
-    assert procedure.location_name == 'loc_1'
+    assert not hasattr(procedure, 'location_name')
+    assert 'location_name' not in procedure.to_dict()
 
 
 def test_updates_specific_procedure_information_in_json(tmp_path):
@@ -185,7 +186,7 @@ def test_updates_specific_procedure_information_in_json(tmp_path):
     # TestProcedure는 불변 객체이므로 replace()로 변경된 복사본을 만든다.
     # update_test_procedures()는 변경 결과를 잠금 안에서 JSON에 저장한다.
     repository.update_test_procedures(lambda procedures: tuple(
-        replace(item, location_name='loc_updated')
+        replace(item, memo='수정됨')
         if item.id == 't_alpha'
         else item
         for item in procedures
@@ -197,8 +198,8 @@ def test_updates_specific_procedure_information_in_json(tmp_path):
     unchanged = next(item for item in procedures if item.id == 't_retry')
 
     # 대상 procedure만 수정되고 나머지 데이터는 유지되어야 한다.
-    assert updated.location_name == 'loc_updated'
-    assert unchanged.location_name == 'loc_2'
+    assert updated.memo == '수정됨'
+    assert unchanged.memo == ''
 
 
 def test_concurrent_operations_preserve_unrelated_procedure_changes(tmp_path):
@@ -381,7 +382,7 @@ def test_domain_json_schedule_block_api_crud(app, client, tmp_path):
         'date': '2026-06-03',
         'start_time': '09:00',
         'end_time': '09:30',
-        'location_name': 'loc_1',
+            'location_name': 'STE1',
         'assignee_names': ['홍길동'],
         'test_item_ids': ['TC-001'],
     })
@@ -468,7 +469,7 @@ def test_domain_json_schedule_block_item_api_flow(app, client, tmp_path):
         'date': '2026-06-05',
         'start_time': '09:00',
         'end_time': '10:00',
-        'location_name': 'loc_1',
+            'location_name': 'STE1',
         'assignee_names': ['홍길동'],
     })
     assert create_response.status_code == 201

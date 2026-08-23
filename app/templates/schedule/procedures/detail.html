@@ -72,7 +72,6 @@
         {% else %}-{% endif %}
       </td></tr>
       <tr><th>예상 시간</th><td>{{ procedure.estimated_minutes }}분 <span class="text-muted">(잔여 {{ procedure.remaining_minutes }}분)</span></td></tr>
-      <tr><th>시험장소</th><td>{{ location.name if location else '-' }}</td></tr>
       <tr><th>시험 담당자</th><td>{{ assignee_names|join(', ') if assignee_names else '-' }}</td></tr>
       <tr>
         <th>상태</th>

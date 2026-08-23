@@ -14,11 +14,7 @@ def _index_context():
     plan = repository.load_plan()
     procedures = plan.test_procedures
     schedule = plan.schedule
-    names = sorted({
-        item.location_name for item in procedures if item.location_name
-    } | {
-        block.location_name for block in schedule.blocks if block.location_name
-    })
+    names = ('STE1', 'STE2', 'STE3')
     locations = [{'id': name, 'name': name} for name in names]
     dates = sorted({
         block.date

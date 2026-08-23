@@ -3,7 +3,7 @@
 
 시험 절차서의 CRUD(생성, 조회, 수정, 삭제)를 처리하는 웹 페이지 라우트와
 REST API 엔드포인트를 제공한다. 시험 절차서는 문서 ID, 담당자,
-시험 장소, 시험 항목 목록(test_items) 등을 포함한다.
+시험 항목 목록(test_items) 등을 포함한다. 장소는 일정 블록에만 저장한다.
 """
 
 import json
@@ -27,12 +27,8 @@ def _procedure_service():
 
 
 def _location_options():
-    """Build location choices from existing procedures and schedule blocks."""
-    names = sorted(
-        {item.get('location_name', '') for item in procedure.get_all()}
-        | {item.get('location_name', '') for item in schedule_block.get_all()}
-    )
-    return [{'id': name, 'name': name} for name in names if name]
+    """Return the fixed schedule-block locations."""
+    return [{'id': name, 'name': name} for name in ('STE1', 'STE2', 'STE3')]
 
 
 def _procedure_error_response(exc):
@@ -51,7 +47,6 @@ def _procedure_payload_from_form(existing=None):
     payload = {
         'document_id': _parse_document_id(request.form.get('document_id')),
         'assignee_names': _parse_assignee_names(request.form.getlist('assignee_names')),
-        'location_name': request.form.get('location_name', ''),
         'document_name': request.form.get('document_name', '').strip(),
         'test_items': test_items,
         'estimated_minutes': estimated_minutes,
@@ -128,7 +123,7 @@ def procedure_list():
     다양한 필터 조건을 지원한다:
     - status: 시험 절차서 상태 필터
     - assignee: 담당자 필터 (이름 기반, 복수 선택 가능)
-    - location: 시험 장소 필터
+    - location: 배치된 일정 블록의 장소 필터
     - doc: 문서명/ID 검색
     - date: 특정 날짜에 배치된 시험 절차서만 필터
 
@@ -148,7 +143,11 @@ def procedure_list():
         procedures_all = [t for t in procedures_all if any(a in t.get('assignee_names', []) for a in assignees)]
     # 장소 필터
     if location_filter:
-        procedures_all = [t for t in procedures_all if t.get('location_name') == location_filter]
+        placed_ids = {
+            block['procedure_id'] for block in schedule_block.get_all()
+            if block.get('location_name') == location_filter and block.get('procedure_id')
+        }
+        procedures_all = [t for t in procedures_all if t['id'] in placed_ids]
     # 문서명/ID 부분 일치 검색 (대소문자 무시)
     if doc_query:
         q = doc_query.lower()
@@ -349,8 +348,6 @@ def procedure_detail(procedure_id):
     if not t:
         abort(404)
     assignee_names = list(t.get('assignee_names', []))
-    loc = {'name': t['location_name']} if t.get('location_name') else None
-
     # 시험 항목별 배치 일정 매핑 (시험 항목 ID → 날짜/시간 정보)
     all_blocks = schedule_block.get_all()
     procedure_blocks = [b for b in all_blocks if b.get('procedure_id') == procedure_id]
@@ -386,8 +383,7 @@ def procedure_detail(procedure_id):
     return render_template('schedule/procedures/detail.html', procedure=t,
                            assignee_names=assignee_names,
                            test_item_schedule=test_item_schedule,
-                           test_item_execution=test_item_execution,
-                           location=loc)
+                           test_item_execution=test_item_execution)
 
 
 @procedures_bp.route('/<procedure_id>/edit', methods=['GET', 'POST'])
@@ -461,7 +457,7 @@ def api_procedure_list():
 def api_procedure_detail(procedure_id):
     """시험 절차서 상세 정보를 JSON으로 반환한다.
 
-    담당자명과 장소명도 함께 포함하여 반환한다.
+    담당자 정보를 포함하여 반환한다. 장소는 일정 블록 API에서 제공한다.
 
     Args:
         procedure_id (str): 조회할 시험 절차서 ID
@@ -506,7 +502,6 @@ def api_procedure_create():
     Request Body (JSON):
         - document_id (int): 문서 ID (필수)
         - assignee_names (list, optional): 담당자 이름 리스트
-        - location_name (str, optional): 시험 장소 ID
         - document_name (str, optional): 문서명
         - test_items (list, optional): 시험 항목 목록
         - estimated_minutes (int, optional): 예상 소요 시간(분)

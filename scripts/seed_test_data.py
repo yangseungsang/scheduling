@@ -33,7 +33,7 @@ def build_seed_data(start_date):
                 TestItem('PAY-REFUND', '취소 및 환불', 120, 18, ('이준호',)),
             ),
             estimated_minutes=210, assignee_names=('김민지', '이준호'),
-            location_name='QA Lab A', memo='배포 전 핵심 회귀 시험',
+            memo='배포 전 핵심 회귀 시험',
         ),
         TestProcedure(
             id='tp_mobile_release', document_id='DOC-1002',
@@ -43,7 +43,7 @@ def build_seed_data(start_date):
                 TestItem('APP-IOS', 'iOS 주요 시나리오', 120, 30, ('박서연', '최현우')),
             ),
             estimated_minutes=240, assignee_names=('박서연', '최현우'),
-            location_name='Mobile Lab', memo='스토어 심사 제출 전 확인',
+            memo='스토어 심사 제출 전 확인',
         ),
         TestProcedure(
             id='tp_security_check', document_id='DOC-1003',
@@ -53,7 +53,7 @@ def build_seed_data(start_date):
                 TestItem('SEC-PERM', '역할별 접근 권한', 90, 22, ('정다은',)),
             ),
             estimated_minutes=180, assignee_names=('김민지', '정다은'),
-            location_name='Security Lab', memo='관리자 권한 변경 포함',
+            memo='관리자 권한 변경 포함',
         ),
         TestProcedure(
             id='tp_network_regression', document_id='DOC-1004',
@@ -63,7 +63,7 @@ def build_seed_data(start_date):
                 TestItem('NET-RECOVERY', '서비스 자동 복구', 90, 14, ('최현우',)),
             ),
             estimated_minutes=210, assignee_names=('최현우',),
-            location_name='Integration Lab', memo='아직 일정이 배정되지 않은 작업',
+            memo='아직 일정이 배정되지 않은 작업',
         ),
     )
 
@@ -71,42 +71,42 @@ def build_seed_data(start_date):
         ScheduleBlock(
             id='blk_payment_login', procedure_id='tp_payment_release',
             test_item_ids=('PAY-LOGIN',), date=day.isoformat(),
-            start_time='09:00', end_time='10:30', location_name='QA Lab A',
+            start_time='09:00', end_time='10:30', location_name='STE1',
             assignee_names=('김민지',), is_locked=True,
         ),
         ScheduleBlock(
             id='blk_payment_refund', procedure_id='tp_payment_release',
             test_item_ids=('PAY-REFUND',), date=next_day.isoformat(),
-            start_time='09:00', end_time='11:00', location_name='QA Lab A',
+            start_time='09:00', end_time='11:00', location_name='STE1',
             assignee_names=('이준호',),
         ),
         ScheduleBlock(
             id='blk_mobile_android', procedure_id='tp_mobile_release',
             test_item_ids=('APP-ANDROID',), date=day.isoformat(),
-            start_time='13:00', end_time='15:00', location_name='Mobile Lab',
+            start_time='13:00', end_time='15:00', location_name='STE2',
             assignee_names=('박서연',), manual_status='in_progress',
         ),
         ScheduleBlock(
             id='blk_mobile_ios', procedure_id='tp_mobile_release',
             test_item_ids=('APP-IOS',), date=next_day.isoformat(),
-            start_time='13:00', end_time='15:00', location_name='Mobile Lab',
+            start_time='13:00', end_time='15:00', location_name='STE2',
             assignee_names=('박서연', '최현우'),
         ),
         ScheduleBlock(
             id='blk_security_auth', procedure_id='tp_security_check',
             test_item_ids=('SEC-AUTH',), date=next_day.isoformat(),
-            start_time='09:30', end_time='11:00', location_name='Security Lab',
+            start_time='09:30', end_time='11:00', location_name='STE3',
             assignee_names=('김민지',), manual_status='paused',
         ),
         ScheduleBlock(
             id='blk_security_permission', procedure_id='tp_security_check',
             test_item_ids=('SEC-PERM',), date=third_day.isoformat(),
-            start_time='09:30', end_time='11:00', location_name='Security Lab',
+            start_time='09:30', end_time='11:00', location_name='STE3',
             assignee_names=('정다은',),
         ),
         ScheduleBlock(
             id='blk_team_sync', date=day.isoformat(), start_time='16:00',
-            end_time='16:30', location_name='회의실 2',
+            end_time='16:30', location_name='STE1',
             assignee_names=('김민지', '박서연', '최현우'), kind='simple',
             title='시험 진행 상황 공유', memo='이슈와 다음 일정 확인',
         ),

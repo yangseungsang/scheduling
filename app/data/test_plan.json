@@ -30,7 +30,6 @@
         "김민지",
         "이준호"
       ],
-      "location_name": "QA Lab A",
       "memo": "배포 전 핵심 회귀 시험"
     },
     {
@@ -94,7 +93,6 @@
         "김민지",
         "정다은"
       ],
-      "location_name": "Security Lab",
       "memo": "관리자 권한 변경 포함"
     },
     {
@@ -138,7 +136,7 @@
       "test_item_ids": [
         "PAY-LOGIN"
       ],
-      "location_name": "회의실 2",
+      "location_name": "STE1",
       "assignee_names": [
         "김민지"
       ],
@@ -153,9 +151,24 @@
       "test_item_ids": [
         "PAY-REFUND"
       ],
-      "location_name": "QA Lab A",
+      "location_name": "STE1",
       "assignee_names": [
         "이준호"
+      ]
+    },
+    {
+      "id": "blk_6a23336d1b6c",
+      "date": "2026-08-13",
+      "start_time": "09:15",
+      "end_time": "11:30",
+      "procedure_id": "tp_mobile_release",
+      "test_item_ids": [
+        "APP-ANDROID"
+      ],
+      "location_name": "STE2",
+      "assignee_names": [
+        "박서연",
+        "최현우"
       ]
     },
     {
@@ -167,7 +180,7 @@
       "test_item_ids": [
         "APP-IOS"
       ],
-      "location_name": "Mobile Lab",
+      "location_name": "STE2",
       "assignee_names": [
         "박서연",
         "최현우"
@@ -182,7 +195,7 @@
       "test_item_ids": [
         "SEC-AUTH"
       ],
-      "location_name": "회의실 2",
+      "location_name": "STE3",
       "assignee_names": [
         "김민지"
       ],
@@ -197,7 +210,7 @@
       "test_item_ids": [
         "SEC-PERM"
       ],
-      "location_name": "Security Lab",
+      "location_name": "STE3",
       "assignee_names": [
         "정다은"
       ]
@@ -207,7 +220,7 @@
       "date": "2026-08-10",
       "start_time": "16:00",
       "end_time": "16:30",
-      "location_name": "회의실 2",
+      "location_name": "STE1",
       "assignee_names": [
         "김민지",
         "박서연",
@@ -217,17 +230,16 @@
       "memo": "이슈와 다음 일정 확인"
     },
     {
-      "id": "blk_6a23336d1b6c",
-      "date": "2026-08-13",
-      "start_time": "09:15",
-      "end_time": "11:30",
-      "procedure_id": "tp_mobile_release",
+      "id": "blk_5ba0bc9e916c",
+      "date": "2026-08-21",
+      "start_time": "08:45",
+      "end_time": "11:45",
+      "procedure_id": "tp_network_regression",
       "test_item_ids": [
-        "APP-ANDROID"
+        "NET-FAILOVER"
       ],
-      "location_name": "Mobile Lab",
+      "location_name": "STE2",
       "assignee_names": [
-        "박서연",
         "최현우"
       ]
     }

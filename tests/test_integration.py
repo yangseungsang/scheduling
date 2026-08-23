@@ -58,6 +58,7 @@ class TestFullWorkflow:
             'date': '2026-05-01',
             'start_time': '09:00',
             'end_time': '10:00',
+            'location_name': 'STE1',
             'test_item_ids': ['TC-001'],
         })
         assert r1.status_code == 201
@@ -69,6 +70,7 @@ class TestFullWorkflow:
             'date': '2026-05-02',
             'start_time': '09:00',
             'end_time': '10:00',
+            'location_name': 'STE1',
             'test_item_ids': ['TC-002'],
         })
         assert r2.status_code == 201
@@ -94,6 +96,7 @@ class TestFullWorkflow:
             'date': '2026-05-01',
             'start_time': '09:00',
             'end_time': '10:00',
+            'location_name': 'STE1',
             'test_item_ids': ['TC-001'],
         })
         assert r1.status_code == 201
@@ -106,6 +109,7 @@ class TestFullWorkflow:
             'date': '2026-05-02',
             'start_time': '09:00',
             'end_time': '11:00',
+            'location_name': 'STE1',
             'test_item_ids': ['TC-001', 'TC-002'],
         })
         assert r2.status_code == 201

@@ -47,17 +47,6 @@
   <input type="hidden" name="estimated_minutes" id="estimated_minutes_hidden" value="{{ procedure.estimated_minutes if procedure else 0 }}">
 
   {# ── 배정 정보 ── #}
-  <div class="row mb-3">
-    <div class="col">
-      <label class="form-label">시험장소</label>
-      <input type="text" name="location_name" class="form-control"
-             list="location-options" value="{{ procedure.location_name if procedure else '' }}"
-             placeholder="예: 시험실 A">
-      <datalist id="location-options">
-        {% for loc in locations %}<option value="{{ loc.name }}">{% endfor %}
-      </datalist>
-    </div>
-  </div>
   <div class="mb-3">
     <label class="form-label">시험 담당자</label>
     <input type="text" name="assignee_names" class="form-control"

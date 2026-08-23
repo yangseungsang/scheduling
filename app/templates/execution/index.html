@@ -20,6 +20,9 @@
     <span class="exec-status-summary" id="status-summary"></span>
   </div>
   <div class="exec-page-actions">
+    <button class="btn btn-sm btn-outline-primary" type="button" onclick="openProcedureMetricsModal()">
+      <i class="bi bi-bar-chart-line me-1"></i>실적 그래프
+    </button>
     <button class="btn btn-sm btn-outline-secondary" onclick="loadList()" title="새로고침">
       <i class="bi bi-arrow-clockwise"></i>
     </button>
@@ -45,6 +48,48 @@
     </tbody>
   </table>
 </div>
+</div>
+
+<!-- 날짜별 절차서 실적 그래프 -->
+<div class="modal fade" id="procedureMetricsModal" tabindex="-1" aria-labelledby="procedureMetricsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content exec-metrics-modal">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title" id="procedureMetricsModalLabel">날짜별 절차서 누적 실적</h5>
+          <div class="exec-metrics-subtitle">선택 기간 시작일부터 고유 procedure_id 누적 · 완료일은 ended_at 기준</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="닫기"></button>
+      </div>
+      <div class="modal-body">
+        <div class="exec-metrics-controls">
+          <label>시작일 <input type="date" class="form-control form-control-sm" id="metrics-start-date"></label>
+          <label>종료일 <input type="date" class="form-control form-control-sm" id="metrics-end-date"></label>
+          <button type="button" class="btn btn-sm btn-primary" onclick="loadProcedureMetrics()">조회</button>
+        </div>
+        <div class="exec-metrics-summary" id="metrics-summary" aria-live="polite"></div>
+        <div class="exec-metrics-legend" aria-label="그래프 범례">
+          <span><i class="legend-swatch planned"></i>누적 예정</span>
+          <span><i class="legend-swatch completed"></i>누적 완료</span>
+          <span><i class="legend-line failed"></i>누적 Fail</span>
+          <span><i class="legend-line blocked"></i>누적 Block</span>
+        </div>
+        <div class="exec-metrics-chart" id="metrics-chart" role="img" aria-label="날짜별 예정, 완료, Fail, Block 절차서 수 그래프">
+          <div class="text-center text-muted py-5">데이터를 불러오는 중입니다.</div>
+        </div>
+        <div class="exec-metrics-chart-title">전체 항목 누적 추이</div>
+        <div class="exec-metrics-legend" aria-label="꺾은선 그래프 범례">
+          <span><i class="legend-line planned"></i>누적 예정</span>
+          <span><i class="legend-line completed"></i>누적 완료</span>
+          <span><i class="legend-line failed"></i>누적 Fail</span>
+          <span><i class="legend-line blocked"></i>누적 Block</span>
+        </div>
+        <div class="exec-metrics-chart" id="metrics-line-chart" role="img" aria-label="날짜별 예정, 완료, Fail, Block 절차서 수 꺾은선 그래프">
+          <div class="text-center text-muted py-5">데이터를 불러오는 중입니다.</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 

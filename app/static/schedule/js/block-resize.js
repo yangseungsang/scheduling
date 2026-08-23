@@ -111,11 +111,7 @@
                 start_time: newStart,
                 end_time: newEnd,
                 resize: true, // 서버에 리사이즈 동작임을 알림
-              }).then(function (res) {
-                  if (res && res.continuation) showToast('초과분이 ' + res.continuation.date + '에 자동 배치되었습니다.', 'info');
-                  else if (res && res.continuation_failed) showToast(res.continuation_failed, 'danger');
-                  return App.softReload();
-                })
+              }).then(function () { return App.softReload(); })
                 .catch(function (err) {
                   showToast(err.message, 'danger');
                   // 오류 시 원래 위치/크기로 복원
@@ -124,7 +120,13 @@
                 });
             }
 
-            doResize();
+            App.confirmWorkEndClamp(newStartMin, newStartMin + durMin).then(function (confirmed) {
+              if (confirmed) doResize();
+              else {
+                block.style.top = origTop + 'px';
+                block.style.height = origHeight + 'px';
+              }
+            });
           }
         }
 

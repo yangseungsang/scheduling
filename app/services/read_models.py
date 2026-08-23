@@ -14,7 +14,7 @@ def build_execution_list_items(
             run = runs.get(key)
             placement = scheduled.get(key)
             scheduled_date = placement.date if placement else ''
-            location_name = placement.location_name if placement and placement.location_name else procedure.location_name
+            location_name = placement.location_name if placement else ''
             if date_filter and scheduled_date != date_filter:
                 continue
             if location_filter and location_name != location_filter:
@@ -71,7 +71,6 @@ def build_unscheduled_attempts(procedures, schedule, executions):
                 'test_name': test_item.name,
                 'test_round': procedure.test_round,
                 'remaining_minutes': test_item.estimated_minutes,
-                'default_location_name': procedure.location_name,
                 'owner_names': list(test_item.owner_names),
                 'execution_status': run.status if run else 'pending',
             })

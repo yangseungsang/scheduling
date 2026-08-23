@@ -54,7 +54,7 @@ def api_create_block():
         - assignee_names (list, optional): 담당자 ID 리스트
         - location_name (str, optional): 시험 장소 ID
         - test_item_ids (list, optional): 배치할 시험 항목 ID 리스트
-        - overflow_minutes (int, optional): 초과 배치 시간(분)
+        업무 종료 시간을 넘는 종료 시각은 같은 날의 업무 종료 시각으로 제한된다.
         - is_locked (bool, optional): 잠금 여부
         - title (str, optional): 간단 블록 제목
 
@@ -188,7 +188,6 @@ def api_create_simple_block():
     t = TestProcedureService(current_app.config['DOMAIN_DATA_DIR']).create_procedure({
         'document_id': int(str(int(__import__('time').time()))[-6:]),
         'assignee_names': [],
-        'location_name': '',
         'document_name': title,
         'test_items': [],
         'estimated_minutes': minutes,

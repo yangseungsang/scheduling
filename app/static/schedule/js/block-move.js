@@ -131,64 +131,38 @@
             } else if (target.type === 'slot') {
               var t = App.snapToBlockEdge(target.el);
               if (isMulti) {
-                // 다중 선택 블록 순차 이동 — 종료시간 초과 시 다음 근무일로 전환
-                var curDate = target.date;
+                // 다중 선택 블록 순차 이동 — 종료 초과 시 마지막 블록을 당일 종료 시각으로 제한
                 var curMin = t;
-                var chain = Promise.resolve();
-                var contCount = 0;
-                // 근무 종료 시간 (슬롯에서 읽거나 기본 16:30)
-                var workEndMin = (function () {
-                  var slots = document.querySelectorAll('.time-slot[data-time]');
-                  var max = 0;
-                  slots.forEach(function (s) { var t2 = timeToMin(s.dataset.time); if (t2 > max) max = t2; });
-                  return max || timeToMin('16:30');
-                })();
-                // 근무 시작 시간 (첫 슬롯)
-                var workStartMin = (function () {
-                  var first = document.querySelector('.time-slot[data-time]');
-                  return first ? timeToMin(first.dataset.time) : timeToMin('08:30');
-                })();
-                function nextWorkday(dateStr) {
-                  var d = new Date(dateStr + 'T00:00:00');
-                  d.setDate(d.getDate() + 1);
-                  while (d.getDay() === 0 || d.getDay() === 6) d.setDate(d.getDate() + 1);
-                  return d.toISOString().slice(0, 10);
-                }
+                var workEndMin = App.getWorkEndMin();
+                var totalDuration = selectedBlocks.reduce(function (sum, sb) {
+                  return sum + workMinutes(timeToMin(sb.dataset.startTime), timeToMin(sb.dataset.endTime));
+                }, 0);
+                var chain = App.confirmWorkEndClamp(curMin, curMin + totalDuration);
+                var movedCount = 0;
 
                 selectedBlocks.forEach(function (sb) {
-                  chain = chain.then(function () {
+                  chain = chain.then(function (confirmed) {
+                    if (!confirmed || curMin >= workEndMin) return false;
                     var dur = workMinutes(timeToMin(sb.dataset.startTime), timeToMin(sb.dataset.endTime));
-                    // 현재 시간이 종료시간 이상이면 다음 근무일로 전환
-                    if (curMin >= workEndMin) {
-                      curDate = nextWorkday(curDate);
-                      curMin = workStartMin;
-                      contCount++;
-                    }
                     var moveUpdate = {
-                      date: curDate,
+                      date: target.date,
                       start_time: minToTime(curMin),
                       end_time: minToTime(curMin + dur),
                     };
                     if (target.locationName) moveUpdate.location_name = target.locationName;
                     return api('PUT', '/schedule/api/blocks/' + sb.dataset.blockId, moveUpdate)
                       .then(function (res) {
+                        movedCount++;
                         curMin = timeToMin(res.end_time);
-                        if (res.continuation) {
-                          contCount++;
-                          curDate = res.continuation.date;
-                          curMin = timeToMin(res.continuation.end_time);
-                        } else if (res.continuation_failed) {
-                          showToast(res.continuation_failed, 'danger');
-                          // 실패해도 다음날로 전환
-                          curDate = nextWorkday(curDate);
-                          curMin = workStartMin;
-                        }
+                        return true;
                       });
                   });
                 });
                 chain.then(function () {
-                  if (contCount > 0) showToast('일부 항목이 다음 근무일에 배치되었습니다.', 'info');
-                  softReload();
+                  if (!movedCount) return;
+                  var skipped = selectedBlocks.length - movedCount;
+                  if (skipped) showToast(skipped + '개 블록은 기존 위치에 남았습니다.', 'info');
+                  return softReload();
                 }).catch(function (err) { showToast(err.message, 'danger'); });
               } else {
                 var moveUpdate = {
@@ -197,13 +171,11 @@
                   end_time: minToTime(t + durationMin),
                 };
                 if (target.locationName) moveUpdate.location_name = target.locationName;
-                api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate)
-                  .then(function (res) {
-                    if (res && res.continuation) showToast('초과분이 ' + res.continuation.date + '에 자동 배치되었습니다.', 'info');
-                    else if (res && res.continuation_failed) showToast(res.continuation_failed, 'danger');
-                    softReload();
-                  })
-                  .catch(function (err) { showToast(err.message, 'danger'); });
+                App.confirmWorkEndClamp(t, t + durationMin).then(function (confirmed) {
+                  if (!confirmed) return;
+                  return api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate)
+                    .then(function () { return softReload(); });
+                }).catch(function (err) { showToast(err.message, 'danger'); });
               }
             } else if (target.type === 'month') {
               if (isMulti) {

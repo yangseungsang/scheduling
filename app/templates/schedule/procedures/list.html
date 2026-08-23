@@ -110,7 +110,7 @@
             {% if si.get('block_locations') %}
               {{ si['block_locations'] | join(', ') }}
             {% else %}
-              {{ location_map.get(procedure.location_name, '-') }}
+              -
             {% endif %}
           </td>
           <td class="text-nowrap">

@@ -40,8 +40,8 @@ def reset_and_sync():
     """모든 로컬 데이터를 삭제한 후 외부 소스에서 새로 동기화한다.
 
     실행 순서:
-    1. 스케줄 블록, 시험 절차서, 시험실행 데이터를 모두 삭제
-    2. 외부 제공자에서 시험 데이터 동기화
+    1. 외부 제공자 데이터를 먼저 조회
+    2. 조회 성공 시에만 기존 스케줄·절차서·실행 데이터를 교체
 
     Request Body (JSON, optional):
         - version_id (str): 새 전체 시험 사이클 버전
@@ -49,8 +49,12 @@ def reset_and_sync():
     Returns:
         JSON: 시험 절차서 동기화 결과
     """
-    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
     version_id = (request.get_json(silent=True) or {}).get('version_id')
+    client = DynReadyClient()
+    # 외부 요청이 실패해도 현재 데이터가 보존되도록 초기화 전에 먼저 가져온다.
+    external = client.get_test_data_all()
+
+    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
     repository.replace_all(
         test_procedures=(),
         schedule=Schedule(),
@@ -59,8 +63,7 @@ def reset_and_sync():
         version_id=version_id,
     )
 
-    client = DynReadyClient()
-    procedure_result = SyncService.sync_test_data(client, version_id)
+    procedure_result = SyncService.sync_test_rows(external, version_id)
 
     return jsonify({'procedures': procedure_result})
 
