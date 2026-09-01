@@ -5,7 +5,7 @@
 프로젝트 전체 리셋 기능도 포함한다.
 """
 
-from flask import Blueprint, current_app, request, jsonify, render_template, redirect, url_for, flash
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 
 from app.features.schedule.services import settings
 
@@ -127,11 +127,11 @@ def api_project_reset():
     Returns:
         JSON: 성공 메시지
     """
-    from app.repositories import JsonDomainRepository
+    from app.repositories import get_repository
     from app.features.execution.domain import Executions
     from app.features.schedule.domain import Schedule
 
-    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
+    repository = get_repository()
     repository.replace_all(
         test_procedures=(),
         schedule=Schedule(),

@@ -48,8 +48,8 @@ def create_app():
     app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
     os.makedirs(app.config['DOMAIN_DATA_DIR'], exist_ok=True)
-    from app.repositories import JsonDomainRepository
-    JsonDomainRepository(app.config['DOMAIN_DATA_DIR']).initialize()
+    from app.repositories import init_repository
+    init_repository(app)
 
     # 템플릿에서 정적 파일 URL에 cache_bust 파라미터로 사용
     app.jinja_env.globals['cache_bust'] = _START_TIME

@@ -1,7 +1,7 @@
 import json
 from dataclasses import replace
 
-from app.repositories import JsonDomainRepository
+from app.repositories import JsonDomainRepository, init_repository
 from app.features.execution.domain import Executions
 from app.features.schedule.domain import AppSettings, Schedule, TestProcedure
 from app.features.schedule.services._block_commands import ScheduleCommandService
@@ -316,7 +316,7 @@ def test_schedule_command_writes_typed_json(tmp_path):
     repository = JsonDomainRepository(data_dir)
     repository.initialize(reset=True)
     _replace_domain_data(repository)
-    service = ScheduleCommandService(data_dir)
+    service = ScheduleCommandService(repository)
     block = service.create_block(
         block_id='blk_direct_1',
         date='2026-06-01',
@@ -354,7 +354,7 @@ def test_json_schedule_command_rejects_missing_test_item(tmp_path):
     repository.initialize(reset=True)
     _replace_domain_data(repository)
 
-    service = ScheduleCommandService(data_dir)
+    service = ScheduleCommandService(repository)
 
     try:
         service.create_block(
@@ -376,6 +376,7 @@ def test_domain_json_schedule_block_api_crud(app, client, tmp_path):
     repository.initialize(reset=True)
     _replace_domain_data(repository)
     app.config['DOMAIN_DATA_DIR'] = data_dir
+    init_repository(app)
 
     create_response = client.post('/schedule/api/blocks', json={
         'procedure_id': 't_alpha',
@@ -443,6 +444,7 @@ def test_domain_json_schedule_block_api_rejects_empty_test_block(app, client, tm
     repository.initialize(reset=True)
     _replace_domain_data(repository)
     app.config['DOMAIN_DATA_DIR'] = data_dir
+    init_repository(app)
 
     response = client.post('/schedule/api/blocks', json={
         'procedure_id': 't_alpha',
@@ -463,6 +465,7 @@ def test_domain_json_schedule_block_item_api_flow(app, client, tmp_path):
     _replace_domain_data(repository)
     repository.replace_schedule(Schedule())
     app.config['DOMAIN_DATA_DIR'] = data_dir
+    init_repository(app)
 
     create_response = client.post('/schedule/api/blocks', json={
         'procedure_id': 't_alpha',
@@ -521,6 +524,7 @@ def test_domain_json_schedule_day_api_and_export(app, client, tmp_path):
     repository.initialize(reset=True)
     _replace_domain_data(repository)
     app.config['DOMAIN_DATA_DIR'] = data_dir
+    init_repository(app)
 
     day_response = client.get('/schedule/api/day?date=2026-05-13')
     assert day_response.status_code == 200
@@ -546,6 +550,7 @@ def test_domain_json_schedule_week_month_apis_and_views(app, client, tmp_path):
     repository.initialize(reset=True)
     _replace_domain_data(repository)
     app.config['DOMAIN_DATA_DIR'] = data_dir
+    init_repository(app)
 
     week_response = client.get('/schedule/api/week?date=2026-05-13')
     assert week_response.status_code == 200
@@ -575,6 +580,7 @@ def test_domain_json_execution_list_detail_and_start(app, client, tmp_path):
     repository.initialize(reset=True)
     _replace_domain_data(repository)
     app.config['DOMAIN_DATA_DIR'] = data_dir
+    init_repository(app)
 
     assert client.get('/execution/').status_code == 200
 
@@ -611,6 +617,7 @@ def test_domain_json_execution_storage_writes_runs_directly(app, client, tmp_pat
     repository.initialize(reset=True)
     _replace_domain_data(repository)
     app.config['DOMAIN_DATA_DIR'] = data_dir
+    init_repository(app)
 
     start_response = client.post('/execution/api/start', json={
         'test_item_id': 'TC-002',
@@ -650,6 +657,7 @@ def test_domain_json_admin_settings(app, client, tmp_path):
     repository.initialize(reset=True)
     _replace_domain_data(repository)
     app.config['DOMAIN_DATA_DIR'] = data_dir
+    init_repository(app)
 
     settings_response = client.put('/admin/api/settings', json={'block_color_by': 'location'})
     assert settings_response.status_code == 200
@@ -665,6 +673,7 @@ def test_domain_json_procedure_read_views_and_api(app, client, tmp_path):
     repository.initialize(reset=True)
     _replace_domain_data(repository)
     app.config['DOMAIN_DATA_DIR'] = data_dir
+    init_repository(app)
 
     list_response = client.get('/procedures/')
     assert list_response.status_code == 200
@@ -685,6 +694,7 @@ def test_domain_json_procedure_api_writes_catalog(app, client, tmp_path):
     repository.initialize(reset=True)
     _replace_domain_data(repository)
     app.config['DOMAIN_DATA_DIR'] = data_dir
+    init_repository(app)
 
     create_response = client.post('/procedures/api/create', json={
         'document_id': 77,
@@ -750,6 +760,7 @@ def test_domain_json_sync_test_data_writes_procedures(app, tmp_path):
         _empty_sections(),
     )
     app.config['DOMAIN_DATA_DIR'] = data_dir
+    init_repository(app)
 
     with app.app_context():
         result = SyncService.sync_test_data(Provider())

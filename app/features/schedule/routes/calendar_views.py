@@ -8,7 +8,7 @@
 import calendar
 from datetime import date, timedelta
 
-from flask import Blueprint, current_app, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template
 
 from app.features.schedule.services.presentation import (
     build_day_payload,
@@ -24,7 +24,7 @@ from app.features.schedule.services.presentation import (
     schedule_settings,
 )
 from app.features.schedule.services.time import generate_time_slots, is_break_slot
-from app.repositories import JsonDomainRepository
+from app.repositories import get_repository
 
 # 스케줄 관련 모든 캘린더 뷰가 등록되는 블루프린트
 schedule_bp = Blueprint('schedule', __name__, url_prefix='/schedule')
@@ -33,7 +33,7 @@ DAY_NAMES = ['월', '화', '수', '목', '금']
 
 def _prepare_view_context():
     """Load the domain sections required by schedule views."""
-    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
+    repository = get_repository()
     operations = repository.load_operations()
     procedures = operations.test_procedures
     schedule = operations.schedule

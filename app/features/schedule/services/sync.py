@@ -5,11 +5,9 @@
 공급자가 제공하는 (document_id, test_round) 조합별로 독립 시험 절차서를 생성한다.
 """
 
-from flask import current_app
-
 from app.features.schedule.services import test_procedures as procedure, blocks as schedule_block
 from app.features.schedule.services.test_procedures import TestProcedureService
-from app.repositories import JsonDomainRepository
+from app.repositories import get_repository
 
 
 def _procedure_blocks(procedure_id):
@@ -82,15 +80,13 @@ class SyncService:
     def sync_test_rows(external, version_id=None):
         """Synchronize already-fetched provider rows without another network call."""
         if version_id is not None:
-            JsonDomainRepository(
-                current_app.config['DOMAIN_DATA_DIR'],
-            ).set_version_id(version_id)
+            get_repository().set_version_id(version_id)
         return _sync_test_data_orm(external)
 
 
 def _sync_test_data_orm(external):
     """Merge normalized provider rows using the procedure service API."""
-    service = TestProcedureService(current_app.config['DOMAIN_DATA_DIR'])
+    service = TestProcedureService(get_repository())
     synced_combos = set()
     added = updated = deleted = 0
     warnings = []

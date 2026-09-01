@@ -4,7 +4,7 @@ import re
 import pytest
 
 from app import create_app
-from app.repositories import JsonDomainRepository
+from app.repositories import init_repository
 
 
 DEFAULT_SETTINGS = {
@@ -27,8 +27,7 @@ DEFAULT_SETTINGS = {
 def configure_test_storage(application, tmp_path, settings=None):
     data_dir = tmp_path / 'domain_data'
     application.config['DOMAIN_DATA_DIR'] = str(data_dir)
-    repository = JsonDomainRepository(data_dir)
-    repository.initialize(reset=True)
+    repository = init_repository(application, reset=True)
     repository.replace_settings(settings or DEFAULT_SETTINGS)
     return application
 

@@ -1,8 +1,8 @@
 """Server-rendered execution list and detail views."""
 
-from flask import Blueprint, current_app, render_template, request
+from flask import Blueprint, render_template, request
 
-from app.repositories import JsonDomainRepository
+from app.repositories import get_repository
 from app.features.execution.barcode_config import TEST_ITEM_PREFIX
 
 views_bp = Blueprint('execution', __name__, url_prefix='/execution')
@@ -10,7 +10,7 @@ views_bp = Blueprint('execution', __name__, url_prefix='/execution')
 
 def _index_context():
     """Build initial filters and rows required by the execution list page."""
-    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
+    repository = get_repository()
     plan = repository.load_plan()
     procedures = plan.test_procedures
     schedule = plan.schedule

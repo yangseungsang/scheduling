@@ -3,10 +3,8 @@
 from app.features.schedule.domain import TestItem, TestProcedure
 from dataclasses import replace
 
-from flask import current_app
-
 from app.domain.common.identity import stable_id
-from app.repositories import JsonDomainRepository
+from app.repositories import JsonDomainRepository, get_repository
 
 
 class TestProcedureError(Exception):
@@ -22,10 +20,9 @@ class TestProcedureService:
     """Own procedure lifecycle rules and related cross-feature cleanup."""
 
     __test__ = False
-    def __init__(self, data_dir):
-        """Create the service and ensure its JSON documents exist."""
-        self.repository = JsonDomainRepository(data_dir)
-        self.repository.initialize()
+    def __init__(self, repository: JsonDomainRepository):
+        """Create the service with the shared domain repository."""
+        self.repository = repository
 
     def create_procedure(self, data):
         """Validate and append a new procedure to the current plan."""
@@ -182,13 +179,13 @@ def _document_id(value):
 
 
 def _service():
-    """Build a request-scoped service from Flask configuration."""
-    return TestProcedureService(current_app.config['DOMAIN_DATA_DIR'])
+    """Build a request-scoped service from the current app repository."""
+    return TestProcedureService(get_repository())
 
 
 def get_all():
     """Return sorted procedures with schedule-derived remaining minutes."""
-    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
+    repository = get_repository()
     operations = repository.load_plan()
     scheduled_minutes = {}
     for block in operations.schedule_blocks:

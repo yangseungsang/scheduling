@@ -3,16 +3,15 @@
 from math import ceil
 
 from app.features.execution.domain import ExecutionRun, Executions
-from app.repositories import JsonDomainRepository
+from app.repositories import JsonDomainRepository, get_repository
 
 
 class ExecutionStorage:
     """Adapter between dictionary-based workflows and typed execution records."""
 
-    def __init__(self, data_dir):
+    def __init__(self, repository: JsonDomainRepository):
         """Bind storage to the shared domain repository."""
-        self.repository = JsonDomainRepository(data_dir)
-        self.repository.initialize()
+        self.repository = repository
 
     def get_all(self):
         """Return every run in the compatibility dictionary shape."""
@@ -53,9 +52,9 @@ def _runs(items):
             'performer_name': item.get('performer') or item.get('performer_name', ''),
         }) for item in items or [])
 
-def get_execution_storage(config):
-    """Create storage from Flask-style configuration."""
-    return ExecutionStorage(config['DOMAIN_DATA_DIR'])
+def get_execution_storage():
+    """Create an execution adapter backed by the current app repository."""
+    return ExecutionStorage(get_repository())
 
 
 def _run_to_dict(run):

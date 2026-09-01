@@ -6,9 +6,7 @@ from datetime import date, timedelta
 from app.features.schedule.services.time import adjust_end_for_breaks, minutes_to_time, time_to_minutes
 from app.features.schedule.services._block_commands import ScheduleCommandService
 from app.features.schedule.services.presentation import schedule_settings
-from flask import current_app
-
-from app.repositories import JsonDomainRepository
+from app.repositories import JsonDomainRepository, get_repository
 
 VALID_BLOCK_STATUSES = {'pending', 'in_progress', 'completed', 'cancelled'}
 VALID_LOCATIONS = {'STE1', 'STE2', 'STE3'}
@@ -25,11 +23,10 @@ class ScheduleBlockError(Exception):
 class ScheduleBlockService:
     """Validate and coordinate schedule-block workflows."""
 
-    def __init__(self, data_dir):
-        """Bind validation and low-level commands to the same data directory."""
-        self.data_dir = data_dir
-        self.repository = JsonDomainRepository(data_dir)
-        self.commands = ScheduleCommandService(data_dir)
+    def __init__(self, repository: JsonDomainRepository):
+        """Bind validation and low-level commands to the same repository."""
+        self.repository = repository
+        self.commands = ScheduleCommandService(repository)
 
     def create(self, data):
         """Create a simple or procedure-backed block after validation."""
@@ -335,13 +332,13 @@ def _clamp_to_work_end(start_time, end_time, settings):
 
 
 def _service():
-    """Create a request-scoped service from Flask configuration."""
-    return ScheduleBlockService(current_app.config['DOMAIN_DATA_DIR'])
+    """Create a request-scoped service backed by the current app repository."""
+    return ScheduleBlockService(get_repository())
 
 
 def get_all():
     """Return all blocks in API-compatible dictionary form."""
-    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
+    repository = get_repository()
     return [_api_block(item.to_dict()) for item in repository.load_schedule().blocks]
 
 

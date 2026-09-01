@@ -16,7 +16,7 @@ from app.features.schedule.services.blocks import (
     VALID_BLOCK_STATUSES,
 )
 from app.features.schedule.services.test_procedures import TestProcedureService
-from app.repositories import JsonDomainRepository
+from app.repositories import get_repository
 from app.features.schedule.services.presentation import (
     build_export_blocks,
     schedule_settings,
@@ -24,8 +24,8 @@ from app.features.schedule.services.presentation import (
 
 
 def _schedule_service():
-    """Create a schedule workflow service from the current app config."""
-    return ScheduleBlockService(current_app.config['DOMAIN_DATA_DIR'])
+    """Create a schedule workflow service from the current app repository."""
+    return ScheduleBlockService(get_repository())
 
 
 def _schedule_error_response(exc):
@@ -35,7 +35,7 @@ def _schedule_error_response(exc):
 
 def _schedule_settings():
     """Load settings and apply calendar defaults for command calculations."""
-    settings = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR']).load_settings()
+    settings = get_repository().load_settings()
     return schedule_settings(settings)
 
 
@@ -185,7 +185,7 @@ def api_create_simple_block():
         return jsonify({'error': '제목을 입력해주세요.'}), 400
     title = data['title'].strip()
     minutes = int(data.get('estimated_minutes', 60))
-    t = TestProcedureService(current_app.config['DOMAIN_DATA_DIR']).create_procedure({
+    t = TestProcedureService(get_repository()).create_procedure({
         'document_id': int(str(int(__import__('time').time()))[-6:]),
         'assignee_names': [],
         'document_name': title,
@@ -250,7 +250,7 @@ def api_export():
     from app.features.schedule.services.export import export_xlsx, export_csv
     from urllib.parse import quote
 
-    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
+    repository = get_repository()
     operations = repository.load_operations()
     procedures = operations.test_procedures
     schedule = operations.schedule

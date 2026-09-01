@@ -1,9 +1,7 @@
 """Application settings used by schedule views and administration."""
 
-from flask import current_app
-
 from app.features.schedule.domain import AppSettings
-from app.repositories import JsonDomainRepository
+from app.repositories import get_repository
 
 
 DEFAULTS = {
@@ -24,7 +22,7 @@ DEFAULTS = {
 
 
 def _repository():
-    return JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
+    return get_repository()
 
 
 def get():

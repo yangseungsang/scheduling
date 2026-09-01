@@ -16,10 +16,9 @@ BLOCK_FIELDS = {
 class ScheduleCommandService:
     """Apply validated block mutations to the latest immutable test plan."""
 
-    def __init__(self, data_dir):
-        """Create a command service backed by one JSON data directory."""
-        self.repository = JsonDomainRepository(data_dir)
-        self.repository.initialize()
+    def __init__(self, repository: JsonDomainRepository):
+        """Create a command service backed by the shared repository."""
+        self.repository = repository
 
     def get_block(self, block_id):
         """Return one block as an API-compatible dictionary."""

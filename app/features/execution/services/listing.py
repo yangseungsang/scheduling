@@ -3,15 +3,13 @@
 from collections import defaultdict
 from datetime import date, timedelta
 
-from flask import current_app
-
-from app.repositories import JsonDomainRepository
+from app.repositories import get_repository
 from app.services.read_models import build_execution_list_items
 
 
 def build_daily_procedure_metrics(start_date='', end_date=''):
     """Aggregate planned and current execution outcomes by unique procedure ID."""
-    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
+    repository = get_repository()
     plan = repository.load_plan()
     executions = repository.load_executions()
 
@@ -159,7 +157,7 @@ def _execution_items(
     date_filter='', location_filter='', status_filter='', procedure_filter='',
 ):
     """Join plan and execution data, then apply list filters."""
-    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
+    repository = get_repository()
     plan = repository.load_plan()
     procedures = plan.test_procedures
     schedule = plan.schedule

@@ -6,8 +6,8 @@ DynReady 연동에서 시험 데이터를 가져와 로컬 데이터와
 전체 리셋 후 재동기화 기능도 포함한다.
 """
 
-from flask import Blueprint, current_app, jsonify, request
-from app.repositories import JsonDomainRepository
+from flask import Blueprint, jsonify, request
+from app.repositories import get_repository
 from app.features.execution.domain import Executions
 from app.features.schedule.domain import Schedule
 from app.features.schedule.integrations.dyn_ready import DynReadyClient
@@ -54,7 +54,7 @@ def reset_and_sync():
     # 외부 요청이 실패해도 현재 데이터가 보존되도록 초기화 전에 먼저 가져온다.
     external = client.get_test_data_all()
 
-    repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
+    repository = get_repository()
     repository.replace_all(
         test_procedures=(),
         schedule=Schedule(),

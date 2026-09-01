@@ -11,8 +11,9 @@ def exec_app(tmp_path):
     configure_test_storage(app, tmp_path)
     with app.app_context():
         from app.features.schedule.services.test_procedures import TestProcedureService
+        from app.repositories import get_repository
 
-        service = TestProcedureService(app.config['DOMAIN_DATA_DIR'])
+        service = TestProcedureService(get_repository())
         service.create_procedure({
             'id': 't_001', 'document_id': 1, 'document_name': '기본 시험',
             'test_items': [
@@ -43,7 +44,7 @@ class TestExecutionRepository:
         with exec_app.app_context():
             from app.features.execution.storage import get_execution_storage
 
-            storage = get_execution_storage(exec_app.config)
+            storage = get_execution_storage()
             assert storage.get_all() == []
 
     def test_uses_alternate_json_directory(self, exec_app, tmp_path):
@@ -52,8 +53,9 @@ class TestExecutionRepository:
             from app.features.execution.repository import ExecutionRepository
             from app.features.execution.storage import get_execution_storage
             from app.features.schedule.services.test_procedures import TestProcedureService
+            from app.repositories import get_repository
 
-            TestProcedureService(exec_app.config['DOMAIN_DATA_DIR']).create_procedure({
+            TestProcedureService(get_repository()).create_procedure({
                 'id': 't_json', 'document_id': 100, 'document_name': 'JSON',
                 'test_items': [{'id': 'TC-JSON'}],
             })
@@ -61,7 +63,7 @@ class TestExecutionRepository:
             ex = ExecutionRepository.start('TC-JSON', 't_json', total_count=4)
             assert ex['status'] == 'in_progress'
             ExecutionRepository.pause('t_json', 'TC-JSON')
-            stored = get_execution_storage(exec_app.config).get_all()
+            stored = get_execution_storage().get_all()
             assert stored[0]['test_item_id'] == 'TC-JSON'
             assert stored[0]['status'] == 'paused'
 
@@ -157,7 +159,6 @@ class TestExecutionRepository:
         """일시정지 상태에서 완료해도 정지 이후 시간이 추가되지 않아야 한다."""
         with exec_app.app_context():
             from app.features.execution.repository import ExecutionRepository
-            from flask import current_app
             ex = {
                 'test_item_id': 'TC-014',
                 'procedure_id': 't_001',
@@ -168,7 +169,7 @@ class TestExecutionRepository:
                 'comment': '', 'performer': '',
             }
             from app.features.execution.storage import get_execution_storage
-            get_execution_storage(current_app.config).save_all([ex])
+            get_execution_storage().save_all([ex])
 
             result = ExecutionRepository.complete(
                 't_001', 'TC-014', fail_count=1, block_count=0,
@@ -531,17 +532,17 @@ class TestExecutionAPI:
             from app.features.execution.domain import ExecutionRun, Executions
             from app.features.schedule.services.blocks import ScheduleBlockService
             from app.features.schedule.services.test_procedures import TestProcedureService
-            from app.repositories import JsonDomainRepository
+            from app.repositories import JsonDomainRepository, get_repository
 
-            TestProcedureService(exec_app.config['DOMAIN_DATA_DIR']).create_procedure({
+            TestProcedureService(get_repository()).create_procedure({
                 'id': 't_metrics', 'document_id': 20, 'document_name': '실적 집계',
                 'test_items': [{'id': 'TC-M1'}, {'id': 'TC-M2'}],
             })
-            TestProcedureService(exec_app.config['DOMAIN_DATA_DIR']).create_procedure({
+            TestProcedureService(get_repository()).create_procedure({
                 'id': 't_partial', 'document_id': 21, 'document_name': '일부 실행',
                 'test_items': [{'id': 'TC-P1'}, {'id': 'TC-P2'}],
             })
-            blocks = ScheduleBlockService(exec_app.config['DOMAIN_DATA_DIR'])
+            blocks = ScheduleBlockService(get_repository())
             blocks.create({
                 'procedure_id': 't_metrics', 'test_item_ids': ['TC-M1'],
                 'date': '2026-08-10',

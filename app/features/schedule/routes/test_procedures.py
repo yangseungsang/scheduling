@@ -8,7 +8,7 @@ REST API 엔드포인트를 제공한다. 시험 절차서는 문서 ID, 담당�
 
 import json
 
-from flask import Blueprint, current_app, request, jsonify, render_template, redirect, url_for, flash, abort
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, abort
 
 from app.features.schedule.services import test_procedures as procedure, blocks as schedule_block
 from app.features.execution.repository import ExecutionRepository
@@ -16,6 +16,7 @@ from app.features.schedule.services.test_procedures import (
     TestProcedureService,
     TestProcedureError,
 )
+from app.repositories import get_repository
 
 # 시험 절차서 관련 라우트가 등록되는 블루프린트
 procedures_bp = Blueprint('procedures', __name__, url_prefix='/procedures')
@@ -23,7 +24,7 @@ procedures_bp = Blueprint('procedures', __name__, url_prefix='/procedures')
 
 def _procedure_service():
     """Create a request-scoped procedure service."""
-    return TestProcedureService(current_app.config['DOMAIN_DATA_DIR'])
+    return TestProcedureService(get_repository())
 
 
 def _location_options():

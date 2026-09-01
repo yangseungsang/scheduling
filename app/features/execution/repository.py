@@ -13,8 +13,6 @@
 
 from datetime import datetime
 
-from flask import current_app
-
 from app.features.execution.storage import get_execution_storage
 
 class ExecutionRepository:
@@ -22,7 +20,7 @@ class ExecutionRepository:
 
     @classmethod
     def _storage(cls):
-        return get_execution_storage(current_app.config)
+        return get_execution_storage()
 
     @classmethod
     def get_all(cls):

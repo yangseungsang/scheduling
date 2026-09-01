@@ -41,13 +41,11 @@ class JsonDomainRepository:
 
     def load_operations(self):
         """Return a joined read model; it is not stored as one JSON document."""
-        self.initialize()
         with self._locked():
             return self._read_operations_unlocked()
 
     def update_operations(self, operation):
         """Apply a short mutation while holding the shared data lock."""
-        self.initialize()
         with self._locked():
             current = self._read_operations_unlocked()
             updated = operation(current)
@@ -88,7 +86,6 @@ class JsonDomainRepository:
 
     def update_plan(self, operation):
         """Apply a typed read-modify-write callback to `test_plan.json`."""
-        self.initialize()
         with self._locked():
             current = self._read_plan_unlocked()
             updated = operation(current)
@@ -113,7 +110,6 @@ class JsonDomainRepository:
 
     def update_executions(self, operation):
         """Apply a typed read-modify-write callback to execution records."""
-        self.initialize()
         with self._locked():
             current = self._read_executions_unlocked()
             updated = _as_type(operation(current), Executions)
@@ -148,19 +144,16 @@ class JsonDomainRepository:
 
     def load_executions(self):
         """Load typed execution records."""
-        self.initialize()
         with self._locked():
             return self._read_executions_unlocked()
 
     def load_plan(self):
         """Load the complete typed test plan."""
-        self.initialize()
         with self._locked():
             return self._read_plan_unlocked()
 
     def load_settings(self):
         """Load typed application settings."""
-        self.initialize()
         with self._locked():
             with open(self._path(self.SETTINGS_FILE), encoding='utf-8') as file:
                 return AppSettings.from_dict(json.load(file))

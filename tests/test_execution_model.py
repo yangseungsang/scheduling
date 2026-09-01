@@ -10,8 +10,9 @@ def _make_app(tmp_path):
     configure_test_storage(app, tmp_path)
     with app.app_context():
         from app.features.schedule.services.test_procedures import TestProcedureService
+        from app.repositories import get_repository
 
-        service = TestProcedureService(app.config['DOMAIN_DATA_DIR'])
+        service = TestProcedureService(get_repository())
         service.create_procedure({
             'id': 't_procedure1', 'document_id': 1, 'document_name': '1차',
             'test_round': 1, 'test_items': [{'id': 'TC-001'}],

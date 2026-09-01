@@ -20,10 +20,10 @@ import os
 import threading
 
 import requests
-from flask import Blueprint, current_app, jsonify, request, session
+from flask import Blueprint, jsonify, request, session
 
 from app.features.execution.repository import ExecutionRepository
-from app.repositories import JsonDomainRepository
+from app.repositories import get_repository
 from app.features.execution.services.listing import (
     build_daily_procedure_metrics,
     build_execution_item,
@@ -60,18 +60,20 @@ def _notify_timing(test_item_id: str, procedure_id: str, elapsed_seconds: int):
     base_url = os.environ.get('API_BASE_URL', '').rstrip('/')
     if not base_url:
         return
+    version_id = get_repository().load_plan().version_id
 
     def _send():
         """Run the optional provider notification outside the request thread."""
         try:
-            repository = JsonDomainRepository(current_app.config['DOMAIN_DATA_DIR'])
-            ofp_id = repository.load_plan().version_id
-
             api_key = os.environ.get('API_KEY', '')
             headers = {'Authorization': f'Bearer {api_key}'} if api_key else {}
             resp = requests.post(
                 f'{base_url}/update_test_time',
-                json={'test_id': test_item_id, 'ofp_id': ofp_id, 'time_taking': int(elapsed_seconds)},
+                json={
+                    'test_id': test_item_id,
+                    'ofp_id': version_id,
+                    'time_taking': int(elapsed_seconds),
+                },
                 headers=headers,
                 timeout=10,
             )
