@@ -5,7 +5,11 @@ from datetime import date, timedelta
 
 from app.features.schedule.services.time import adjust_end_for_breaks, minutes_to_time, time_to_minutes
 from app.features.schedule.services._block_commands import ScheduleCommandService
-from app.features.schedule.services.presentation import schedule_settings
+from app.features.schedule.services.presentation import (
+    block_test_item_statuses,
+    derive_block_status,
+    schedule_settings,
+)
 from app.repositories import JsonDomainRepository, get_repository
 
 VALID_BLOCK_STATUSES = {'pending', 'in_progress', 'completed', 'cancelled'}
@@ -130,12 +134,20 @@ class ScheduleBlockService:
         return _api_block(self.commands.update_block(block_id, memo=memo))
 
     def list_by_procedure(self, procedure_id):
-        """Return chronologically sorted blocks belonging to one procedure."""
-        blocks = [
-            _api_block(item.to_dict())
-            for item in self.repository.load_schedule().blocks
-            if item.procedure_id == procedure_id
-        ]
+        """Return procedure blocks with current per-item execution statuses."""
+        operations = self.repository.load_operations()
+        runs = {
+            (item.procedure_id, item.test_item_id): item
+            for item in operations.execution_runs
+        }
+        blocks = []
+        for item in operations.schedule_blocks:
+            if item.procedure_id != procedure_id:
+                continue
+            block = _api_block(item.to_dict())
+            block['test_item_statuses'] = block_test_item_statuses(item, runs)
+            block['block_status'] = derive_block_status(item, runs)
+            blocks.append(block)
         blocks.sort(key=lambda item: (item['date'], item['start_time'], item['id']))
         return {'blocks': blocks}
 

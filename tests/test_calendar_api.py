@@ -229,6 +229,43 @@ class TestBlocksByTestProcedure:
         assert r.status_code == 200
         assert len(r.get_json()['blocks']) == 2
 
+    def test_split_blocks_include_sibling_and_completed_item_statuses(self, app, client):
+        """분할 블록 상세 응답은 양쪽 할당과 완료 상태를 함께 제공한다 (#168)."""
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid, hours='4')
+        original, status = _create_block(
+            client, tid, uid, start='09:00', end='13:00',
+        )
+        assert status == 201
+
+        split = client.post(
+            f'/schedule/api/blocks/{original["id"]}/split',
+            json={'keep_test_item_ids': ['TC-001']},
+        )
+        assert split.status_code == 200
+        sibling_id = split.get_json()['new_block']['id']
+
+        from app.features.execution.repository import ExecutionRepository
+        with app.app_context():
+            ExecutionRepository.start('TC-001', tid)
+            ExecutionRepository.complete(tid, 'TC-001', fail_count=0)
+
+        response = client.get(f'/schedule/api/blocks/by-procedure/{tid}')
+        assert response.status_code == 200
+        blocks = {block['id']: block for block in response.get_json()['blocks']}
+
+        assert set(blocks) == {original['id'], sibling_id}
+        assert blocks[original['id']]['test_item_ids'] == ['TC-001']
+        assert blocks[sibling_id]['test_item_ids'] == ['TC-002']
+        assert blocks[original['id']]['test_item_statuses'] == {
+            'TC-001': 'completed',
+        }
+        assert blocks[sibling_id]['test_item_statuses'] == {
+            'TC-002': 'pending',
+        }
+        assert blocks[original['id']]['block_status'] == 'completed'
+        assert blocks[sibling_id]['block_status'] == 'pending'
+
 
 def test_manual_block_status_does_not_write_procedure_status(app, client):
     """block_status 변경이 procedure.status 를 갱신하지 않아야 한다 (#108)."""

@@ -57,24 +57,31 @@
       var blockColor = opts.color || '#64748b';
       var isQueued = opts.isQueued || false;
 
-      // 현재 블록에 할당된 시험 항목 ID 집합 구성
-      var blockTestItemIds = opts.testItemIds || null;
-      var blockIdSet = {};
-      if (blockTestItemIds) {
-        blockTestItemIds.forEach(function(id) { blockIdSet[id] = true; });
-      }
-      // 분할 블록 여부: 현재 블록의 시험 항목 수 < 전체 시험 항목 수
-      var isSplit = blockTestItemIds && (procedure.test_items || []).length > blockTestItemIds.length;
-
-      // 시험 항목 → 배치 정보 매핑 구성 (모든 블록에서)
       var allTestList = procedure.test_items || [];
       var allTestProcedureIds = allTestList.map(function(it) { return typeof it === 'object' ? it.id : it; });
+
+      // 현재 블록의 최신 할당 정보는 서버 응답을 기준으로 사용한다.
+      // DOM 데이터는 소프트 리로드 직후 잠시 이전 값일 수 있으므로 폴백으로만 사용한다.
+      var currentBlock = allBlocks.find(function(blk) { return blk.id === blockId; });
+      var blockTestItemIds = currentBlock && Array.isArray(currentBlock.test_item_ids)
+        ? currentBlock.test_item_ids
+        : (Array.isArray(opts.testItemIds) ? opts.testItemIds : allTestProcedureIds);
+      var blockIdSet = {};
+      blockTestItemIds.forEach(function(id) { blockIdSet[id] = true; });
+      // 분할 블록 여부: 현재 블록의 시험 항목 수 < 전체 시험 항목 수
+      var isSplit = allTestProcedureIds.length > blockTestItemIds.length;
+
+      // 시험 항목 → 배치 정보 매핑 구성 (모든 블록에서)
       var idScheduleMap = {};  // id → {time, status, date}
+      var idExecutionStatusMap = {}; // id → execution status
       // 블록을 날짜+시간 순으로 정렬
       allBlocks.sort(function(a,b) { return (a.date + a.start_time).localeCompare(b.date + b.start_time); });
       allBlocks.forEach(function(blk) {
-        var bids = blk.test_item_ids || allTestProcedureIds;
+        var bids = Array.isArray(blk.test_item_ids) ? blk.test_item_ids : allTestProcedureIds;
         bids.forEach(function(iid) {
+          if (blk.test_item_statuses && blk.test_item_statuses[iid]) {
+            idExecutionStatusMap[iid] = blk.test_item_statuses[iid];
+          }
           // 각 시험 항목의 첫 번째 배치 정보만 기록
           if (!idScheduleMap[iid]) {
             idScheduleMap[iid] = {
@@ -115,7 +122,7 @@
               if (inThisBlock) thisBlockIds.push(item.id);
               
               // 실행 상태 (TestProcedure API에서 보강된 정보 사용)
-              var execStatus = item.execution_status || 'pending';
+              var execStatus = idExecutionStatusMap[item.id] || item.execution_status || 'pending';
               var execColors = {completed:'#198754', in_progress:'#0d6efd', paused:'#0ea5e9', pending:'#94a3b8'};
               var execLabels = {completed:'완료', in_progress:'진행', paused:'정지', pending:'대기'};
               var eColor = execColors[execStatus] || '#94a3b8';
@@ -138,7 +145,7 @@
               }
               var rowStyle = inThisBlock
                 ? 'border-bottom:1px solid #f9fafb'
-                : 'border-bottom:1px solid #f9fafb;opacity:0.45';
+                : 'border-bottom:1px solid #f9fafb;background:#f8fafc';
               var marker = inThisBlock ? '' : ' <span style="font-size:0.6rem;color:#9ca3af">타 블록</span>';
               var itemName = item.name || '-';
               var cbDisabled = !inThisBlock ? ' disabled' : '';

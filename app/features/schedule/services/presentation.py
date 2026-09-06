@@ -96,7 +96,8 @@ def build_ui_blocks(procedures, schedule, executions, start_date='', end_date=''
         selected_ids = list(block.test_item_ids)
         selected = [item for item in test_items if item.id in set(selected_ids)]
         document_name = procedure.document_name if procedure else block.title
-        status = _block_status(block, runs)
+        item_statuses = block_test_item_statuses(block, runs)
+        status = derive_block_status(block, runs)
         assignee_names = list(block.assignee_names)
         row = {
             'id': block.id, 'procedure_id': block.procedure_id, 'date': block.date,
@@ -113,6 +114,7 @@ def build_ui_blocks(procedures, schedule, executions, start_date='', end_date=''
             'test_round': procedure.test_round if procedure else None,
             'test_items': [_test_item_dict(item) for item in test_items],
             'test_item_ids': selected_ids,
+            'test_item_statuses': item_statuses,
             'is_simple': block.kind == 'simple', 'title': block.title,
             'memo': block.memo, 'block_status': status, 'is_locked': block.is_locked,
             'section_color': _section_color(document_name),
@@ -190,17 +192,24 @@ def _test_item_dict(test_item):
     }
 
 
-def _block_status(block, runs):
+def block_test_item_statuses(block, runs):
+    """Return the execution status of every test item assigned to a block."""
+    return {
+        test_item_id: (
+            runs[(block.procedure_id, test_item_id)].status
+            if (block.procedure_id, test_item_id) in runs else 'pending'
+        )
+        for test_item_id in block.test_item_ids
+    }
+
+
+def derive_block_status(block, runs):
     """Derive a block status from manual state and item execution states."""
     if block.manual_status == 'cancelled':
         return 'cancelled'
     if block.kind == 'simple':
         return 'pending'
-    statuses = [
-        runs.get((block.procedure_id, test_item_id)).status
-        if runs.get((block.procedure_id, test_item_id)) else 'pending'
-        for test_item_id in block.test_item_ids
-    ]
+    statuses = list(block_test_item_statuses(block, runs).values())
     if statuses and all(item == 'completed' for item in statuses):
         return 'completed'
     if any(item in ('in_progress', 'paused', 'completed') for item in statuses):
