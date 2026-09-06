@@ -432,7 +432,7 @@ def test_domain_json_schedule_block_api_crud(app, client, tmp_path):
 
     delete_response = client.delete(f'/schedule/api/blocks/{block["id"]}')
     assert delete_response.status_code == 200
-    assert delete_response.get_json() == {'success': True}
+    assert delete_response.get_json() == {'success': True, 'deleted_count': 1}
 
     loaded = _loaded_domain_data(repository)
     assert all(item['id'] != block['id'] for item in loaded['schedule']['blocks'])

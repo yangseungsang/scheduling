@@ -22,6 +22,11 @@ class TestPageRoutes:
         r = client.get('/schedule/')
         assert r.status_code == 200
 
+    def test_schedule_defaults_to_readonly_mode(self, client):
+        r = client.get('/schedule/')
+        assert r.status_code == 200
+        assert "localStorage.getItem('scheduleMode') || 'readonly'" in r.data.decode()
+
     def test_day_view_with_date(self, client):
         r = client.get('/schedule/?date=2026-03-10')
         assert r.status_code == 200

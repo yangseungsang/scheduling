@@ -106,7 +106,8 @@ def api_delete_block(block_id):
         block_id (str): 삭제할 블록 ID
 
     Query Parameters:
-        restore (str, optional): '1'이면 시험 절차서의 장소 정보도 초기화 (큐로 복원)
+        restore (str, optional): '1'은 단일 블록, 'task'/'all'은 같은
+            시험 절차서의 모든 블록을 큐로 복원
 
     Returns:
         JSON: 성공 여부 또는 에러 (404)
@@ -114,7 +115,7 @@ def api_delete_block(block_id):
     try:
         return jsonify(_schedule_service().delete(
             block_id,
-            restore=request.args.get('restore') == '1',
+            restore=request.args.get('restore', ''),
         ))
     except ScheduleBlockError as exc:
         return _schedule_error_response(exc)

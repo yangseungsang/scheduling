@@ -115,16 +115,24 @@
             if (target.type === 'queue') {
               if (isMulti) {
                 // 다중 선택 블록 일괄 큐로 보내기
-                var chain = Promise.resolve();
+                var restoreTargets = [];
+                var seenRestoreKeys = {};
                 selectedBlocks.forEach(function (sb) {
+                  var key = sb.dataset.procedureId ? 'procedure:' + sb.dataset.procedureId : 'block:' + sb.dataset.blockId;
+                  if (seenRestoreKeys[key]) return;
+                  seenRestoreKeys[key] = true;
+                  restoreTargets.push(sb);
+                });
+                var chain = Promise.resolve();
+                restoreTargets.forEach(function (sb) {
                   chain = chain.then(function () {
-                    return api('DELETE', '/schedule/api/blocks/' + sb.dataset.blockId + '?restore=1');
+                    return api('DELETE', '/schedule/api/blocks/' + sb.dataset.blockId + '?restore=task');
                   });
                 });
                 chain.then(function () { softReload(); })
                   .catch(function (err) { showToast(err.message, 'danger'); });
               } else {
-                api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+                api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=task')
                   .then(function () { softReload(); })
                   .catch(function (err) { showToast(err.message, 'danger'); });
               }
@@ -223,7 +231,7 @@
           onDrop: function (target) {
             if (target.type === 'queue') {
               // 큐로 되돌리기
-              api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+              api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=task')
                 .then(function () { softReload(); })
                 .catch(function (err) { showToast(err.message, 'danger'); });
             } else if (target.type === 'month') {

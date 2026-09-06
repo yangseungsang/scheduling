@@ -79,6 +79,10 @@ def create_app():
     from app.features.execution import register_blueprints as register_execution
     register_execution(app)
 
+    # feature 간 데이터 공유용 read-only API 등록
+    from app.features.data_exchange import register_blueprints as register_data_exchange
+    register_data_exchange(app)
+
     @app.route('/')
     def index():
         """루트 URL 접속 시 주간 시간표 뷰로 리다이렉트한다."""

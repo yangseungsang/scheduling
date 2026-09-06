@@ -32,7 +32,7 @@ repository
 3. JSON 데이터 디렉터리와 기본 파일 초기화
 4. Jinja 전역 `cache_bust` 등록
 5. CORS 응답 헤더 추가
-6. schedule/execution blueprint 등록
+6. schedule/execution/data_exchange blueprint 등록
 7. 루트 URL을 주간 캘린더로 연결
 
 Feature의 `register_blueprints()`는 domain import 시 route가 따라오는 순환 의존을 방지하기 위해 route를 함수 내부에서 지연 import한다.
@@ -161,7 +161,7 @@ presentation에서 만든 enriched block을 CSV 또는 XLSX bytes로 변환한�
 | GET | `/schedule/api/month` | 월간 JSON |
 | POST | `/schedule/api/blocks` | 시험 block 생성 |
 | PUT | `/schedule/api/blocks/<id>` | block 이동/크기 변경 |
-| DELETE | `/schedule/api/blocks/<id>` | block 삭제 또는 큐 복귀 |
+| DELETE | `/schedule/api/blocks/<id>` | block 삭제 또는 큐 복귀 (`restore=task`는 같은 procedure 전체 회수) |
 | PUT | `/schedule/api/blocks/<id>/lock` | 잠금 토글 |
 | PUT | `/schedule/api/blocks/<id>/status` | 수동 상태 변경 |
 | PUT | `/schedule/api/blocks/<id>/memo` | 메모 변경 |
@@ -170,6 +170,14 @@ presentation에서 만든 enriched block을 CSV 또는 XLSX bytes로 변환한�
 | POST | `/schedule/api/blocks/<id>/split` | 선택 항목 분리 |
 | POST | `/schedule/api/blocks/<id>/return-test_items` | 일부 항목 큐 복귀 |
 | GET | `/schedule/api/export` | CSV/XLSX 다운로드 |
+
+#### Feature 데이터 공유
+
+| Method | URL | 담당 |
+| --- | --- | --- |
+| GET | `/features/api/schedule` | 계획 버전, procedure, block 스냅샷 |
+| GET | `/features/api/execution` | execution run 스냅샷 |
+| GET | `/features/api/snapshot` | schedule/execution 통합 스냅샷 |
 
 #### Procedure
 

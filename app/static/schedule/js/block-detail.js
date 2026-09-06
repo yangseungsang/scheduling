@@ -297,7 +297,7 @@
           overlay.remove();
           if (checked.length === 0) {
             // 전체 큐로 → 블록 삭제
-            api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=1')
+            api('DELETE', '/schedule/api/blocks/' + blockId + '?restore=task')
               .then(function () { showToast('전체를 큐로 되돌렸습니다.', 'success'); App.softReload(); })
               .catch(function (err) { showToast(err.message, 'danger'); });
           } else {

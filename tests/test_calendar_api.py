@@ -116,6 +116,38 @@ class TestBlockDelete:
         procedure_data = client.get(f'/procedures/api/{tid}').get_json()['procedure']
         assert 'location_name' not in procedure_data
 
+    def test_restore_task_deletes_all_blocks_for_task(self, client):
+        uid = _assignee_name(client)
+        tid = _create_procedure(client, uid, hours='4')
+        first, _ = _create_block(
+            client,
+            tid,
+            uid,
+            date_str='2026-03-10',
+            start='09:00',
+            end='10:00',
+            test_item_ids=['TC-001'],
+        )
+        _create_block(
+            client,
+            tid,
+            uid,
+            date_str='2026-03-11',
+            start='09:00',
+            end='10:00',
+            test_item_ids=['TC-002'],
+        )
+
+        r = client.delete(f'/schedule/api/blocks/{first["id"]}?restore=task')
+        assert r.status_code == 200
+        assert r.get_json()['deleted_count'] == 2
+
+        blocks = client.get(f'/schedule/api/blocks/by-procedure/{tid}').get_json()['blocks']
+        assert blocks == []
+
+        queue = client.get('/schedule/api/day').get_json()['queue_procedures']
+        assert any(item['id'] == tid for item in queue)
+
 
 class TestBlockSplit:
     def test_next_block_without_selection_uses_only_unassigned_test_items(self, client):

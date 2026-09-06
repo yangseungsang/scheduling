@@ -107,6 +107,63 @@ class TestSyncTestData:
             assert t['assignee_names'] == ['홍길동']
             assert 'location_name' not in t
 
+    def test_sync_keeps_new_test_item_outside_existing_full_block(self):
+        """동기화로 추가된 항목은 기존 전체 블록에 자동 포함되지 않는다."""
+        class MockProvider:
+            def get_test_data_all(self):
+                return [
+                    {
+                        'document_id': 1,
+                        'document_name': '시스템',
+                        'test_items': [
+                            {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                            {'id': 'TC-002', 'estimated_minutes': 60, 'owners': []},
+                            {'id': 'TC-003', 'estimated_minutes': 30, 'owners': []},
+                        ],
+                    },
+                ]
+
+        with self.app.app_context():
+            existing = procedure.create(
+                document_id=1,
+                assignee_names=[],
+                document_name='시스템',
+                test_items=[
+                    {'id': 'TC-001', 'estimated_minutes': 60, 'owners': []},
+                    {'id': 'TC-002', 'estimated_minutes': 60, 'owners': []},
+                ],
+                estimated_minutes=120,
+            )
+            block = schedule_block.create(
+                procedure_id=existing['id'],
+                assignee_names=[],
+                location_name='STE1',
+                date='2026-03-10',
+                start_time='09:00',
+                end_time='11:00',
+                test_item_ids=None,
+            )
+
+            result = SyncService.sync_test_data(MockProvider())
+
+            assert result['updated'] == 1
+            updated_block = schedule_block.get_by_id(block['id'])
+            assert updated_block['test_item_ids'] == ['TC-001', 'TC-002']
+
+            updated = procedure.get_by_document_id(1)
+            assert [item['id'] for item in updated['test_items']] == [
+                'TC-001',
+                'TC-002',
+                'TC-003',
+            ]
+
+            queue = self.app.test_client().get(
+                '/schedule/api/day?date=2026-03-10'
+            ).get_json()['queue_procedures']
+            queued = next(item for item in queue if item['id'] == existing['id'])
+            assert [item['id'] for item in queued['test_items']] == ['TC-003']
+            assert queued['remaining_unscheduled_minutes'] == 30
+
     def test_sync_deletes_removed_unscheduled_procedure(self):
         class MockProvider:
             def get_test_data_all(self):

@@ -111,12 +111,29 @@ class ScheduleBlockService:
         return _api_block(self.commands.get_block(block_id))
 
     def delete(self, block_id, restore=False):
-        """Delete a block; restore is retained as an API compatibility flag."""
+        """Delete one block, or all sibling blocks when restoring a procedure."""
         block = self.commands.get_block(block_id)
         if block is None:
             raise ScheduleBlockError('블록을 찾을 수 없습니다.', 404)
-        self.commands.delete_block(block_id)
-        return {'success': True}
+        restore_all = restore in ('task', 'all')
+        if restore_all and block.get('procedure_id'):
+            procedure_id = block['procedure_id']
+            deleted_count = 0
+
+            def delete_siblings(schedule):
+                nonlocal deleted_count
+                remaining = []
+                for item in schedule.blocks:
+                    if item.procedure_id == procedure_id:
+                        deleted_count += 1
+                    else:
+                        remaining.append(item)
+                return replace(schedule, blocks=tuple(remaining))
+
+            self.repository.update_schedule(delete_siblings)
+        else:
+            deleted_count = int(self.commands.delete_block(block_id))
+        return {'success': True, 'deleted_count': deleted_count}
 
     def toggle_lock(self, block_id):
         """Toggle the edit lock on an existing block."""
