@@ -33,6 +33,13 @@
     App.initQueueMultiSelect(); // 큐 Shift+클릭 다중 선택
   }
 
+  // Re-read execution status when returning from the execution page or another tab.
+  window.addEventListener('focus', function () {
+    if (document.querySelector('.schedule-block, .month-block-item')) App.softReload();
+  });
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) App.softReload();
+  });
   App.initAll = initAll;
   // DOM 로드 완료 시 초기화 실행
   document.addEventListener('DOMContentLoaded', initAll);

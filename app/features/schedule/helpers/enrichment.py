@@ -20,7 +20,7 @@ from app.features.schedule.models import (
 )
 
 STATUS_COLORS = {
-    'pending': '#94a3b8',  # Slate 400
+    'pending': '#d97706',  # Amber 600
     'in_progress': '#0d6efd',  # Bootstrap Primary / Blue 600
     'completed': '#198754',  # Bootstrap Success / Green 600
     'cancelled': '#dc3545',  # Bootstrap Danger / Red 600
@@ -121,13 +121,14 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
                 assignee_name_list.append(name)
                 assignee_colors.append('#6c757d')
 
-        is_simple = b.get('is_simple', False)
+        is_simple = b.get('is_simple', False) or bool(t and t.get('is_simple'))
         block['doc_id'] = t.get('doc_id', '') if t else ''
         block['doc_name'] = t.get('doc_name', '') if t else ''
+        simple_title = b.get('title') or (t.get('doc_name') if t else '') or '(블록)'
         if is_simple:
             # 단순 블록(태스크 없이 직접 생성된 블록)은 블록 자체의 title 사용
-            block['task_title'] = b.get('title', '(블록)')
-            block['doc_name'] = b.get('title', '')
+            block['task_title'] = simple_title
+            block['doc_name'] = simple_title
             block['doc_id'] = ''
         else:
             # 일반 블록: 문서명 우선, 없으면 문서 ID, 태스크 삭제 시 '(삭제됨)'
@@ -139,7 +140,7 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         exam_no = t.get('exam_no') if t else None
         block['exam_no'] = exam_no
         if is_simple:
-            block['display_name'] = b.get('title', '(블록)')
+            block['display_name'] = simple_title
         else:
             base = t.get('doc_name', '') if t else ''
             block['display_name'] = (
@@ -159,7 +160,7 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         # -------------------------------------------------------------------------
         # execution 기반 상태 동적 계산 (#108 확장)
         # -------------------------------------------------------------------------
-        if t and not is_simple:
+        if t and not is_simple and t.get('identifiers'):
             # 이 블록에 해당하는 식별자들 (없으면 전체)
             b_iids = b.get('identifier_ids')
             if b_iids is None:
@@ -174,7 +175,7 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
                 ex = exec_by_task_identifier.get((iid, t['id']))
                 statuses.append(ex.get('status', 'pending') if ex else 'pending')
 
-            if all(s == 'completed' for s in statuses):
+            if statuses and all(s == 'completed' for s in statuses):
                 derived_status = 'completed'
             elif any(s in ('in_progress', 'paused') for s in statuses) or any(
                 s == 'completed' for s in statuses
@@ -204,7 +205,7 @@ def enrich_blocks(blocks, users_map, tasks_map, locations_map, color_by):
         block['memo'] = t.get('memo', '') if t else b.get('memo', '')
         block['identifiers'] = t.get('identifiers', []) if t else []
         block['identifier_ids'] = b.get('identifier_ids')
-        block['is_simple'] = b.get('is_simple', False)
+        block['is_simple'] = is_simple
         block['title'] = b.get('title', '')
         block['section_color'] = _section_color(block['doc_name'])
 

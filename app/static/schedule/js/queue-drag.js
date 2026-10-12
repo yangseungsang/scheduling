@@ -111,21 +111,6 @@
             if (target.type === 'queue') return;
 
             /**
-             * 현재 뷰의 업무 종료 시간(분)을 계산한다.
-             * 시간 슬롯 중 가장 늦은 시간을 찾는다.
-             * @returns {number} 업무 종료 시간 (분)
-             */
-            function getWorkEndMin() {
-              var slots = document.querySelectorAll('.time-slot[data-time]');
-              var max = 0;
-              slots.forEach(function (s) {
-                var t2 = timeToMin(s.dataset.time);
-                if (t2 > max) max = t2;
-              });
-              return max || timeToMin('17:00'); // 기본 17:00
-            }
-
-            /**
              * 실제 블록을 생성하는 핵심 함수.
              * 분할 배치 시 선택된 식별자만, 전체 배치 시 null을 전달한다.
              * @param {Array<string>|null} selectedIds - 선택된 식별자 ID 목록 (null이면 전체)
@@ -195,43 +180,26 @@
               }
 
               /**
-               * 시작 시간과 업무 종료 시간을 비교하여 초과 시 확인 후 생성한다.
+               * 소요 시간을 보존하여 생성하고 초과분은 서버에서 다음 근무일로 넘긴다.
                * @param {number} startMin - 시작 시간 (분)
                * @param {number} duration - 배치할 시간 (분)
                * @param {string} [locOverride] - 장소 ID 오버라이드
                */
-              function clampAndCreate(startMin, duration, locOverride) {
-                var endMin = startMin + duration;
-                var workEnd = getWorkEndMin();
-                if (endMin > workEnd) {
-                  // 업무 종료 시간 초과 시 사용자 확인
-                  var overflow = endMin - workEnd;
-                  var clampedMin = workEnd - startMin;
-                  if (clampedMin <= 0) {
-                    showToast('업무 종료 시간 이후에는 배치할 수 없습니다.', 'danger');
-                    return;
-                  }
-                  if (!confirm('종료 시간이 ' + minToTime(workEnd) + '을 초과합니다.\n' +
-                    '당일 배치 후, 초과분은 다음 근무일에 자동 배치됩니다.\n계속하시겠습니까?')) {
-                    return;
-                  }
-                  // 원래 종료 시간 그대로 전송 — 백엔드가 클램핑 + 다음날 넘김 처리
-                  doCreate(startMin, endMin, 0, locOverride);
-                } else {
-                  doCreate(startMin, endMin, 0, locOverride);
-                }
+              function createWithRollover(startMin, duration, locOverride) {
+                // Send the full duration; the server preserves it across workdays.
+                doCreate(startMin, startMin + duration, 0, locOverride);
               }
 
               if (target.type === 'slot') {
                 // 시간 슬롯에 드롭: 인접 블록 끝에 스냅하여 배치
                 var t = App.snapToBlockEdge(target.el);
-                clampAndCreate(t, bMin);
+                createWithRollover(t, bMin);
               } else if (target.type === 'month') {
                 // 월간뷰에 드롭: 장소/시간 선택 피커 표시 후 배치
                 showMonthPlacePicker(locationId, function (result) {
                   if (!result) return;
                   var st = timeToMin(result.startTime);
-                  clampAndCreate(st, bMin, result.locationId);
+                  createWithRollover(st, bMin, result.locationId);
                 });
               }
             }

@@ -24,7 +24,7 @@ def _make_app(tmp_path):
         json.dump([], f)
     app = create_app()
     app.config['DATA_DIR'] = data_dir
-    app.config['EXEC_DATA_DIR'] = exec_dir
+    app.config['EXECUTION_DATA_DIR'] = exec_dir
     app.config['TESTING'] = True
     return app
 

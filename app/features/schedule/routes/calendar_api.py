@@ -26,6 +26,71 @@ from app.features.schedule.routes.calendar_helpers import (
 from app.features.schedule.routes.calendar_views import schedule_bp
 
 
+def _plan_work_blocks(day, start, end, sttngs, assignees, location_id,
+                      exclude_block_id=None):
+    """Plan all workday portions before writing, so conflicts never lose time."""
+    work_start = sttngs.get('actual_work_start') or sttngs.get('work_start', '08:30')
+    work_end = sttngs.get('actual_work_end') or sttngs.get('work_end', '17:00')
+    capacity = work_minutes_in_range(work_start, work_end, sttngs)
+    remaining = work_minutes_in_range(start, end, sttngs)
+    if capacity <= 0 or remaining <= 0:
+        raise ValueError('근무 시간과 블록 소요 시간을 확인해 주세요.')
+    current_date = date.fromisoformat(day)
+    portions = []
+    while remaining > 0:
+        available = work_minutes_in_range(start, work_end, sttngs)
+        if time_to_minutes(start) >= time_to_minutes(work_end) or available <= 0:
+            current_date += timedelta(days=1)
+            while current_date.weekday() >= 5:
+                current_date += timedelta(days=1)
+            start = work_start
+            continue
+        minutes = min(remaining, available)
+        finish = adjust_end_for_breaks(
+            start, minutes_to_time(time_to_minutes(start) + minutes), sttngs)
+        day_string = current_date.isoformat()
+        if check_overlap(assignees, location_id, day_string, start, finish,
+                         exclude_block_id=exclude_block_id):
+            raise ValueError(day_string + ' ' + start + '~' + finish +
+                             ' 시간대에 다른 시험이 있어 배치할 수 없습니다. 기존 일정은 유지됩니다.')
+        portions.append({'date': day_string, 'start_time': start, 'end_time': finish})
+        remaining -= minutes
+        start = work_end
+    return portions
+
+
+def _sync_block_execution_status(block, status):
+    """Use the execution records as the source of truth for test blocks."""
+    if status == 'cancelled' or block.get('is_simple'):
+        return
+    t = task.get_by_id(block.get('task_id'))
+    if not t or t.get('is_simple'):
+        return
+    from app.features.execution.models.execution import ExecutionRepository
+    selected = block.get('identifier_ids')
+    for identifier in t.get('identifiers', []):
+        iid = identifier['id'] if isinstance(identifier, dict) else identifier
+        if selected is not None and iid not in selected:
+            continue
+        ex = ExecutionRepository.get_by_identifier_and_task(iid, t['id'])
+        if status == 'pending':
+            if ex:
+                ExecutionRepository.reset(ex['id'])
+        elif status == 'in_progress':
+            if ex and ex['status'] == 'paused':
+                ExecutionRepository.resume(ex['id'])
+            elif not ex or ex['status'] != 'in_progress':
+                from app.features.execution.routes.api import _get_total_count
+                ExecutionRepository.start(iid, t['id'], _get_total_count(iid, t['id']))
+        elif status == 'completed':
+            if not ex or ex['status'] == 'pending':
+                from app.features.execution.routes.api import _get_total_count
+                ex = ExecutionRepository.start(iid, t['id'], _get_total_count(iid, t['id']))
+            if ex['status'] != 'completed':
+                ExecutionRepository.complete(ex['id'], ex.get('fail_count', 0),
+                                             ex.get('block_count', 0))
+
+
 @schedule_bp.route('/api/blocks', methods=['POST'])
 def api_create_block():
     """새로운 스케줄 블록을 생성한다.
@@ -54,29 +119,13 @@ def api_create_block():
 
     is_simple = data.get('is_simple', False)
 
-    # 간단 블록: task_id 없이 제목, 날짜, 시간만으로 생성
-    if is_simple:
-        for field in ('date', 'start_time', 'end_time'):
-            if not data.get(field):
-                return jsonify({'error': f'{field}은(는) 필수 항목입니다.'}), 400
-        block = schedule_block.create(
-            task_id=None,
-            assignee_names=[],
-            location_id=data.get('location_id', ''),
-            date=data['date'],
-            start_time=data['start_time'],
-            end_time=data['end_time'],
-            title=data.get('title', ''),
-            is_simple=True,
-        )
-        return jsonify(block), 201
-
-    # 일반 블록: task_id가 필수
-    for field in ('task_id', 'date', 'start_time', 'end_time'):
+    required = ('date', 'start_time', 'end_time') if is_simple else (
+        'task_id', 'date', 'start_time', 'end_time')
+    for field in required:
         if not data.get(field):
             return jsonify({'error': f'{field}은(는) 필수 항목입니다.'}), 400
 
-    t = task.get_by_id(data['task_id'])
+    t = task.get_by_id(data.get('task_id'))
     assignee_names = data.get('assignee_names', [])
     location_id = data.get('location_id', '')
 
@@ -90,111 +139,50 @@ def api_create_block():
     # 휴식 시간을 건너뛰도록 종료 시간 보정
     adjusted_end = adjust_end_for_breaks(data['start_time'], data['end_time'], sttngs)
 
-    # 담당자 및 장소 기준 시간 겹침 검사
-    overlap = check_overlap(assignee_names, location_id, data['date'], data['start_time'], adjusted_end)
-    if overlap:
-        return jsonify({'error': '해당 시간에 이미 다른 시험이 배치되어 있습니다.'}), 409
-
     new_identifier_ids = data.get('identifier_ids')
-
-    # 초과 배치 시간(분) 계산: actual_work_end 기준, 순수 작업 시간으로 산출
-    work_end_str = sttngs.get('actual_work_end') or sttngs.get('work_end', '17:00')
-    work_end_min = time_to_minutes(work_end_str)
-    adjusted_end_min = time_to_minutes(adjusted_end)
-    if adjusted_end_min > work_end_min:
-        # 초과분의 순수 작업 시간만 계산 (휴식 제외)
-        overflow_minutes = work_minutes_in_range(
-            work_end_str, adjusted_end, sttngs)
-        adjusted_end = work_end_str
-    else:
-        overflow_minutes = 0
+    try:
+        portions = _plan_work_blocks(data['date'], data['start_time'], adjusted_end,
+                                     sttngs, assignee_names, location_id)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 409
 
     block = schedule_block.create(
-        task_id=data['task_id'],
+        task_id=data.get('task_id'),
         assignee_names=assignee_names,
         location_id=location_id,
-        date=data['date'],
-        start_time=data['start_time'],
-        end_time=adjusted_end,
+        **portions[0],
+        title=data.get('title', ''),
+        is_simple=is_simple,
         is_locked=data.get('is_locked', False),
         identifier_ids=new_identifier_ids,
-        overflow_minutes=overflow_minutes,
+        overflow_minutes=0,
     )
 
     # 블록 장소를 태스크에 동기화 (태스크에 장소가 없으면 블록 장소로 설정)
-    if location_id and data['task_id']:
+    if location_id and data.get('task_id'):
         t = task.get_by_id(data['task_id'])
         if t and not t.get('location_id'):
             task.patch(data['task_id'], location_id=location_id)
 
     # 특정 식별자만 선택하여 배치한 경우, 다른 블록에서 해당 식별자를 제거
-    if new_identifier_ids and data['task_id']:
+    if new_identifier_ids and data.get('task_id'):
         remove_identifiers_from_other_blocks(
             data['task_id'], block['id'], new_identifier_ids, sttngs,
         )
 
-    # 초과 시간이 있으면 다음 근무일에 연속 블록 자동 생성 (연쇄 넘김)
-    continuations = []
-    remaining_overflow = overflow_minutes
-    failed_msg = None
-    if remaining_overflow > 0 and data['task_id']:
-        from datetime import date as date_cls, timedelta
-        work_start = sttngs.get('actual_work_start') or sttngs.get('work_start', '08:30')
-        work_start_min = time_to_minutes(work_start)
-        day_work_min = work_minutes_in_range(work_start, work_end_str, sttngs)
-        current_date = date_cls.fromisoformat(data['date'])
-
-        while remaining_overflow > 0:
-            # 다음 근무일 계산
-            current_date += timedelta(days=1)
-            while current_date.weekday() >= 5:
-                current_date += timedelta(days=1)
-            next_date = current_date.isoformat()
-
-            # 이번 날에 배치할 시간 결정
-            place_min = min(remaining_overflow, day_work_min)
-            cont_start = work_start
-            cont_raw_end = minutes_to_time(work_start_min + place_min)
-            cont_end = adjust_end_for_breaks(cont_start, cont_raw_end, sttngs)
-
-            # 겹침 검사
-            cont_overlap = check_overlap(
-                assignee_names, location_id, next_date, cont_start, cont_end,
-            )
-            if cont_overlap:
-                failed_msg = (
-                    next_date + ' ' + cont_start + '~' + cont_end +
-                    ' 시간대에 다른 시험이 있어 배치하지 못했습니다. '
-                    '초과분(' + str(remaining_overflow) + '분)은 줄어듭니다.'
-                )
-                break
-
-            cont_block = schedule_block.create(
-                task_id=data['task_id'],
-                assignee_names=assignee_names,
-                location_id=location_id,
-                date=next_date,
-                start_time=cont_start,
-                end_time=cont_end,
-                identifier_ids=new_identifier_ids,
-            )
-            continuations.append(cont_block)
-            remaining_overflow -= place_min
-
-    # continuation 전부 실패 시 overflow_minutes를 0으로 리셋
-    if overflow_minutes > 0 and not continuations:
-        schedule_block.update(block['id'], overflow_minutes=0)
-        block['overflow_minutes'] = 0
-
-    # 태스크의 잔여 시간을 블록 배치 현황에 맞게 동기화
-    sync_task_remaining_minutes(data['task_id'])
+    continuations = [schedule_block.create(
+        task_id=block.get('task_id'), assignee_names=assignee_names,
+        location_id=location_id, identifier_ids=new_identifier_ids,
+        title=block.get('title', ''), is_simple=is_simple,
+        is_locked=block.get('is_locked', False), **portion,
+    ) for portion in portions[1:]]
+    if data.get('task_id'):
+        sync_task_remaining_minutes(data['task_id'])
 
     result = dict(block)
     if continuations:
         result['continuation'] = continuations[-1]  # 마지막 블록 (프론트 호환)
         result['continuations'] = continuations
-    if failed_msg:
-        result['continuation_failed'] = failed_msg
     return jsonify(result), 201
 
 
@@ -233,16 +221,18 @@ def api_update_block(block_id):
     updates = {k: v for k, v in data.items() if k in allowed}
     is_resize = data.get('resize', False)
     duration_minutes = data.get('duration_minutes')
+    if 'block_status' in updates and updates['block_status'] not in VALID_BLOCK_STATUSES:
+        return jsonify({'error': '유효하지 않은 상태입니다.'}), 400
 
     # 상세 팝업에서 소요 시간(분)을 직접 지정한 경우 종료 시간 재계산
     if duration_minutes is not None:
         sttngs = settings.get()
-        start = block['start_time']
+        start = updates.get('start_time', block['start_time'])
         raw_end = minutes_to_time(time_to_minutes(start) + int(duration_minutes))
         updates['end_time'] = adjust_end_for_breaks(start, raw_end, sttngs)
 
     # 이동(드래그)인 경우: 원래 작업 시간(분)을 유지하면서 새 시작 시간에 맞게 종료 시간 재계산
-    if 'start_time' in updates and 'end_time' in updates and not is_resize:
+    if 'start_time' in updates and 'end_time' in updates and not is_resize and duration_minutes is None:
         sttngs = settings.get()
         # 원래 블록의 실 작업 시간(휴식 제외)을 계산
         work_mins = work_minutes_in_range(block['start_time'], block['end_time'], sttngs)
@@ -256,71 +246,23 @@ def api_update_block(block_id):
     assignee_names = block.get('assignee_names', [])
     location_id = updates.get('location_id', block.get('location_id', ''))
 
-    # 자기 자신은 제외하고 겹침 검사
-    overlap = check_overlap(
-        assignee_names, location_id, check_date, check_start, check_end,
-        exclude_block_id=block_id,
-    )
-    if overlap:
-        return jsonify({'error': '해당 시간에 이미 다른 시험이 배치되어 있습니다.'}), 409
-
-    # 근무 종료 시간 초과 시 클램핑 + 다음날 자동 넘김
-    sttngs = sttngs if 'sttngs' in dir() else settings.get()
-    work_end_str = sttngs.get('actual_work_end') or sttngs.get('work_end', '17:00')
-    work_end_min = time_to_minutes(work_end_str)
-    check_end_min = time_to_minutes(check_end)
-    continuations = []
-    failed_msg = None
-    if check_end_min > work_end_min:
-        overflow_minutes = work_minutes_in_range(work_end_str, check_end, sttngs)
-        updates['end_time'] = work_end_str
-        check_end = work_end_str
-
-        if overflow_minutes > 0 and block.get('task_id'):
-            from datetime import date as date_cls, timedelta
-            work_start = sttngs.get('actual_work_start') or sttngs.get('work_start', '08:30')
-            work_start_min = time_to_minutes(work_start)
-            day_work_min = work_minutes_in_range(work_start, work_end_str, sttngs)
-            current_date = date_cls.fromisoformat(updates.get('date', block['date']))
-            remaining_overflow = overflow_minutes
-
-            while remaining_overflow > 0:
-                current_date += timedelta(days=1)
-                while current_date.weekday() >= 5:
-                    current_date += timedelta(days=1)
-                next_date = current_date.isoformat()
-
-                place_min = min(remaining_overflow, day_work_min)
-                cont_start = work_start
-                cont_raw_end = minutes_to_time(work_start_min + place_min)
-                cont_end = adjust_end_for_breaks(cont_start, cont_raw_end, sttngs)
-
-                cont_overlap = check_overlap(
-                    assignee_names, location_id, next_date, cont_start, cont_end,
-                )
-                if cont_overlap:
-                    failed_msg = (
-                        next_date + ' ' + cont_start + '~' + cont_end +
-                        ' 시간대에 다른 시험이 있어 배치하지 못했습니다. '
-                        '초과분(' + str(remaining_overflow) + '분)은 줄어듭니다.'
-                    )
-                    break
-
-                cont_block = schedule_block.create(
-                    task_id=block.get('task_id'),
-                    assignee_names=block.get('assignee_names', []),
-                    location_id=location_id,
-                    date=next_date,
-                    start_time=cont_start,
-                    end_time=cont_end,
-                    identifier_ids=block.get('identifier_ids'),
-                )
-                continuations.append(cont_block)
-                remaining_overflow -= place_min
-
-    # continuation 전부 실패 시 overflow_minutes를 0으로
-    if 'overflow_minutes' in dir() and overflow_minutes > 0 and not continuations:
-        updates['overflow_minutes'] = 0
+    sttngs = settings.get()
+    try:
+        portions = _plan_work_blocks(check_date, check_start, check_end, sttngs,
+                                     assignee_names, location_id, block_id)
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 409
+    updates.update(portions[0])
+    updates['overflow_minutes'] = 0
+    continuations = [schedule_block.create(
+        task_id=block.get('task_id'), assignee_names=assignee_names,
+        location_id=location_id, identifier_ids=block.get('identifier_ids'),
+        title=block.get('title', ''), is_simple=block.get('is_simple', False),
+        block_status=updates.get('block_status', block.get('block_status', 'pending')),
+        is_locked=updates.get('is_locked', block.get('is_locked', False)), **portion,
+    ) for portion in portions[1:]]
+    if 'block_status' in updates:
+        _sync_block_execution_status(block, updates['block_status'])
 
     updated = schedule_block.update(block_id, **updates)
 
@@ -335,8 +277,6 @@ def api_update_block(block_id):
     if continuations:
         result['continuation'] = continuations[-1]
         result['continuations'] = continuations
-    if failed_msg:
-        result['continuation_failed'] = failed_msg
     return jsonify(result)
 
 
@@ -422,6 +362,7 @@ def api_update_block_status(block_id):
     status = data['block_status']
     if status not in VALID_BLOCK_STATUSES:
         return jsonify({'error': '유효하지 않은 상태입니다.'}), 400
+    _sync_block_execution_status(block, status)
     updated = schedule_block.update(block_id, block_status=status)
     return jsonify(updated)
 

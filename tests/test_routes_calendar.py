@@ -1,3 +1,4 @@
+import xml.etree.ElementTree as ET
 """Tests for calendar/schedule routes."""
 
 import zipfile
@@ -480,7 +481,10 @@ class TestExportAPI:
 
             schedule_sheet = z.read('xl/worksheets/sheet1.xml').decode('utf-8')
             styles = z.read('xl/styles.xml').decode('utf-8')
-            assert '<mergeCell ref="A1:G1"/>' in schedule_sheet
+            root = ET.fromstring(schedule_sheet)
+            ns = {'sheet': 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}
+            assert any(cell.get('ref') == 'A1:G1'
+                       for cell in root.findall('sheet:mergeCells/sheet:mergeCell', ns))
             assert 'width="34"' in schedule_sheet
             assert 'EAF3F8' in styles
 
