@@ -50,25 +50,26 @@
 
               function placeSelected(dropLocId, initialMin) {
                 var curMin = initialMin;
-                var workEnd = App.getWorkEndMin();
+                var curDate = target.date;
                 var totalEnd = curMin + Math.round(totalMin);
-                var chain = App.confirmWorkEndClamp(curMin, totalEnd);
+                var chain = App.canPlaceDuration(curMin, totalEnd);
                 var placedCount = 0;
                 selectedItems.forEach(function (si) {
                   chain = chain.then(function (confirmed) {
-                    if (!confirmed || curMin >= workEnd) return false;
+                    if (!confirmed) return false;
                     var rem = Math.round(parseFloat(si.dataset.remainingMinutes) || 1);
                     var payload = {
                       procedure_id: si.dataset.procedureId,
                       assignee_names: si.dataset.assigneeNames ? si.dataset.assigneeNames.split(',').filter(Boolean) : [],
                       location_name: dropLocId,
-                      date: target.date,
+                      date: curDate,
                       start_time: minToTime(curMin),
                       end_time: minToTime(curMin + rem),
                     };
                     return api('POST', '/schedule/api/blocks', payload).then(function (res) {
                       placedCount++;
-                      curMin = timeToMin(res.end_time);
+                      curMin = timeToMin(res.placement_end ? res.placement_end.end_time : res.end_time);
+                      curDate = res.placement_end ? res.placement_end.date : res.date;
                       return true;
                     });
                   });
@@ -189,14 +190,14 @@
               }
 
               /**
-               * 시작 시간과 업무 종료 시간을 비교하여 초과 시 확인 후 생성한다.
+               * 작업 시간을 보존하여 배치한다. 업무 종료 이후는 서버가 이어 배치한다.
                * @param {number} startMin - 시작 시간 (분)
                * @param {number} duration - 배치할 시간 (분)
                * @param {string} [locOverride] - 장소 ID 오버라이드
                */
-              function clampAndCreate(startMin, duration, locOverride) {
+              function placeWithDuration(startMin, duration, locOverride) {
                 var endMin = startMin + duration;
-                App.confirmWorkEndClamp(startMin, endMin).then(function (confirmed) {
+                App.canPlaceDuration(startMin, endMin).then(function (confirmed) {
                   if (confirmed) doCreate(startMin, endMin, 0, locOverride);
                 });
               }
@@ -204,13 +205,13 @@
               if (target.type === 'slot') {
                 // 시간 슬롯에 드롭: 인접 블록 끝에 스냅하여 배치
                 var t = App.snapToBlockEdge(target.el);
-                clampAndCreate(t, bMin);
+                placeWithDuration(t, bMin);
               } else if (target.type === 'month') {
                 // 월간뷰에 드롭: 장소/시간 선택 피커 표시 후 배치
                 showMonthPlacePicker('', function (result) {
                   if (!result) return;
                   var st = timeToMin(result.startTime);
-                  clampAndCreate(st, bMin, result.locationName);
+                  placeWithDuration(st, bMin, result.locationName);
                 });
               }
             }

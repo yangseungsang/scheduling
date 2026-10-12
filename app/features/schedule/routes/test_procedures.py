@@ -491,6 +491,8 @@ def api_procedure_detail(procedure_id):
             status = exec_map.get((idf, procedure_id), 'pending')
             enriched_test_items.append({'id': idf, 'execution_status': status})
     
+    from app.services.execution_status import aggregate_status
+    result['execution_status'] = aggregate_status(item['execution_status'] for item in enriched_test_items)
     result['test_items'] = enriched_test_items
     
     return jsonify({'procedure': result})

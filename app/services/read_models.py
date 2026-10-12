@@ -1,5 +1,7 @@
 """Read models built from the direct procedure, block, and execution references."""
 
+from app.services.execution_status import block_execution_status
+
 def build_execution_list_items(
     procedures, schedule, executions,
     date_filter='', location_filter='',
@@ -138,21 +140,8 @@ def _selected_test_items(procedure, test_item_ids):
 
 
 def _block_status(block, runs):
-    """Derive one export status from manual and execution state."""
-    if block.manual_status == 'cancelled':
-        return 'cancelled'
-    if block.kind == 'simple':
-        return 'pending'
-    statuses = [
-        runs.get((block.procedure_id, test_item_id)).status
-        if runs.get((block.procedure_id, test_item_id)) else 'pending'
-        for test_item_id in block.test_item_ids
-    ]
-    if statuses and all(item == 'completed' for item in statuses):
-        return 'completed'
-    if any(item in ('in_progress', 'paused', 'completed') for item in statuses):
-        return 'in_progress'
-    return 'pending'
+    """Use the same execution status as the calendar."""
+    return block_execution_status(block, runs)
 
 
 def _split_label(procedure, selected):

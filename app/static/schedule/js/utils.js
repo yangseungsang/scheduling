@@ -25,6 +25,7 @@ window.ScheduleApp = window.ScheduleApp || {};
    * @param {string} [type='info'] - Bootstrap 색상 클래스 (예: 'success', 'danger', 'info')
    */
   function showToast(msg, type) {
+    if (msg === '배치를 취소했습니다.') type = 'info';
     // 토스트 컨테이너가 없으면 동적으로 생성
     var c = document.getElementById('toast-container');
     if (!c) {
@@ -56,7 +57,7 @@ window.ScheduleApp = window.ScheduleApp || {};
    * @param {Object} [data] - 전송할 JSON 본문 데이터 (없으면 undefined)
    * @returns {Promise<Object>} 파싱된 JSON 응답 객체
    */
-  function api(method, url, data) {
+  function requestJson(method, url, data) {
     return fetch(url, {
       method: method,
       headers: { 'Content-Type': 'application/json' },
@@ -66,6 +67,38 @@ window.ScheduleApp = window.ScheduleApp || {};
         if (!r.ok) throw new Error(j.error || '오류가 발생했습니다.');
         return j;
       });
+    });
+  }
+  /** 저장 전에 서버와 같은 규칙으로 이월 여부와 배치 시간을 확인한다. */
+  function api(method, url, data) {
+    var match = url.match(/^\/schedule\/api\/blocks(?:\/([^/?]+))?(?:\/(split|return-test_items))?$/);
+    var action;
+    if (match && data) {
+      if (method === 'POST' && !match[1]) action = 'create';
+      else if (method === 'PUT' && match[1] && !match[2] &&
+               ['date', 'start_time', 'end_time', 'test_item_ids', 'location_name'].some(function (key) { return key in data; })) action = 'update';
+      else if (method === 'POST' && match[2]) action = match[2];
+    }
+    if (!action) return requestJson(method, url, data);
+    return requestJson('POST', '/schedule/api/blocks/preview', {
+      action: action, block_id: match[1] || null, data: data,
+    }).then(function (preview) {
+      if (!preview.requires_confirmation) return true;
+      var times = preview.segments.map(function (segment) {
+        return segment.date + ' ' + segment.start_time + '–' + segment.end_time;
+      });
+      return App.showConfirmModal(
+        '업무 종료 시간을 넘어 다음 근무일에 이어 배치됩니다.<br><strong>' +
+        times.join('<br>') + '</strong><br>계속 배치하시겠습니까?',
+        { title: '다음 근무일 배치 확인', icon: 'calendar-plus', okText: '배치', cancelText: '취소' }
+      );
+    }).then(function (confirmed) {
+      if (!confirmed) {
+        var error = new Error('배치를 취소했습니다.');
+        error.cancelled = true;
+        throw error;
+      }
+      return requestJson(method, url, data);
     });
   }
   App.api = api;
@@ -279,29 +312,17 @@ window.ScheduleApp = window.ScheduleApp || {};
     return max || timeToMin('17:00');
   }
 
-  /**
-   * 종료 시각이 업무 종료를 넘으면, 당일 종료 시각으로 자르는 것에 동의받는다.
-   * 서버도 같은 상한을 적용하므로 이 함수는 사용자 확인을 담당한다.
-   * @returns {Promise<boolean>} 계속 진행할지 여부
-   */
-  function confirmWorkEndClamp(startMin, endMin) {
-    var workEnd = getWorkEndMin();
-    var adjustedEnd = startMin + adjustedDuration(startMin, Math.max(0, endMin - startMin));
-    if (startMin >= workEnd) {
-      showToast('업무 종료 시간(' + minToTime(workEnd) + ') 이후에는 배치할 수 없습니다.', 'danger');
+  /** 서버가 초과 작업 시간을 다음 근무일로 이어 배치한다. */
+  function canPlaceDuration(startMin, endMin) {
+    if (endMin <= startMin) {
+      showToast('소요 시간은 0분보다 커야 합니다.', 'danger');
       return Promise.resolve(false);
     }
-    if (adjustedEnd <= workEnd) return Promise.resolve(true);
-    return App.showConfirmModal(
-      '예상 종료 시간이 업무 종료 시각을 초과합니다.<br>' +
-      '이 블록은 다음 날로 넘기지 않고 <strong>당일 ' + minToTime(workEnd) + '</strong>에 종료됩니다.<br>' +
-      '계속하시겠습니까?',
-      { title: '종료 시간 확인', icon: 'exclamation-triangle-fill', okText: minToTime(workEnd) + '에 종료' }
-    );
+    return Promise.resolve(true);
   }
 
   App.getWorkEndMin = getWorkEndMin;
-  App.confirmWorkEndClamp = confirmWorkEndClamp;
+  App.canPlaceDuration = canPlaceDuration;
 
   // =====================================================================
   // 소프트 리로드 — 전체 페이지 새로고침 없이 메인 콘텐츠만 교체

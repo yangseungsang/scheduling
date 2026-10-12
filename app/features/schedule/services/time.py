@@ -155,8 +155,8 @@ def generate_time_slots(settings):
     """
     from datetime import datetime, timedelta
     interval = settings.get('grid_interval_minutes', 15)
-    start = datetime.strptime(settings.get('actual_work_start') or settings['work_start'], '%H:%M')
-    end = datetime.strptime(settings.get('actual_work_end') or settings['work_end'], '%H:%M')
+    start = datetime.strptime(settings['work_start'], '%H:%M')
+    end = datetime.strptime(settings['work_end'], '%H:%M')
     slots = []
     current = start
     while current < end:
@@ -185,3 +185,52 @@ def is_break_slot(time_str, settings):
         if brk['start'] <= time_str < brk['end']:
             return True
     return False
+
+
+def working_segments(date_str, start_time, duration, settings):
+    """Preserve work minutes across breaks and successive weekdays."""
+    from datetime import date, timedelta
+    work_start = time_to_minutes(settings.get('work_start', '08:00'))
+    work_end = time_to_minutes(settings.get('work_end', '17:00'))
+    if work_start >= work_end:
+        raise ValueError('업무 시작 시간은 종료 시간보다 빨라야 합니다.')
+    if duration <= 0:
+        raise ValueError('소요 시간은 0분보다 커야 합니다.')
+    periods = get_break_periods(settings)
+    intervals = []
+    cursor = work_start
+    for bs, be in periods:
+        bs, be = max(bs, work_start), min(be, work_end)
+        if be <= cursor or bs >= work_end:
+            continue
+        if bs > cursor:
+            intervals.append((cursor, bs))
+        cursor = max(cursor, be)
+    if cursor < work_end:
+        intervals.append((cursor, work_end))
+    if not intervals:
+        raise ValueError('배치 가능한 업무 시간이 없습니다.')
+    day = date.fromisoformat(date_str)
+    initial_day = day
+    cursor = max(work_start, time_to_minutes(start_time))
+    remaining = duration
+    result = []
+    while remaining > 0:
+        if day == initial_day or day.weekday() < 5:
+            first, last = None, None
+            for begin, end in intervals:
+                begin = max(cursor, begin)
+                if begin >= end:
+                    continue
+                used = min(remaining, end - begin)
+                first = begin if first is None else first
+                last = begin + used
+                remaining -= used
+                if not remaining:
+                    break
+            if first is not None:
+                result.append({'date': day.isoformat(), 'start_time': minutes_to_time(first),
+                               'end_time': minutes_to_time(last)})
+        day += timedelta(days=1)
+        cursor = work_start
+    return result

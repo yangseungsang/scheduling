@@ -139,8 +139,8 @@ class TestScheduleBlockAPI:
         # 3h work: 11:00-12:00 (1h) + skip lunch + 13:00-15:00 (2h) = end at 15:00
         assert data['end_time'] >= '15:00'
 
-    def test_create_block_is_clamped_to_work_end(self, client):
-        """An overflowing block stays on the same day and ends at work_end."""
+    def test_create_block_continues_after_work_end(self, client):
+        """Overflow work continues on the next weekday without losing duration."""
         uid = _assignee_name(client)
         tid = _create_procedure(client, uid, hours='4')
         data, status = _create_block(
@@ -149,15 +149,20 @@ class TestScheduleBlockAPI:
         assert status == 201
         assert data['date'] == '2026-03-10'
         assert data['end_time'] == '17:00'
+        assert data['continuations'][0]['date'] == '2026-03-11'
+        assert data['continuations'][0]['start_time'] == '08:00'
+        assert data['placement_end'] == {'date': '2026-03-11', 'end_time': '10:15'}
 
-    def test_create_block_at_or_after_work_end_is_rejected(self, client):
+    def test_create_block_at_work_end_moves_to_next_day(self, client):
         uid = _assignee_name(client)
         tid = _create_procedure(client, uid)
         data, status = _create_block(
             client, tid, uid, start='17:00', end='18:00',
         )
-        assert status == 400
-        assert '업무 종료 시간' in data['error']
+        assert status == 201
+        assert data['date'] == '2026-03-11'
+        assert data['start_time'] == '08:00'
+        assert data['end_time'] == '09:00'
 
     def test_update_block_move(self, client):
         uid = _assignee_name(client)
@@ -173,7 +178,7 @@ class TestScheduleBlockAPI:
         assert r.status_code == 200
         assert r.get_json()['start_time'] == '10:00'
 
-    def test_update_block_is_clamped_to_work_end(self, client):
+    def test_update_block_continues_after_work_end(self, client):
         uid = _assignee_name(client)
         tid = _create_procedure(client, uid)
         block, _ = _create_block(client, tid, uid)
@@ -183,6 +188,7 @@ class TestScheduleBlockAPI:
         )
         assert r.status_code == 200
         assert r.get_json()['end_time'] == '17:00'
+        assert r.get_json()['placement_end'] == {'date': '2026-03-11', 'end_time': '10:15'}
 
     def test_update_block_change_date(self, client):
         uid = _assignee_name(client)

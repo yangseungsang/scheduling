@@ -1629,3 +1629,5 @@ i.spin { animation: spin 0.8s linear infinite; }
 
 /* Admin tables */
 .admin-table .badge { min-width: 30px; }
+
+.bd-badge-paused { background: #fef3c7; color: #92400e; }

@@ -209,9 +209,17 @@ async function doSync(endpoint) {
       headers: {'Content-Type': 'application/json'},
       body: '{}'
     });
-    const data = await res.json();
+    if (!(res.headers.get('Content-Type') || '').includes('application/json')) {
+      throw new Error(`서버가 올바른 동기화 응답을 반환하지 않았습니다 (HTTP ${res.status}).`);
+    }
+    let data;
+    try { data = await res.json(); }
+    catch (_) { throw new Error('서버의 동기화 응답을 읽을 수 없습니다.'); }
+    if (!res.ok || data.error) {
+      throw new Error(data.error || `동기화 요청이 실패했습니다 (HTTP ${res.status}).`);
+    }
     const msgs = [];
-    const procedureData = data.test_procedures || (data.added !== undefined ? data : null);
+    const procedureData = data.test_procedures || data.procedures || (data.added !== undefined ? data : null);
     if (procedureData) {
       msgs.push(`시험항목: 추가 ${procedureData.added}건, 업데이트 ${procedureData.updated}건, 취소 ${procedureData.cancelled}건`);
     }

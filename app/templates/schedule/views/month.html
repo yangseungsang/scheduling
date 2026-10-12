@@ -52,6 +52,8 @@
               {% for block in day_data.blocks %}
               <div class="month-block-item block-status-{{ block.block_status }}"
                    data-block-id="{{ block.id }}"
+                 data-placement-id="{{ block.placement_id }}"
+                 data-placement-minutes="{{ block.placement_minutes }}"
                    data-procedure-id="{{ block.procedure_id }}"
                    data-block-status="{{ block.block_status }}"
                    data-location-name="{{ block.location_name }}"
@@ -65,6 +67,7 @@
                    style="background-color: {{ block.color }};"
                    title="{{ block.procedure_title }} ({{ block.assignee_name }}) {{ block.start_time }}–{{ block.end_time }}">
                 {% if block.block_status == 'in_progress' %}<i class="bi bi-play-circle-fill month-status-icon"></i>
+                {% elif block.block_status == 'paused' %}<i class="bi bi-pause-circle-fill" title="일시정지"></i>
                 {% elif block.block_status == 'completed' %}<i class="bi bi-check-circle-fill month-status-icon"></i>
                 {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-circle-fill month-status-icon"></i>
                 {% else %}<i class="bi bi-hourglass month-status-icon"></i>

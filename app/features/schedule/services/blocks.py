@@ -3,7 +3,7 @@
 from dataclasses import replace
 from datetime import date, timedelta
 
-from app.features.schedule.services.time import adjust_end_for_breaks, minutes_to_time, time_to_minutes
+from app.features.schedule.services.time import minutes_to_time, time_to_minutes
 from app.features.schedule.services._block_commands import ScheduleCommandService
 from app.features.schedule.services.presentation import (
     block_test_item_statuses,
@@ -33,82 +33,102 @@ class ScheduleBlockService:
         self.commands = ScheduleCommandService(repository)
 
     def create(self, data):
-        """Create a simple or procedure-backed block after validation."""
+        """Place work across as many weekdays as its duration needs."""
         _require(data, ('date', 'start_time', 'end_time'))
-        settings = schedule_settings(self.repository.load_settings())
-        end_time = adjust_end_for_breaks(data['start_time'], data['end_time'], settings)
-        end_time = _clamp_to_work_end(data['start_time'], end_time, settings)
-        if data.get('is_simple', False):
-            _validate_location(data.get('location_name', ''), required=True)
-            self._reject_overlap(data['date'], data['start_time'], end_time, data.get('location_name', ''))
-            return _api_block(self.commands.create_block(
-                date=data['date'], start_time=data['start_time'], end_time=end_time,
-                location_name=data.get('location_name', ''),
-                assignee_names=data.get('assignee_names', []), kind='simple',
-                title=data.get('title', ''), memo=data.get('memo', ''),
-                is_locked=data.get('is_locked', False),
-            ))
-
-        _require(data, ('procedure_id',))
-        try:
-            requested_ids = data.get('test_item_ids')
-            test_item_ids = (
-                None if requested_ids is None
-                else self.commands.test_item_ids_for_procedure(
-                    data['procedure_id'], requested_ids,
-                )
-            )
-            if requested_ids is not None and not test_item_ids:
-                raise ScheduleBlockError('연결할 시험 항목를 찾을 수 없습니다.')
-            procedure = self._procedure(data['procedure_id'])
-            location_name = data.get('location_name', '')
-            _validate_location(location_name, required=True)
-            assignee_names = data.get('assignee_names') or list(procedure.assignee_names)
-            self._reject_overlap(data['date'], data['start_time'], end_time, location_name)
-            if requested_ids is not None:
-                self._unassign_test_items(data['procedure_id'], test_item_ids)
-            block = self.commands.create_block(
-                procedure_id=data['procedure_id'], test_item_ids=test_item_ids,
-                date=data['date'], start_time=data['start_time'], end_time=end_time,
-                location_name=location_name, assignee_names=assignee_names, kind='test',
-                title=data.get('title', ''), memo=data.get('memo', ''),
-                is_locked=data.get('is_locked', False),
-                manual_status=data.get('block_status', ''),
-                overflow_minutes=data.get('overflow_minutes', 0),
-            )
-        except ValueError as exc:
-            raise ScheduleBlockError(str(exc)) from exc
-        return _api_block(block)
+        if not data.get('is_simple', False):
+            _require(data, ('procedure_id',))
+        return self._save_placement(data)
 
     def update(self, block_id, data):
-        """Update allowed block fields and reject schedule collisions."""
-        current = self.commands.get_block(block_id)
-        if current is None:
-            raise ScheduleBlockError('블록을 찾을 수 없습니다.', 404)
+        """Update a placement, preserving all of its continuation minutes."""
+        current = self._required_block(block_id)
         if not data:
             raise ScheduleBlockError('요청 데이터가 없습니다.')
-        allowed = {
-            'date', 'start_time', 'end_time', 'is_locked', 'location_name',
-            'memo', 'title', 'overflow_minutes',
-        }
-        updates = {key: value for key, value in data.items() if key in allowed}
-        start_time = updates.get('start_time', current['start_time'])
-        end_time = updates.get('end_time', current['end_time'])
-        date_str = updates.get('date', current['date'])
-        location_name = updates.get('location_name', current.get('location_name', ''))
-        _validate_location(location_name)
-        if 'start_time' in updates or 'end_time' in updates:
-            settings = schedule_settings(self.repository.load_settings())
-            end_time = adjust_end_for_breaks(start_time, end_time, settings)
-            end_time = _clamp_to_work_end(start_time, end_time, settings)
-            updates['end_time'] = end_time
-        self._reject_overlap(date_str, start_time, end_time, location_name, block_id)
+        if any(key in data for key in ('date', 'start_time', 'end_time', 'test_item_ids', 'location_name')):
+            return self._save_placement({**current, **data}, block_id, data)
+        updates = {key: data[key] for key in ('is_locked', 'memo', 'title') if key in data}
         if 'block_status' in data:
             updates['manual_status'] = data['block_status']
-        updated = self.commands.update_block(block_id, **updates)
-        if 'test_item_ids' in data:
-            self._replace_test_items(block_id, updated, data['test_item_ids'])
-        return _api_block(self.commands.get_block(block_id))
+        return self._response(self.commands.update_block(block_id, **updates))
+
+    def _response(self, block):
+        """Use the same execution-derived status as calendar read responses."""
+        from app.features.schedule.domain import ScheduleBlock
+        runs = {(run.procedure_id, run.test_item_id): run for run in self.repository.load_executions().runs}
+        typed = ScheduleBlock.from_dict(block)
+        response = _api_block(block)
+        response['block_status'] = derive_block_status(typed, runs)
+        response['test_item_statuses'] = block_test_item_statuses(typed, runs)
+        return response
+
+    def _save_placement(self, data, block_id=None, changes=None):
+        """Validate every day and replace the entire placement atomically."""
+        import uuid
+        from app.features.schedule.domain import ScheduleBlock
+        from app.features.schedule.services.time import working_segments, work_minutes_in_range
+        settings = schedule_settings(self.repository.load_settings())
+        if data.get('procedure_id') and data.get('test_item_ids') == []:
+            raise ScheduleBlockError('연결할 시험 항목를 찾을 수 없습니다.')
+        location = data.get('location_name', '')
+        _validate_location(location, required=block_id is None)
+        created = []
+        def save(plan):
+            existing = next((block for block in plan.schedule_blocks if block.id == block_id), None)
+            root_id = (existing.continuation_of or existing.id) if existing else f'blk_{uuid.uuid4().hex[:12]}'
+            group = [block for block in plan.schedule_blocks
+                     if block.id == root_id or block.continuation_of == root_id]
+            remaining = [block for block in plan.schedule_blocks if block not in group]
+            if block_id is None:
+                for item in remaining:
+                    if location and item.date == data['date'] and item.location_name == location and data['start_time'] < item.end_time and item.start_time < data['end_time']:
+                        raise ScheduleBlockError('같은 장소의 일정과 시간이 겹칩니다.', 409)
+            procedure_id = data.get('procedure_id')
+            procedure = next((item for item in plan.test_procedures if item.id == procedure_id), None)
+            simple = data.get('is_simple', False) or not procedure_id
+            if not simple and procedure is None:
+                raise ScheduleBlockError('시험 절차서를 찾을 수 없습니다.', 404)
+            if not simple:
+                available = {item.id for item in procedure.test_items}
+                selected = data.get('test_item_ids')
+                if selected is None:
+                    assigned = {iid for block in remaining if block.procedure_id == procedure_id for iid in block.test_item_ids}
+                    selected = [item.id for item in procedure.test_items if item.id not in assigned]
+                if not selected or set(selected) - available:
+                    raise ScheduleBlockError('연결할 시험 항목를 찾을 수 없습니다.')
+                selected = tuple(dict.fromkeys(selected))
+                if (block_id is None and data.get('test_item_ids') is not None) or (changes and 'test_item_ids' in changes):
+                    remaining = [replace(block, test_item_ids=tuple(iid for iid in block.test_item_ids if iid not in selected))
+                                 if block.procedure_id == procedure_id else block for block in remaining]
+                    remaining = [block for block in remaining if block.test_item_ids or block.kind == 'simple']
+            else:
+                selected = ()
+            duration = time_to_minutes(data['end_time']) - time_to_minutes(data['start_time'])
+            if existing and changes and 'end_time' not in changes:
+                duration = sum(work_minutes_in_range(block.start_time, block.end_time, settings) for block in group)
+            try:
+                segments = working_segments(data['date'], data['start_time'], duration, settings)
+            except (ValueError, TypeError) as exc:
+                raise ScheduleBlockError(str(exc)) from exc
+            for index, segment in enumerate(segments):
+                if location and any(block.date == segment['date'] and block.location_name == location
+                                    and segment['start_time'] < block.end_time and block.start_time < segment['end_time']
+                                    for block in remaining):
+                    raise ScheduleBlockError('같은 장소의 일정과 시간이 겹칩니다.', 409)
+                created.append(ScheduleBlock(
+                    id=root_id if index == 0 else f'blk_{uuid.uuid4().hex[:12]}',
+                    continuation_of='' if index == 0 else root_id,
+                    procedure_id=procedure_id, test_item_ids=selected, kind='simple' if simple else 'test',
+                    location_name=location, assignee_names=tuple(data.get('assignee_names') or (procedure.assignee_names if procedure else ())),
+                    title=data.get('title', ''), memo=data.get('memo', ''), is_locked=bool(data.get('is_locked', False)),
+                    manual_status=(changes.get('block_status', data.get('manual_status', '')) if changes else data.get('block_status', '')),
+                    **segment,
+                ))
+            return replace(plan, schedule_blocks=tuple(remaining + created))
+        self.repository.update_plan(save)
+        response = self._response(created[0].to_dict())
+        response['continuations'] = [self._response(block.to_dict()) for block in created[1:]]
+        response['placement_end'] = {'date': created[-1].date, 'end_time': created[-1].end_time}
+        return response
 
     def delete(self, block_id, restore=False):
         """Delete one block, or all sibling blocks when restoring a procedure."""
@@ -132,7 +152,14 @@ class ScheduleBlockService:
 
             self.repository.update_schedule(delete_siblings)
         else:
-            deleted_count = int(self.commands.delete_block(block_id))
+            root_id = block.get('continuation_of') or block_id
+            deleted_count = 0
+            def delete_group(schedule):
+                nonlocal deleted_count
+                kept = tuple(item for item in schedule.blocks if item.id != root_id and item.continuation_of != root_id)
+                deleted_count = len(schedule.blocks) - len(kept)
+                return replace(schedule, blocks=kept)
+            self.repository.update_schedule(delete_group)
         return {'success': True, 'deleted_count': deleted_count}
 
     def toggle_lock(self, block_id):
@@ -141,9 +168,9 @@ class ScheduleBlockService:
         return _api_block(self.commands.update_block(block_id, is_locked=not block['is_locked']))
 
     def set_status(self, block_id, status):
-        """Set a manual block status used ahead of derived execution status."""
+        """Set placement state while reporting the actual test execution state."""
         self._required_block(block_id)
-        return _api_block(self.commands.update_block(block_id, manual_status=status))
+        return self._response(self.commands.update_block(block_id, manual_status=status))
 
     def set_memo(self, block_id, memo):
         """Replace a block memo without changing its placement."""
@@ -203,34 +230,41 @@ class ScheduleBlockService:
             raise ScheduleBlockError('유지할 시험 항목를 선택해주세요.')
         if not moved:
             raise ScheduleBlockError('분리할 시험 항목가 없습니다.')
-        first_end = _end_after_minutes(block['start_time'], _sum_minutes(kept), settings)
-        second_end = _end_after_minutes(first_end, _sum_minutes(moved), settings)
-        if self._check_overlap(block['date'], first_end, second_end, block.get('location_name', ''), block_id):
-            raise ScheduleBlockError('분리된 블록이 다른 블록과 시간이 겹칩니다.', 409)
-        self.commands.update_block(block_id, end_time=first_end, test_item_ids=[item['test_item_id'] for item in kept])
-        new_block = self.commands.create_block(
-            procedure_id=block['procedure_id'], test_item_ids=[item['test_item_id'] for item in moved],
-            date=block['date'], start_time=first_end, end_time=second_end,
-            location_name=block.get('location_name', ''),
-            assignee_names=block.get('assignee_names', []), kind=block.get('kind', 'test'),
-            title=block.get('title', ''), memo=block.get('memo', ''),
-            is_locked=block.get('is_locked', False),
-            manual_status=block.get('manual_status', ''),
-        )
-        return {'success': True, 'new_block': _api_block(new_block)}
+        from app.features.schedule.services.time import working_segments
+        first_segments = working_segments(block['date'], block['start_time'], max(1, _sum_minutes(kept)), settings)
+        last = first_segments[-1]
+        second_segments = working_segments(last['date'], last['end_time'], max(1, _sum_minutes(moved)), settings)
+        # Validate the whole split before changing either side.
+        root_id = block.get('continuation_of') or block_id
+        for segment in first_segments + second_segments:
+            for existing in self.repository.load_schedule().blocks:
+                if existing.id == root_id or existing.continuation_of == root_id:
+                    continue
+                if existing.location_name == block.get('location_name') and existing.date == segment['date'] and segment['start_time'] < existing.end_time and existing.start_time < segment['end_time']:
+                    raise ScheduleBlockError('분리된 블록이 다른 블록과 시간이 겹칩니다.', 409)
+        self.update(block_id, {
+            'end_time': minutes_to_time(time_to_minutes(block['start_time']) + max(1, _sum_minutes(kept))),
+            'test_item_ids': [item['test_item_id'] for item in kept],
+        })
+        new_block = self.create({
+            **block, 'date': last['date'], 'start_time': last['end_time'],
+            'end_time': minutes_to_time(time_to_minutes(last['end_time']) + max(1, _sum_minutes(moved))),
+            'test_item_ids': [item['test_item_id'] for item in moved],
+        })
+        return {'success': True, 'new_block': new_block}
 
     def return_test_items(self, block_id, keep_ids, settings):
         """Keep selected items in a resized block and return the rest to the queue."""
         block = self._required_block(block_id)
         if not keep_ids:
-            self.commands.delete_block(block_id)
+            self.delete(block_id)
             return {'success': True}
         details = self._test_item_details(block['procedure_id'], keep_ids)
         if not details:
-            self.commands.delete_block(block_id)
+            self.delete(block_id)
             return {'success': True}
-        end_time = _end_after_minutes(block['start_time'], _sum_minutes(details), settings)
-        self.commands.update_block(block_id, end_time=end_time, test_item_ids=keep_ids)
+        end_time = minutes_to_time(time_to_minutes(block['start_time']) + max(1, _sum_minutes(details)))
+        self.update(block_id, {'end_time': end_time, 'test_item_ids': keep_ids})
         return {'success': True}
 
     def _replace_test_items(self, block_id, block, test_item_ids):
@@ -343,21 +377,6 @@ def _api_block(block):
 def _sum_minutes(items):
     """Sum estimated durations from item dictionaries."""
     return sum(int(item.get('estimated_minutes') or 0) for item in items)
-
-
-def _end_after_minutes(start_time, minutes, settings):
-    """Calculate an end time while accounting for configured breaks."""
-    raw_end = minutes_to_time(time_to_minutes(start_time) + max(minutes, 1))
-    adjusted_end = adjust_end_for_breaks(start_time, raw_end, settings)
-    return _clamp_to_work_end(start_time, adjusted_end, settings)
-
-
-def _clamp_to_work_end(start_time, end_time, settings):
-    """Keep a block on the same day and cap it at the configured work end."""
-    work_end = settings.get('work_end', '17:00')
-    if time_to_minutes(start_time) >= time_to_minutes(work_end):
-        raise ScheduleBlockError(f'업무 종료 시간({work_end}) 이후에는 배치할 수 없습니다.')
-    return work_end if time_to_minutes(end_time) > time_to_minutes(work_end) else end_time
 
 
 def _service():

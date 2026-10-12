@@ -20,6 +20,7 @@ class ScheduleBlock:
     is_locked: bool = False
     manual_status: str = ''
     overflow_minutes: int = 0
+    continuation_of: str = ''
 
     @classmethod
     def from_dict(cls, data):
@@ -39,6 +40,7 @@ class ScheduleBlock:
             is_locked=bool(data.get('is_locked', False)),
             manual_status=data.get('manual_status', ''),
             overflow_minutes=int(data.get('overflow_minutes') or 0),
+            continuation_of=data.get('continuation_of', ''),
         )
 
     def to_dict(self):
@@ -65,6 +67,8 @@ class ScheduleBlock:
             result['is_locked'] = True
         if self.manual_status:
             result['manual_status'] = self.manual_status
+        if self.continuation_of:
+            result['continuation_of'] = self.continuation_of
         if self.overflow_minutes:
             result['overflow_minutes'] = self.overflow_minutes
         return result

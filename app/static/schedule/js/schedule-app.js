@@ -33,6 +33,10 @@
     App.initQueueMultiSelect(); // 큐 Shift+클릭 다중 선택
   }
 
+  // 다른 탭의 시험실행 변경사항을 돌아오는 즉시 반영한다.
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) App.softReload();
+  });
   App.initAll = initAll;
   // DOM 로드 완료 시 초기화 실행
   document.addEventListener('DOMContentLoaded', initAll);

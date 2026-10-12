@@ -64,7 +64,7 @@
             {% for block in loc_blocks %}
             {% set slot_height = 24 %}
             {% set interval = 5 %}
-            {% set work_start_parts = (settings.actual_work_start or settings.work_start).split(':') %}
+            {% set work_start_parts = settings.work_start.split(':') %}
             {% set work_start_min = work_start_parts[0]|int * 60 + work_start_parts[1]|int %}
             {% set start_parts = block.start_time.split(':') %}
             {% set start_min = start_parts[0]|int * 60 + start_parts[1]|int %}
@@ -78,6 +78,8 @@
             {% set col_left = col_width * col_index %}
             <div class="schedule-block block-status-{{ block.block_status }}"
                  data-block-id="{{ block.id }}"
+                 data-placement-id="{{ block.placement_id }}"
+                 data-placement-minutes="{{ block.placement_minutes }}"
                  data-procedure-id="{{ block.procedure_id }}"
                  data-block-status="{{ block.block_status }}"
                  data-memo="{{ block.memo }}"
@@ -99,6 +101,7 @@
                 {% endif %}
                 <span class="block-status-badge badge-status-{{ block.block_status }}">
                   {% if block.block_status == 'in_progress' %}진행
+                  {% elif block.block_status == 'paused' %}일시정지
                   {% elif block.block_status == 'completed' %}완료
                   {% elif block.block_status == 'cancelled' %}불가
                   {% else %}대기

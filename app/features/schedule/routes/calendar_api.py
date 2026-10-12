@@ -39,6 +39,19 @@ def _schedule_settings():
     return schedule_settings(settings)
 
 
+@schedule_bp.route('/api/blocks/preview', methods=['POST'])
+def api_preview_placement():
+    """Calculate subsequent-day placement without changing the schedule."""
+    from app.features.schedule.services.placement_preview import preview_placement
+    data = request.get_json() or {}
+    try:
+        return jsonify(preview_placement(
+            get_repository(), data.get('action'), data.get('data') or {}, data.get('block_id'),
+        ))
+    except ScheduleBlockError as exc:
+        return _schedule_error_response(exc)
+
+
 @schedule_bp.route('/api/blocks', methods=['POST'])
 def api_create_block():
     """새로운 스케줄 블록을 생성한다.
@@ -54,7 +67,7 @@ def api_create_block():
         - assignee_names (list, optional): 담당자 ID 리스트
         - location_name (str, optional): 시험 장소 ID
         - test_item_ids (list, optional): 배치할 시험 항목 ID 리스트
-        업무 종료 시간을 넘는 종료 시각은 같은 날의 업무 종료 시각으로 제한된다.
+        업무 종료 이후의 남은 작업 시간은 다음 근무일에 이어 배치된다.
         - is_locked (bool, optional): 잠금 여부
         - title (str, optional): 간단 블록 제목
 

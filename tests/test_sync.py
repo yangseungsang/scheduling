@@ -332,8 +332,32 @@ class TestSyncAPI:
         with patch(
             'app.features.schedule.routes.sync.DynReadyClient',
             return_value=integration,
-        ), pytest.raises(RuntimeError, match='provider unavailable'):
-            client.post('/api/sync/reset-and-sync')
+        ):
+            response = client.post('/api/sync/reset-and-sync')
+            assert response.status_code == 500
+            assert response.is_json
+            assert 'error' in response.get_json()
 
         with self.app.app_context():
             assert procedure.get_by_id(existing['id']) is not None
+
+
+@pytest.mark.parametrize('endpoint', ['/api/sync/test-data', '/api/sync/reset-and-sync'])
+@pytest.mark.parametrize('failure,status', [('connection',503), ('timeout',504), ('http',502)])
+def test_sync_provider_failures_return_json_and_preserve_data(app, client, endpoint, failure, status):
+    import requests
+    from unittest.mock import patch
+    from app.repositories import get_repository
+    from tests.conftest import _create_block, _create_procedure
+    pid = _create_procedure(client, 'tester')
+    _create_block(client, pid, 'tester')
+    with app.app_context():
+        before = get_repository().load_operations().to_dict()
+    errors = {'connection': requests.ConnectionError(), 'timeout': requests.Timeout(), 'http': requests.HTTPError()}
+    with patch('app.features.schedule.routes.sync.DynReadyClient.get_test_data_all', side_effect=errors[failure]):
+        result = client.post(endpoint, json={'version_id':'should-not-change'})
+    assert result.status_code == status
+    assert result.is_json
+    assert 'error' in result.get_json()
+    with app.app_context():
+        assert get_repository().load_operations().to_dict() == before

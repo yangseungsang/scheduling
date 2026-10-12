@@ -176,6 +176,7 @@ def _block_dict(block):
         'is_locked': block.is_locked,
         'manual_status': block.manual_status,
         'overflow_minutes': block.overflow_minutes,
+        'continuation_of': block.continuation_of,
     }
     data['block_status'] = data.get('manual_status') or 'pending'
     data['is_simple'] = block.kind == 'simple'

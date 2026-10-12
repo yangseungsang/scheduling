@@ -8,8 +8,10 @@ from app.features.schedule.services.time import (
     generate_time_slots,
     is_break_slot,
     time_to_minutes,
+    work_minutes_in_range,
 )
 from app.services.read_models import build_schedule_export_rows
+from app.services.execution_status import aggregate_status, block_execution_status
 
 
 FIXED_LOCATIONS = ('STE1', 'STE2', 'STE3')
@@ -36,7 +38,7 @@ def schedule_settings(settings):
         'actual_work_start': '', 'actual_work_end': '',
         'lunch_start': '12:00', 'lunch_end': '13:00', 'breaks': [],
         'grid_interval_minutes': 15, 'max_schedule_days': 14,
-        'block_color_by': 'assignee',
+        'block_color_by': 'status',
     }
     result.update(settings.to_dict() if hasattr(settings, 'to_dict') else (settings or {}))
     return result
@@ -84,8 +86,12 @@ def build_ui_blocks(procedures, schedule, executions, start_date='', end_date=''
     procedures_by_id = {item.id: item for item in procedures}
     runs = {(item.procedure_id, item.test_item_id): item for item in executions.runs}
     placed = _placed_test_items(schedule)
-    color_by = (settings or {}).get('block_color_by', 'assignee')
+    color_by = (settings or {}).get('block_color_by', 'status')
     result = []
+    placement_minutes = {}
+    for part in schedule.blocks:
+        placement_id = part.continuation_of or part.id
+        placement_minutes[placement_id] = placement_minutes.get(placement_id, 0) + work_minutes_in_range(part.start_time, part.end_time, settings or schedule_settings({}))
     for block in schedule.blocks:
         if start_date and block.date < start_date:
             continue
@@ -98,8 +104,10 @@ def build_ui_blocks(procedures, schedule, executions, start_date='', end_date=''
         document_name = procedure.document_name if procedure else block.title
         item_statuses = block_test_item_statuses(block, runs)
         status = derive_block_status(block, runs)
-        assignee_names = list(block.assignee_names)
+        assignee_names = list(block.assignee_names or (procedure.assignee_names if procedure else ()))
         row = {
+            'placement_id': block.continuation_of or block.id,
+            'placement_minutes': placement_minutes[block.continuation_of or block.id],
             'id': block.id, 'procedure_id': block.procedure_id, 'date': block.date,
             'start_time': block.start_time, 'end_time': block.end_time,
             'location_name': block.location_name,
@@ -112,7 +120,7 @@ def build_ui_blocks(procedures, schedule, executions, start_date='', end_date=''
             'procedure_title': block.title if block.kind == 'simple' else document_name,
             'display_name': _display_name(document_name, procedure.test_round if procedure else None),
             'test_round': procedure.test_round if procedure else None,
-            'test_items': [_test_item_dict(item) for item in test_items],
+            'test_items': [{**_test_item_dict(item), 'execution_status': runs[(block.procedure_id, item.id)].status if (block.procedure_id, item.id) in runs else 'pending'} for item in test_items],
             'test_item_ids': selected_ids,
             'test_item_statuses': item_statuses,
             'is_simple': block.kind == 'simple', 'title': block.title,
@@ -154,7 +162,9 @@ def build_queue_procedures(procedures, schedule, executions):
             continue
         assignees = list(procedure.assignee_names)
         shown_test_items = available if procedure.kind != 'simple' else []
+        status = aggregate_status(runs[(procedure.id, item.id)].status if (procedure.id, item.id) in runs else 'pending' for item in shown_test_items)
         queue.append({
+            'block_status': status, 'color': STATUS_COLORS[status],
             'id': procedure.id, 'document_id': procedure.document_id or '', 'document_name': procedure.document_name,
             'display_name': _display_name(procedure.document_name, procedure.test_round),
             'test_round': procedure.test_round, 'assignee_names': assignees,
@@ -162,7 +172,7 @@ def build_queue_procedures(procedures, schedule, executions):
             'assignee_color': _assignee_color(assignees),
             'location_name': '',
             'location_color': _location_color(''),
-            'test_items': [_test_item_dict(item) for item in shown_test_items],
+            'test_items': [{**_test_item_dict(item), 'execution_status': runs[(procedure.id, item.id)].status if (procedure.id, item.id) in runs else 'pending'} for item in shown_test_items],
             'estimated_minutes': procedure.estimated_minutes,
             'remaining_unscheduled_minutes': (
                 procedure.estimated_minutes if procedure.kind == 'simple'
@@ -204,17 +214,8 @@ def block_test_item_statuses(block, runs):
 
 
 def derive_block_status(block, runs):
-    """Derive a block status from manual state and item execution states."""
-    if block.manual_status == 'cancelled':
-        return 'cancelled'
-    if block.kind == 'simple':
-        return 'pending'
-    statuses = list(block_test_item_statuses(block, runs).values())
-    if statuses and all(item == 'completed' for item in statuses):
-        return 'completed'
-    if any(item in ('in_progress', 'paused', 'completed') for item in statuses):
-        return 'in_progress'
-    return 'pending'
+    """Use the shared execution status calculation."""
+    return block_execution_status(block, runs)
 
 
 def _block_color(block, color_by):
@@ -223,7 +224,7 @@ def _block_color(block, color_by):
         return STATUS_COLORS.get(block['block_status'], STATUS_COLORS['pending'])
     if color_by == 'location':
         return block['location_color']
-    return block['assignee_color']
+    return block['assignee_color'] if block.get('assignee_names') else STATUS_COLORS[block['block_status']]
 
 
 def _assignee_color(names):
@@ -244,6 +245,7 @@ def _display_name(name, test_round):
 STATUS_COLORS = {
     'pending': '#94a3b8',
     'in_progress': '#0d6efd',
+    'paused': '#d97706',
     'completed': '#198754',
     'cancelled': '#dc3545',
 }

@@ -6,7 +6,9 @@ DynReady 연동에서 시험 데이터를 가져와 로컬 데이터와
 전체 리셋 후 재동기화 기능도 포함한다.
 """
 
-from flask import Blueprint, jsonify, request
+import requests
+
+from flask import Blueprint, current_app, jsonify, request
 from app.repositories import get_repository
 from app.features.execution.domain import Executions
 from app.features.schedule.domain import Schedule
@@ -15,6 +17,23 @@ from app.features.schedule.services.sync import SyncService
 
 # 동기화 관련 API가 등록되는 블루프린트
 sync_bp = Blueprint('sync', __name__, url_prefix='/api/sync')
+
+
+@sync_bp.errorhandler(Exception)
+def sync_error(exc):
+    """Return actionable JSON errors rather than Flask's HTML error page."""
+    current_app.logger.exception('시험 데이터 동기화 실패')
+    if isinstance(exc, requests.Timeout):
+        message, status = '시험 데이터 서버의 응답 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.', 504
+    elif isinstance(exc, requests.ConnectionError):
+        message, status = '시험 데이터 서버에 연결할 수 없습니다. DynReady 서버 실행 상태와 DYN_READY_URL 설정을 확인해주세요.', 503
+    elif isinstance(exc, requests.HTTPError):
+        message, status = '시험 데이터 서버에서 오류 응답을 반환했습니다.', 502
+    elif isinstance(exc, (requests.RequestException, ValueError)):
+        message, status = '시험 데이터 서버의 응답을 처리할 수 없습니다. 서버 주소와 응답 형식을 확인해주세요.', 502
+    else:
+        message, status = '동기화 처리 중 서버 오류가 발생했습니다. 서버 로그를 확인해주세요.', 500
+    return jsonify({'error': message}), status
 
 
 @sync_bp.route('/test-data', methods=['POST'])

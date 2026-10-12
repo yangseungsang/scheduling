@@ -93,12 +93,15 @@
         var startTime = block.dataset.startTime;
         var endTime = block.dataset.endTime;
         // 휴식 시간 제외한 실제 업무 시간 계산
-        var durationMin = workMinutes(timeToMin(startTime), timeToMin(endTime));
+        var durationMin = parseInt(block.dataset.placementMinutes, 10) || workMinutes(timeToMin(startTime), timeToMin(endTime));
         // 고스트 높이: 순수 작업 시간 기준 (adjustedDuration이 휴식 추가)
         var ghostH = (durationMin / App.GRID_MINUTES) * SLOT_HEIGHT;
 
         // 다중 선택된 블록 수집 (현재 드래그 블록 포함)
         var selectedBlocks = Array.from(document.querySelectorAll('.schedule-block.block-selected'));
+        selectedBlocks = selectedBlocks.filter(function (sb, index, all) {
+          return all.findIndex(function (other) { return (other.dataset.placementId || other.dataset.blockId) === (sb.dataset.placementId || sb.dataset.blockId); }) === index;
+        });
         var isMulti = selectedBlocks.length > 0 && (block.classList.contains('block-selected') || selectedBlocks.length > 0);
         if (isMulti && !block.classList.contains('block-selected')) {
           // 드래그 대상이 선택 안 된 블록이면 단일 드래그
@@ -139,21 +142,21 @@
             } else if (target.type === 'slot') {
               var t = App.snapToBlockEdge(target.el);
               if (isMulti) {
-                // 다중 선택 블록 순차 이동 — 종료 초과 시 마지막 블록을 당일 종료 시각으로 제한
+                // 다중 선택 블록 순차 이동 — 다음 근무일에도 이어서 배치
                 var curMin = t;
-                var workEndMin = App.getWorkEndMin();
+                var curDate = target.date;
                 var totalDuration = selectedBlocks.reduce(function (sum, sb) {
-                  return sum + workMinutes(timeToMin(sb.dataset.startTime), timeToMin(sb.dataset.endTime));
+                  return sum + (parseInt(sb.dataset.placementMinutes, 10) || workMinutes(timeToMin(sb.dataset.startTime), timeToMin(sb.dataset.endTime)));
                 }, 0);
-                var chain = App.confirmWorkEndClamp(curMin, curMin + totalDuration);
+                var chain = App.canPlaceDuration(curMin, curMin + totalDuration);
                 var movedCount = 0;
 
                 selectedBlocks.forEach(function (sb) {
                   chain = chain.then(function (confirmed) {
-                    if (!confirmed || curMin >= workEndMin) return false;
-                    var dur = workMinutes(timeToMin(sb.dataset.startTime), timeToMin(sb.dataset.endTime));
+                    if (!confirmed) return false;
+                    var dur = (parseInt(sb.dataset.placementMinutes, 10) || workMinutes(timeToMin(sb.dataset.startTime), timeToMin(sb.dataset.endTime)));
                     var moveUpdate = {
-                      date: target.date,
+                      date: curDate,
                       start_time: minToTime(curMin),
                       end_time: minToTime(curMin + dur),
                     };
@@ -161,7 +164,8 @@
                     return api('PUT', '/schedule/api/blocks/' + sb.dataset.blockId, moveUpdate)
                       .then(function (res) {
                         movedCount++;
-                        curMin = timeToMin(res.end_time);
+                        curMin = timeToMin(res.placement_end ? res.placement_end.end_time : res.end_time);
+                        curDate = res.placement_end ? res.placement_end.date : res.date;
                         return true;
                       });
                   });
@@ -179,7 +183,7 @@
                   end_time: minToTime(t + durationMin),
                 };
                 if (target.locationName) moveUpdate.location_name = target.locationName;
-                App.confirmWorkEndClamp(t, t + durationMin).then(function (confirmed) {
+                App.canPlaceDuration(t, t + durationMin).then(function (confirmed) {
                   if (!confirmed) return;
                   return api('PUT', '/schedule/api/blocks/' + blockId, moveUpdate)
                     .then(function () { return softReload(); });

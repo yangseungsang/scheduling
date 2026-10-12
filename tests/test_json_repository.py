@@ -415,7 +415,8 @@ def test_domain_json_schedule_block_api_crud(app, client, tmp_path):
         json={'block_status': 'completed'},
     )
     assert status_response.status_code == 200
-    assert status_response.get_json()['block_status'] == 'completed'
+    # Manual placement status must not fabricate completed execution work.
+    assert status_response.get_json()['block_status'] == 'pending'
 
     memo_response = client.put(
         f'/schedule/api/blocks/{block["id"]}/memo',

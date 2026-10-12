@@ -120,7 +120,7 @@
                 });
             }
 
-            App.confirmWorkEndClamp(newStartMin, newStartMin + durMin).then(function (confirmed) {
+            App.canPlaceDuration(newStartMin, newStartMin + durMin).then(function (confirmed) {
               if (confirmed) doResize();
               else {
                 block.style.top = origTop + 'px';

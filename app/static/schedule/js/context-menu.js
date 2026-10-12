@@ -55,6 +55,9 @@
           '<i class="bi ' + s.icon + '"></i> ' + s.label + '</button>';
       });
 
+      if (block.dataset.procedureId && block.dataset.procedureId !== 'None') {
+        statusHtml = '<a class="dropdown-item" href="/execution/?procedure_id=' + encodeURIComponent(block.dataset.procedureId) + '"><i class="bi bi-play-circle"></i> 시험실행에서 진행상태 변경</a>';
+      }
       menu.innerHTML =
         statusHtml +
         '<div class="dropdown-divider"></div>' +

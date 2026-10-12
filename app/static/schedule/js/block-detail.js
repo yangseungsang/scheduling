@@ -53,7 +53,7 @@
         : (opts.assigneeName || '-');
       var memo = procedure.memo || opts.memo || '';
       var status = opts.blockStatus || 'pending';
-      var statusLabel = { pending: '대기', in_progress: '진행', completed: '완료', cancelled: '불가' }[status] || status;
+      var statusLabel = { pending: '대기', in_progress: '진행', paused: '일시정지', completed: '완료', cancelled: '불가' }[status] || status;
       var blockColor = opts.color || '#64748b';
       var isQueued = opts.isQueued || false;
 
@@ -123,8 +123,8 @@
               
               // 실행 상태 (TestProcedure API에서 보강된 정보 사용)
               var execStatus = idExecutionStatusMap[item.id] || item.execution_status || 'pending';
-              var execColors = {completed:'#198754', in_progress:'#0d6efd', paused:'#0ea5e9', pending:'#94a3b8'};
-              var execLabels = {completed:'완료', in_progress:'진행', paused:'정지', pending:'대기'};
+              var execColors = {completed:'#198754', in_progress:'#0d6efd', paused:'#d97706', pending:'#94a3b8'};
+              var execLabels = {completed:'완료', in_progress:'진행', paused:'일시정지', pending:'대기'};
               var eColor = execColors[execStatus] || '#94a3b8';
               var eLabel = execLabels[execStatus] || '대기';
               var execHtml = '<span style="color:' + eColor + ';font-weight:700">' + eLabel + '</span>';
@@ -132,8 +132,8 @@
               var sched = idScheduleMap[item.id];
               var schedHtml;
               if (sched) {
-                var statusColors = {completed:'#198754', in_progress:'#0d6efd', cancelled:'#dc3545', pending:'#94a3b8'};
-                var statusLabels = {completed:'완료', in_progress:'진행', cancelled:'불가', pending:'대기'};
+                var statusColors = {completed:'#198754', in_progress:'#0d6efd', paused:'#d97706', cancelled:'#dc3545', pending:'#94a3b8'};
+                var statusLabels = {completed:'완료', in_progress:'진행', paused:'일시정지', cancelled:'불가', pending:'대기'};
                 var sColor = statusColors[sched.status] || '#94a3b8';
                 var sLabel = statusLabels[sched.status] || '';
                 var statusBadge = sched.status !== 'pending'
@@ -202,8 +202,8 @@
       var escapedMemo = memo.replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
       // 시험 절차서 전체 상태 (블록 상태와 별개)
-      var procedureStatus = procedure.status || 'waiting';
-      var procedureStatusLabel = { waiting: '대기', in_progress: '진행 중', completed: '완료' }[procedureStatus] || procedureStatus;
+      var procedureStatus = procedure.execution_status || procedure.status || 'pending';
+      var procedureStatusLabel = { pending: '대기', waiting: '대기', in_progress: '진행 중', paused: '일시정지', completed: '완료' }[procedureStatus] || procedureStatus;
 
       // 팝업 HTML 구성
       var html =
@@ -361,7 +361,7 @@
         // (기본 분기는 드래그-이동용이라 end_time을 원래 duration으로 재계산함)
         var timeChanged = blockId && newStart && newEnd && (newStart !== startTime || newEnd !== endTime);
         var confirmation = timeChanged
-          ? App.confirmWorkEndClamp(App.timeToMin(newStart), App.timeToMin(newEnd))
+          ? App.canPlaceDuration(App.timeToMin(newStart), App.timeToMin(newEnd))
           : Promise.resolve(true);
 
         confirmation.then(function (confirmed) {
@@ -373,8 +373,9 @@
                 resize: true,
               })
             : Promise.resolve();
-          var memoSave = api('PUT', '/procedures/api/' + procedureId + '/update', Object.assign({}, procedure, { memo: newMemo }));
-          return Promise.all([blockSave, memoSave]).then(function () { return true; });
+          return blockSave.then(function () {
+            return api('PUT', '/procedures/api/' + procedureId + '/update', Object.assign({}, procedure, { memo: newMemo }));
+          }).then(function () { return true; });
         }).then(function (saved) {
             if (!saved) return;
             showToast('저장되었습니다.', 'success');

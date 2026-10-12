@@ -69,7 +69,7 @@ def settings_page():
             'lunch_end': _snap_time(request.form['lunch_end'], grid),
             'grid_interval_minutes': grid,
             'max_schedule_days': int(request.form.get('max_schedule_days', 14)),
-            'block_color_by': request.form.get('block_color_by', 'assignee'),
+            'block_color_by': request.form.get('block_color_by', 'status'),
         }
         # 추가 휴식 시간 파싱 (동적으로 추가된 폼 필드)
         break_starts = request.form.getlist('break_start')

@@ -78,7 +78,7 @@
                   {% for block in day_blocks if block.location_name == loc.id %}
                   {% set slot_height = 24 %}
                   {% set interval = settings.grid_interval_minutes %}
-                  {% set work_start_parts = (settings.actual_work_start or settings.work_start).split(':') %}
+                  {% set work_start_parts = settings.work_start.split(':') %}
                   {% set work_start_min = work_start_parts[0]|int * 60 + work_start_parts[1]|int %}
                   {% set start_parts = block.start_time.split(':') %}
                   {% set start_min = start_parts[0]|int * 60 + start_parts[1]|int %}
@@ -88,6 +88,8 @@
                   {% set height_px = ((end_min - start_min) / interval * slot_height)|int %}
                   <div class="week-block schedule-block block-status-{{ block.block_status }}"
                        data-block-id="{{ block.id }}"
+                 data-placement-id="{{ block.placement_id }}"
+                 data-placement-minutes="{{ block.placement_minutes }}"
                        data-procedure-id="{{ block.procedure_id }}"
                        data-block-status="{{ block.block_status }}"
                        data-memo="{{ block.memo }}"
@@ -105,6 +107,7 @@
                     <div class="resize-handle resize-handle-top"></div>
                     <div class="block-title">
                       {% if block.block_status == 'in_progress' %}<i class="bi bi-play-fill" style="color:#fff;font-size:0.65rem"></i>
+                      {% elif block.block_status == 'paused' %}<i class="bi bi-pause-circle-fill" title="일시정지"></i>
                       {% elif block.block_status == 'completed' %}<i class="bi bi-check-lg" style="color:#fff;font-size:0.65rem"></i>
                       {% elif block.block_status == 'cancelled' %}<i class="bi bi-x-lg" style="color:#fff;font-size:0.65rem"></i>
                       {% else %}<i class="bi bi-hourglass" style="color:#fff;font-size:0.65rem"></i>

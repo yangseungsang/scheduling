@@ -26,7 +26,7 @@
   <div class="procedure-queue-body" id="procedure-queue-body">
     {% if queue_procedures %}
     {% for procedure in queue_procedures %}
-    {% set queue_color = procedure.assignee_color %}
+    {% set queue_color = procedure.color %}
     <div class="queue-procedure-item"
          data-procedure-id="{{ procedure.id }}"
          data-assignee-names="{{ procedure.assignee_names|join(',') }}"
@@ -39,7 +39,7 @@
       <div class="queue-card-color" style="background:{{ queue_color if not procedure.get('is_simple') else '#94a3b8' }}"></div>
       <div class="queue-card-body">
         <div class="queue-card-top">
-          <span class="queue-card-section-title">{{ procedure.display_name or procedure.document_name }}</span>
+          <span class="queue-card-section-title">{{ procedure.display_name or procedure.document_name }}</span><span class="badge" style="background:{{ procedure.color }};font-size:0.6rem">{{ {'pending':'대기','in_progress':'진행','paused':'일시정지','completed':'완료'}.get(procedure.block_status, '대기') }}</span>
           {% if procedure.get('is_simple') %}<span class="badge bg-secondary" style="font-size:0.6rem;vertical-align:middle;margin-left:4px">준비</span>{% endif %}
         </div>
         <div class="queue-card-assignee" style="font-size:0.7rem;color:#6b7280">
