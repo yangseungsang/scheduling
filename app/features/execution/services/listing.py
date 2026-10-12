@@ -236,6 +236,7 @@ def _execution_response(run):
     if not run:
         return None
     return {
+        'id': run.id,
         'status': run.status,
         'elapsed_seconds': run.elapsed_seconds,
         'total_count': run.total_count,

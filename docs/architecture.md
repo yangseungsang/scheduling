@@ -121,6 +121,25 @@ docs/                                   # 제품·구조·프론트엔드·데�
 - 쓰기는 같은 디렉터리에 임시 파일을 완성한 뒤 `os.replace()`로 교체한다.
 - `TestOperations`는 `TestPlan`과 `Executions`를 잠금 안에서 함께 읽거나 변경할 때만 사용한다.
 
+외부 코드에서는 provider의 공개 repository를 통해 실행 액션을 갱신한다.
+내부 `ExecutionRepository`를 직접 import할 필요는 없다.
+
+```python
+from app.repositories import get_repository
+
+repository = get_repository()  # Flask application context 안에서 호출
+execution_id = repository.load_executions().runs[0].id
+repository.update_action_status(execution_id, action_status)
+repository.update_action_input(execution_id, action_input)
+```
+
+두 메서드는 해당 repository에 연결된 저장소를 통해 `ExecutionRepository`에 위임한다.
+기존 실행 기록만 갱신하며, 갱신된 기록을 dict로 반환한다. 기록이 없으면 `None`을 반환한다.
+기존 두 인자 시그니처를 유지한다. 실행 ID는 시작 응답의 `id`, 목록/상세 응답의 `execution.id`,
+또는 `load_executions().runs`의 `id`에서 얻는다. 저장된 옛 ID는 보존하며, ID가 없는 기록은
+procedure와 test-item 쌍에서 안정적인 ID를 생성한다. 삭제된 옛 ID는 원본 데이터 없이는 복원할 수 없다.
+액션 필드는 `load_executions().runs`의 `action_status`, `action_input`에서도 조회할 수 있다.
+
 ### `app/features/schedule/services/`
 
 | 파일 | 책임 |

@@ -107,7 +107,8 @@ Feature와 route는 이 파일을 직접 열지 않는다. `JsonDomainRepository
 
 ### 실행 기록 규칙
 
-- 별도 실행 ID는 없다.
+- `id`는 이전 액션 갱신 API와 호환되는 실행 ID다. 저장된 ID는 유지한다.
+- ID가 없는 기록은 `procedure_id + test_item_id`로 안정적인 `ex_` ID를 생성하며, 다음 저장 시 보존한다.
 - `procedure_id + test_item_id`가 논리 키다.
 - 다른 차수의 procedure에서 같은 시험 항목 ID를 사용할 수 있으므로 두 값을 항상 함께 전달한다.
 - `active_started_at`은 현재 in-progress 구간의 시작 시각이다.

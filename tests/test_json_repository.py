@@ -296,7 +296,7 @@ def test_domain_json_files_contain_only_their_owned_data(tmp_path):
     assert 'version_id' not in plan_data['test_procedures'][0]
     assert 'state' not in plan_data['test_procedures'][0]
     assert 'is_locked' not in plan_data['schedule_blocks'][0]
-    assert 'id' not in execution_data['execution_runs'][0]
+    assert execution_data['execution_runs'][0]['id'] == repository.load_executions().runs[0].id
     assert 'segments' not in execution_data['execution_runs'][0]
     assert 'kind' not in plan_data['schedule_blocks'][0]
 

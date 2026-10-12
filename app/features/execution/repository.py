@@ -13,6 +13,7 @@
 
 from datetime import datetime
 
+from app.features.execution.domain import ExecutionRun
 from app.features.execution.storage import get_execution_storage
 
 class ExecutionRepository:
@@ -49,14 +50,33 @@ class ExecutionRepository:
         return None
 
     @classmethod
-    def _patch(cls, procedure_id, test_item_id, **kwargs):
-        """특정 실행 레코드의 필드를 부분 갱신하고 저장한다.
+    def get_by_id(cls, execution_id):
+        """Return an execution by its compatibility ID, or None."""
+        return next((item for item in cls.get_all() if item['id'] == execution_id), None)
 
-        storage에서 전체 레코드를 읽어 해당 레코드만 업데이트한 뒤 다시 저장한다.
-        여러 필드를 한 번에 변경할 때 사용한다.
-        """
+    @classmethod
+    def _patch_by_id(cls, execution_id, *, storage=None, **kwargs):
+        """Update by ID under the storage lock, including app-bound wrappers."""
+        storage = storage if storage is not None else cls._storage()
+        updated = []
+
+        def patch(items):
+            for item in items:
+                if item['id'] == execution_id:
+                    item.update(kwargs)
+                    updated.append(dict(item))
+                    break
+            return items
+
+        storage.update_all(patch)
+        return updated[0] if updated else None
+
+    @classmethod
+    def _patch(cls, procedure_id, test_item_id, **kwargs):
+        """Patch an execution identified by its procedure and test-item pair."""
         storage = cls._storage()
         updated = []
+
         def patch(items):
             for item in items:
                 if (item.get('procedure_id') == procedure_id
@@ -65,6 +85,7 @@ class ExecutionRepository:
                     updated.append(dict(item))
                     break
             return items
+
         storage.update_all(patch)
         return cls.get_by_test_item_and_procedure(test_item_id, procedure_id) if updated else None
 
@@ -87,6 +108,7 @@ class ExecutionRepository:
         """
         now = datetime.now().isoformat(timespec='seconds')
         data = {
+            'id': ExecutionRun(procedure_id, test_item_id).id,
             'test_item_id': test_item_id,
             'procedure_id': procedure_id,
             'status': 'in_progress',
@@ -219,6 +241,7 @@ class ExecutionRepository:
                 return cls._patch(procedure_id, test_item_id, comment=comment)
             return existing  # 이미 진행 중 — 덮어쓰지 않음
         data = {
+            'id': ExecutionRun(procedure_id, test_item_id).id,
             'test_item_id': test_item_id,
             'procedure_id': procedure_id,
             'status': 'pending',
@@ -252,14 +275,14 @@ class ExecutionRepository:
         return saved[0]
 
     @classmethod
-    def update_action_status(cls, procedure_id, test_item_id, action_status):
+    def update_action_status(cls, execution_id, action_status):
         """실행 레코드의 액션 상태를 갱신한다."""
-        return cls._patch(procedure_id, test_item_id, action_status=action_status)
+        return cls._patch_by_id(execution_id, action_status=action_status)
 
     @classmethod
-    def update_action_input(cls, procedure_id, test_item_id, action_input):
+    def update_action_input(cls, execution_id, action_input):
         """실행 레코드의 액션 입력을 갱신한다."""
-        return cls._patch(procedure_id, test_item_id, action_input=action_input)
+        return cls._patch_by_id(execution_id, action_input=action_input)
 
     @classmethod
     def reset(cls, procedure_id, test_item_id):

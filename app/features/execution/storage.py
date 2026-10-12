@@ -37,6 +37,7 @@ class ExecutionStorage:
 def _runs(items):
     """Normalize dictionary records into immutable ExecutionRun objects."""
     return tuple(ExecutionRun.from_dict({
+            'id': item.get('id', ''),
             'procedure_id': item.get('procedure_id', ''),
             'test_item_id': item.get('test_item_id', ''),
             'status': item.get('status', 'pending'),
@@ -50,6 +51,8 @@ def _runs(items):
             'pass_count': item.get('pass_count', 0),
             'comment': item.get('comment', ''),
             'performer_name': item.get('performer') or item.get('performer_name', ''),
+            'action_status': item.get('action_status'),
+            'action_input': item.get('action_input'),
         }) for item in items or [])
 
 def get_execution_storage():
@@ -61,6 +64,7 @@ def _run_to_dict(run):
     """Expose persisted and calculated timing fields to execution services."""
     elapsed_seconds = run.elapsed_seconds
     return {
+        'id': run.id,
         'test_item_id': run.test_item_id,
         'procedure_id': run.procedure_id,
         'status': run.status,
@@ -74,6 +78,8 @@ def _run_to_dict(run):
         'pass_count': run.pass_count,
         'comment': run.comment,
         'performer': run.performer_name,
+        **{key: getattr(run, key) for key in ('action_status', 'action_input')
+           if getattr(run, key) is not None},
         'created_at': run.started_at,
         'completed_at': run.ended_at,
         'elapsed_seconds': elapsed_seconds,

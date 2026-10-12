@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
+
+from app.domain import stable_id
 
 
 @dataclass(frozen=True)
@@ -21,11 +23,20 @@ class ExecutionRun:
     pass_count: int = 0
     comment: str = ''
     performer_name: str = ''
+    action_status: Any = None
+    action_input: Any = None
+    id: str = ''
+
+    def __post_init__(self):
+        """Keep legacy IDs; derive a stable ID for records created without one."""
+        if not self.id:
+            object.__setattr__(self, 'id', stable_id('ex_', self.procedure_id, self.test_item_id))
 
     @classmethod
     def from_dict(cls, data):
         """Create an execution record from a tolerant JSON-compatible mapping."""
         return cls(
+            id=data.get('id') or '',
             procedure_id=data.get('procedure_id', ''),
             test_item_id=data.get('test_item_id', ''),
             status=data.get('status', 'pending'),
@@ -39,11 +50,14 @@ class ExecutionRun:
             pass_count=int(data.get('pass_count') or 0),
             comment=data.get('comment', ''),
             performer_name=data.get('performer_name', ''),
+            action_status=data.get('action_status'),
+            action_input=data.get('action_input'),
         )
 
     def to_dict(self):
         """Serialize non-default fields for compact JSON persistence."""
         result = {
+            'id': self.id,
             'procedure_id': self.procedure_id,
             'test_item_id': self.test_item_id,
         }
@@ -65,6 +79,10 @@ class ExecutionRun:
             result['comment'] = self.comment
         if self.performer_name:
             result['performer_name'] = self.performer_name
+        for key in ('action_status', 'action_input'):
+            value = getattr(self, key)
+            if value is not None:
+                result[key] = value
         return result
 
     @property

@@ -116,6 +116,24 @@ class JsonDomainRepository:
             self._write(self._path(self.EXECUTIONS_FILE), _executions_dict(updated))
             return updated
 
+    def update_action_status(self, execution_id, action_status):
+        """Update an existing run's action status; return its dict or None."""
+        from app.features.execution.repository import ExecutionRepository
+        from app.features.execution.storage import ExecutionStorage
+
+        return ExecutionRepository._patch_by_id(
+            execution_id, storage=ExecutionStorage(self), action_status=action_status,
+        )
+
+    def update_action_input(self, execution_id, action_input):
+        """Update an existing run's action input; return its dict or None."""
+        from app.features.execution.repository import ExecutionRepository
+        from app.features.execution.storage import ExecutionStorage
+
+        return ExecutionRepository._patch_by_id(
+            execution_id, storage=ExecutionStorage(self), action_input=action_input,
+        )
+
     def replace_test_procedures(self, procedures):
         """Replace all procedures with normalized domain objects."""
         self.update_test_procedures(lambda _current: _as_test_procedures(procedures))
